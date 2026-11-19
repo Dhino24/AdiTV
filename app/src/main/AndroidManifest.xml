@@ -7,6 +7,14 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
 
+    <!-- Bandes-annonces : ouverture dans l'application YouTube (ou le navigateur) si elle est installée. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" android:host="www.youtube.com" />
+        </intent>
+    </queries>
+
     <application
         android:name=".AditvApp"
         android:label="@string/app_name"

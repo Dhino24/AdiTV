@@ -69,6 +69,7 @@ fun DetailScreen(
     onPlay: (contentId: String, fromStart: Boolean) -> Unit,
     onOpen: (String) -> Unit,
     onCorrect: (String) -> Unit,
+    onMapGuide: (String) -> Unit = {},
 ) {
     val c = LocalContainer.current
     val scope = rememberCoroutineScope()
@@ -89,6 +90,14 @@ fun DetailScreen(
     var related by remember { mutableStateOf<List<CatalogCard>>(emptyList()) }
     var resumeEpisode by remember { mutableStateOf<Pair<EpisodeEntity, Long?>?>(null) }
     val primary = remember { FocusRequester() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val canTrailer = remember { com.aditv.ui.common.Trailer.canOpen(context) }
+    val prefs by c.prefs.variantPrefs.collectAsStateWithLifecycle(com.aditv.data.variants.VariantPrefs())
+    var siblings by remember { mutableStateOf<List<com.aditv.data.db.CatalogItemEntity>>(emptyList()) }
+    var chosenVersion by remember { mutableStateOf<String?>(null) }
+    val favIds by remember(accountId) { c.db.live().favoriteIds(accountId) }.collectAsStateWithLifecycle(emptyList())
+    var nowNext by remember { mutableStateOf<List<com.aditv.data.epg.Programme>>(emptyList()) }
+    val mapping by remember(id) { c.db.live().observeMapping(id) }.collectAsStateWithLifecycle(null)
     var primaryFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(id, item?.type) {
@@ -105,6 +114,14 @@ fun DetailScreen(
             }
         }
     }
+    // Versions du même contenu (VF / VOSTFR / qualités) : la meilleure selon les préférences est choisie par défaut.
+    LaunchedEffect(item?.variantKey, prefs) {
+        val it = item ?: return@LaunchedEffect
+        siblings = it.variantKey?.let { k -> c.db.catalog().variantSiblings(accountId, it.type, k) }.orEmpty()
+            .sortedBy { s -> com.aditv.data.variants.VariantRanking.cost(s.lang, s.quality, prefs) }
+        if (chosenVersion == null) chosenVersion = siblings.firstOrNull()?.id ?: id
+    }
+    LaunchedEffect(item?.id, mapping) { item?.takeIf { it.type == "LIVE" }?.let { nowNext = c.epg.nowNext(accountId, it) } }
     LaunchedEffect(meta?.relatedIds) {
         val ids = meta?.relatedIds?.split(',')?.mapNotNull { it.toIntOrNull() }.orEmpty()
         related = if (ids.isEmpty()) emptyList() else c.db.metadata().availableAmong(accountId, meta!!.mediaType, ids, id)
@@ -115,6 +132,7 @@ fun DetailScreen(
     val it = item ?: return
     val canPlay = !session.isDemo
     val title = meta?.title ?: it.title
+    val playId = chosenVersion ?: id
     val resumeAt = progress?.let { p -> ProgressPolicy.resumePosition(p.positionMs, p.durationMs, p.completed) }
 
     Box(Modifier.fillMaxSize()) {
@@ -149,19 +167,38 @@ fun DetailScreen(
                             val first = Modifier.focusRequester(primary).onFocusChanged { f -> primaryFocused = f.isFocused }
                             when {
                                 !canPlay -> AditvButton("Lecture indisponible (démo)", {}, first, enabled = true)
-                                it.type == "LIVE" -> AditvButton("Regarder", { onPlay(id, false) }, first)
-                                it.type == "MOVIE" && resumeAt != null -> {
+                                it.type == "LIVE" -> AditvButton("Regarder", { onPlay(playId, false) }, first)
+                                it.type == "MOVIE" && resumeAt != null && playId == id -> {
                                     AditvButton("Reprendre", { onPlay(id, false) }, first, secondaryText = "· " + fmt(resumeAt))
                                     AditvButton("Depuis le début", { onPlay(id, true) })
                                 }
-                                it.type == "MOVIE" -> AditvButton("Lire", { onPlay(id, true) }, first)
+                                it.type == "MOVIE" -> AditvButton("Lire", { onPlay(playId, false) }, first)
                                 else -> resumeEpisode?.let { (ep, at) ->
                                     AditvButton(if (at != null) "Reprendre" else "Lire", { onPlay(ep.id, at == null) }, first, secondaryText = "· S${ep.season} É${ep.number ?: "?"}")
                                 } ?: AditvButton(if (episodesError != null) "Épisodes indisponibles" else "Chargement des épisodes…", {}, first)
                             }
+                            if (canTrailer && meta?.trailerKey != null) AditvButton("Bande-annonce", { com.aditv.ui.common.Trailer.open(context, meta!!.trailerKey!!) })
                             if (it.type != "LIVE") {
                                 AditvButton(if (inList) "✓ Dans ma liste" else "+ Ma liste", { scope.launch { c.library.toggleWatchlist(accountId, id, !inList) } })
                                 AditvButton("Correspondance", { onCorrect(id) })
+                            } else {
+                                val fav = siblings.any { s -> s.id in favIds } || id in favIds
+                                AditvButton(if (fav) "★ Favori" else "☆ Favori", {
+                                    scope.launch {
+                                        if (fav) (siblings.map { s -> s.id } + id).forEach { x -> c.db.live().removeFavorite(accountId, x) }
+                                        else c.db.live().addFavorite(com.aditv.data.db.FavoriteChannelEntity(accountId, playId, System.currentTimeMillis()))
+                                    }
+                                })
+                                AditvButton("Guide", { onMapGuide(id) })
+                            }
+                        }
+                        if (siblings.size > 1) {
+                            Text("Versions disponibles (annoncées par le fournisseur)", style = MaterialTheme.typography.labelMedium, color = Aditv.TextSecondary)
+                            LazyRow(Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                items(siblings, key = { s -> s.id }) { s ->
+                                    val label = com.aditv.data.variants.variantBadge(s.lang, s.quality) ?: "Version"
+                                    AditvButton(label, { chosenVersion = s.id }, secondaryText = if (s.id == playId) "●" else null)
+                                }
                             }
                         }
                         MatchLine(match, tmdbProblem)
@@ -171,8 +208,17 @@ fun DetailScreen(
             if (it.type == "LIVE") item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Fact("Catégorie", categoryName ?: "—")
-                    Fact("ID guide (EPG)", it.epgChannelId ?: "non fourni — association manuelle en phase 3")
-                    Fact("Replay déclaré", it.catchupDays?.let { d -> "$d jours (à vérifier en phase 3)" } ?: "non")
+                    val fmtT = java.text.SimpleDateFormat("HH:mm", java.util.Locale.FRANCE)
+                    if (nowNext.isEmpty()) Fact("Programme", "guide indisponible pour cette chaîne")
+                    nowNext.forEach { p -> Fact(fmtT.format(java.util.Date(p.startUtc)) + "–" + fmtT.format(java.util.Date(p.endUtc)), p.title) }
+                    Fact("ID guide", when {
+                        mapping?.disabled == true -> "désactivé (choix manuel)"
+                        mapping?.epgChannelId != null -> "${mapping!!.epgChannelId} (association manuelle)"
+                        it.epgChannelId != null -> "${it.epgChannelId} (fournisseur)"
+                        else -> "non fourni — « Guide » pour associer"
+                    })
+                    mapping?.offsetMinutes?.takeIf { o -> o != 0 }?.let { o -> Fact("Décalage", "${if (o > 0) "+" else ""}$o min (manuel)") }
+                    Fact("Replay déclaré", it.catchupDays?.let { d -> "$d jours (expérimental, depuis le guide)" } ?: "non")
                 }
             }
             if (it.type == "MOVIE") item {

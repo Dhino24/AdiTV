@@ -44,8 +44,8 @@ class TmdbClient(
     }
 
     suspend fun details(mediaType: String, id: Int): TmdbDetails {
-        val append = if (mediaType == "movie") "credits,recommendations,similar" else "aggregate_credits,recommendations,similar"
-        val o = get("$mediaType/$id", mapOf("language" to "fr-FR", "append_to_response" to append)) ?: throw TmdbError.NotFound()
+        val append = if (mediaType == "movie") "credits,recommendations,similar,videos" else "aggregate_credits,recommendations,similar,videos"
+        val o = get("$mediaType/$id", mapOf("language" to "fr-FR", "append_to_response" to append, "include_video_language" to "fr,en,null")) ?: throw TmdbError.NotFound()
         var overview = o.text("overview")
         // Repli : résumé anglais si aucun résumé français.
         val overviewLang = if (overview != null) "fr-FR" else {
@@ -78,8 +78,19 @@ class TmdbClient(
             crew = crew,
             seasonCount = o.integer("number_of_seasons"),
             relatedIds = related,
+            trailerKey = pickTrailer(o.obj("videos")?.arr("results").orEmpty().mapNotNull { it as? JsonObject }),
         )
     }
+
+    /** Bande-annonce YouTube : française d'abord, officielle de préférence, sinon anglaise. */
+    internal fun pickTrailer(videos: List<JsonObject>): String? = videos
+        .filter { it.text("site") == "YouTube" && it.text("type") in setOf("Trailer", "Teaser") && it.text("key") != null }
+        .sortedWith(compareBy(
+            { when (it.text("iso_639_1")) { "fr" -> 0; "en" -> 1; else -> 2 } },
+            { if (it.text("type") == "Trailer") 0 else 1 },
+            { if (it.text("official") == "true") 0 else 1 },
+        ))
+        .firstOrNull()?.text("key")
 
     private fun candidate(mediaType: String, o: JsonObject): TmdbCandidate? {
         val id = o.integer("id") ?: return null

@@ -32,22 +32,26 @@ import com.aditv.ui.common.ChannelCard
 import com.aditv.ui.common.PosterCard
 import com.aditv.ui.common.TvTextField
 import com.aditv.ui.common.displayImage
+import com.aditv.data.variants.collapsed
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aditv.ui.theme.Aditv
 import kotlinx.coroutines.delay
 
 /** Recherche locale dans le catalogue en cache : aucune requête serveur par frappe. */
 @Composable
 fun SearchScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (String) -> Unit) {
+    val prefs by LocalContainer.current.prefs.variantPrefs.collectAsStateWithLifecycle(com.aditv.data.variants.VariantPrefs())
     val c = LocalContainer.current
     var query by rememberSaveable { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<CatalogCard>>(emptyList()) }
+    var raw by remember { mutableStateOf<List<CatalogCard>>(emptyList()) }
+    val results = remember(raw, prefs) { raw.collapsed(prefs).map { it.first } }
     val field = remember { FocusRequester() }
     com.aditv.ui.common.InitialFocus(field)
     LaunchedEffect(query) {
         val key = TitleNormalizer.searchKey(query)
-        if (key.length < 2) { results = emptyList(); return@LaunchedEffect }
+        if (key.length < 2) { raw = emptyList(); return@LaunchedEffect }
         delay(250)
-        results = c.db.catalog().search(accountId, key, 120)
+        raw = c.db.catalog().search(accountId, key, 200)
     }
     Column(Modifier.fillMaxSize().padding(start = 40.dp, top = 32.dp, end = 32.dp)) {
         Text("Recherche", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
@@ -58,7 +62,7 @@ fun SearchScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (Strin
             when {
                 TitleNormalizer.searchKey(query).length < 2 -> "Saisissez au moins 2 caractères. Programmes TV : phase 3."
                 results.isEmpty() -> "Aucun résultat dans le catalogue local."
-                else -> "${results.size} résultat(s)" + if (results.size == 120) " — affinez la recherche" else ""
+                else -> "${results.size} résultat(s)" + if (raw.size == 200) " — affinez la recherche" else ""
             },
             style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary,
         )

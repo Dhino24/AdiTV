@@ -54,3 +54,21 @@ class SeriesAndStreamTest {
         assertFalse("durée inconnue", ProgressPolicy.isCompleted(10_000, 0))
     }
 }
+
+class ShortEpgAndCatchupTest {
+    private val adapter = XtreamAdapter(OkHttpClient(), ProviderCredentials("http://p.example:8080".toHttpUrl(), "alice", "s3cret"))
+
+    @Test fun decodesBase64ShortEpg() {
+        val t = java.util.Base64.getEncoder().encodeToString("Journal de 20 h".toByteArray())
+        val list = adapter.parseShortEpg(Json.decodeFromString(JsonElement.serializer(),
+            """{"epg_listings":[{"title":"$t","description":"","start_timestamp":"1795000000","stop_timestamp":"1795003600"}]}"""))
+        assertEquals("Journal de 20 h", list.single().title)
+        assertEquals(1_795_000_000_000L, list.single().startUtc)
+    }
+
+    @Test fun catchupUrlUsesServerLocalTime() {
+        val start = java.time.Instant.parse("2026-11-19T19:00:00Z").toEpochMilli()
+        val url = adapter.streamUrl(StreamTarget.Catchup("42", start, 60, "Europe/Paris"))
+        assertEquals("http://p.example:8080/timeshift/alice/s3cret/60/2026-11-19:20-00/42.ts", url)
+    }
+}

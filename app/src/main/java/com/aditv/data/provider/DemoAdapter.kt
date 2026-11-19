@@ -32,6 +32,26 @@ class DemoAdapter : ProviderAdapter {
 
     /** Démo : aucune lecture possible, aucun flux tiers. */
     override fun streamUrl(target: StreamTarget): String? = null
+    override fun xmltvUrl(): String? = null
+    override suspend fun shortEpg(streamProviderId: String): List<RawShortProgramme> = emptyList()
+
+    /** Guide fictif autour de l'heure courante pour les chaînes de démo ayant un ID de guide. */
+    override fun inlineXmltv(nowMs: Long): String {
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z").withZone(java.time.ZoneId.of("Europe/Paris"))
+        val slot = 30 * 60_000L
+        val start0 = nowMs - nowMs % slot - 4 * slot
+        val titles = listOf("Journal fictif", "Magazine fictif", "Documentaire fictif", "Série fictive", "Film fictif", "Débat fictif")
+        val sb = StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><tv generator-info-name=\"ADITV démo\">")
+        sb.append("<channel id=\"aditv.demo\"><display-name lang=\"fr\">ADITV Démo</display-name></channel>")
+        sb.append("<channel id=\"info24.demo\"><display-name lang=\"fr\">Info 24 (démo)</display-name></channel>")
+        for (ch in listOf("aditv.demo", "info24.demo")) for (i in 0 until 40) {
+            val s = start0 + i * slot * (if (ch == "aditv.demo") 2 else 1)
+            val e = s + slot * (if (ch == "aditv.demo") 2 else 1)
+            sb.append("<programme channel=\"$ch\" start=\"${fmt.format(java.time.Instant.ofEpochMilli(s))}\" stop=\"${fmt.format(java.time.Instant.ofEpochMilli(e))}\">")
+            sb.append("<title lang=\"fr\">${titles[(i + ch.length) % titles.size]} n°${i + 1}</title><desc lang=\"fr\">Programme fictif de démonstration, aucune diffusion réelle.</desc></programme>")
+        }
+        return sb.append("</tv>").toString()
+    }
 
     private val cats = mapOf(
         MediaType.LIVE to listOf("l1" to "DÉMO | Information", "l2" to "DÉMO | Sport", "l3" to "DÉMO | Jeunesse", "l4" to "DÉMO | Culture"),
@@ -43,12 +63,12 @@ class DemoAdapter : ProviderAdapter {
         val base = 1_763_500_000L // novembre 2025, dates d'ajout fictives
         val src: List<Triple<String, String, String?>> = when (type) {
             MediaType.LIVE -> listOf(
-                Triple("ADITV Démo", "l1", "aditv.demo"), Triple("Info 24 (démo)", "l1", null), Triple("Sport Plus (démo)", "l2", null),
-                Triple("Sport Plus 2 (démo)", "l2", null), Triple("Kids Doux (démo)", "l3", null), Triple("Doc Kultur (démo)", "l4", null),
+                Triple("ADITV Démo", "l1", "aditv.demo"), Triple("Info 24 (démo)", "l1", "info24.demo"), Triple("Info 24 HD (démo)", "l1", "info24.demo"), Triple("FR| Sport Plus SD (démo)", "l2", null),
+                Triple("FR| Sport Plus FHD (démo)", "l2", null), Triple("FR| Sport Plus 4K (démo)", "l2", null), Triple("Kids Doux (démo)", "l3", null), Triple("Doc Kultur (démo)", "l4", null),
                 Triple("Atlantique TV (démo)", "l4", null),
             )
             MediaType.MOVIE -> listOf(
-                Triple("FR| Les Ombres de Dakar (2026) VOSTFR", "m1", "Thriller"), Triple("FR| Fjord noir (2024)", "m1", "Thriller"),
+                Triple("FR| Les Ombres de Dakar (2026) VOSTFR", "m1", "Thriller"), Triple("FR| Les Ombres de Dakar (2026) VF 4K", "m1", "Thriller"), Triple("FR| Fjord noir (2024)", "m1", "Thriller"),
                 Triple("FR| Le Dernier Ferry (2023) 4K", "m1", "Thriller"), Triple("FR| Nuit blanche à Lisbonne (2022)", "m1", "Policier"),
                 Triple("FR| Le Grand Déménagement (2025)", "m2", "Comédie"), Triple("FR| Tonton au volant (2021) HD", "m2", "Comédie"),
                 Triple("FR| Mariage à la ferme (2024)", "m2", "Comédie"), Triple("FR| Orbite basse (2026) MULTI", "m3", "Science-fiction"),

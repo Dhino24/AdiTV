@@ -29,6 +29,7 @@ data class TmdbDetails(
     val crew: List<String>,
     val seasonCount: Int?,
     val relatedIds: List<Int>,
+    val trailerKey: String? = null,
 )
 
 sealed class TmdbError(message: String, cause: Throwable? = null) : Exception(message, cause) {

@@ -121,6 +121,8 @@ fun Shell(session: Session.Active) {
     val fullScreen = currentRoute?.startsWith("play/") == true
     val openItem: (String) -> Unit = { nav.navigate("item/" + Uri.encode(it)) }
     val play: (String, Boolean) -> Unit = { id, fromStart -> nav.navigate("play/" + Uri.encode(id) + "?start=" + fromStart) }
+    // Direct : la liste d'origine (favoris, catégorie, toutes) sert au zapping ↑/↓ dans le lecteur.
+    val playLive: (String, String?) -> Unit = { id, list -> nav.navigate("play/" + Uri.encode(id) + "?start=false&list=" + Uri.encode(list ?: "all")) }
 
     ModalNavigationDrawer(
         scrimBrush = Brush.horizontalGradient(listOf(Aditv.Bg.copy(alpha = 0.92f), Color.Transparent)),
@@ -175,29 +177,34 @@ fun Shell(session: Session.Active) {
                 enterTransition = { fadeIn(tween(180)) }, exitTransition = { fadeOut(tween(120)) },
                 popEnterTransition = { fadeIn(tween(180)) }, popExitTransition = { fadeOut(tween(120)) },
             ) {
-                composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play) } }
-                composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { play(it, false) }) } }
-                composable("live") { Entry(entries, "live") { BrowseScreen(accountId, MediaType.LIVE, onOpen = openItem, onPlayLive = { play(it, false) }) } }
-                composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onPlayLive = { play(it, false) }) } }
-                composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onPlayLive = { play(it, false) }) } }
-                composable("guide") {
-                    NotYetAvailable("Guide TV", "phase 3", "Grille EPG alimentée par l'API du fournisseur ou vos sources XMLTV, couverture affichée chaîne par chaîne. Aucun programme ne sera inventé.")
-                }
+                composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive) } }
+                composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }
+                composable("live") { Entry(entries, "live") { BrowseScreen(accountId, MediaType.LIVE, onOpen = openItem, onPlayLive = { id, cat -> playLive(id, if (cat == com.aditv.ui.browse.BrowseViewModel.FAVORITES) "fav" else cat?.let { "cat:$it" }) }) } }
+                composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onPlayLive = { id, cat -> playLive(id, if (cat == com.aditv.ui.browse.BrowseViewModel.FAVORITES) "fav" else cat?.let { "cat:$it" }) }) } }
+                composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onPlayLive = { id, cat -> playLive(id, if (cat == com.aditv.ui.browse.BrowseViewModel.FAVORITES) "fav" else cat?.let { "cat:$it" }) }) } }
+                composable("guide") { Entry(entries, "guide") { com.aditv.ui.guide.GuideScreen(session, onPlayLive = playLive, onPlay = play, onOpen = openItem) } }
+                composable("epgmap/{id}") { e -> com.aditv.ui.guide.EpgMapScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
                 composable("mylist") { Entry(entries, "mylist") { com.aditv.ui.library.MyListScreen(accountId, onOpen = openItem) } }
                 composable("settings") { Entry(entries, "settings") { SettingsScreen(session) } }
                 composable("item/{id}") { e ->
                     com.aditv.ui.detail.DetailScreen(
                         session, Uri.decode(e.arguments?.getString("id").orEmpty()),
-                        onPlay = play, onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
+                        onPlay = { pid, fs -> if (pid.contains("|LIVE|")) playLive(pid, "all") else play(pid, fs) },
+                        onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
+                        onMapGuide = { nav.navigate("epgmap/" + Uri.encode(it)) },
                     )
                 }
                 composable("match/{id}") { e -> com.aditv.ui.match.MatchScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
                 composable(
-                    "play/{id}?start={start}",
-                    arguments = listOf(androidx.navigation.navArgument("start") { type = androidx.navigation.NavType.BoolType; defaultValue = false }),
+                    "play/{id}?start={start}&list={list}",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("start") { type = androidx.navigation.NavType.BoolType; defaultValue = false },
+                        androidx.navigation.navArgument("list") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
+                    ),
                 ) { e ->
                     com.aditv.ui.player.PlayerScreen(
                         session, Uri.decode(e.arguments?.getString("id").orEmpty()), e.arguments?.getBoolean("start") ?: false,
+                        liveList = e.arguments?.getString("list")?.let(Uri::decode),
                         onExit = { nav.popBackStack() },
                     )
                 }

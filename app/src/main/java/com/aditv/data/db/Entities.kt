@@ -78,6 +78,10 @@ data class CatalogItemEntity(
     val available: Boolean,
     val lastSeenSync: Long,
     val firstSeenAt: Long,
+    /** Regroupement des variantes (langue/qualité annoncées par le titre fournisseur). */
+    val variantKey: String? = null,
+    val lang: String? = null,
+    val quality: Int? = null,
 )
 
 /** Champs mis à jour par une synchronisation (firstSeenAt et préférences locales préservés). */
@@ -100,6 +104,9 @@ data class CatalogItemSyncUpdate(
     val position: Int?,
     val available: Boolean,
     val lastSeenSync: Long,
+    val variantKey: String?,
+    val lang: String?,
+    val quality: Int?,
 )
 
 data class CategorySyncUpdate(
@@ -130,4 +137,9 @@ data class CatalogCard(
     val genre: String?,
     /** Affiche TMDB si la correspondance est confirmée. */
     val tmdbPoster: String? = null,
+    val variantKey: String? = null,
+    val lang: String? = null,
+    val quality: Int? = null,
+    val epgChannelId: String? = null,
+    val categoryId: String? = null,
 )

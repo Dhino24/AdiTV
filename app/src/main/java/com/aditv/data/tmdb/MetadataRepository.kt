@@ -142,7 +142,7 @@ class MetadataRepository(
                 voteAverage = d.voteAverage, voteCount = d.voteCount,
                 cast = d.cast.joinToString("\n") { (n, r) -> if (r.isNullOrBlank()) n else "$n|$r" }.ifEmpty { null },
                 crew = d.crew.joinToString(", ").ifEmpty { null }, seasonCount = d.seasonCount,
-                relatedIds = d.relatedIds.joinToString(",").ifEmpty { null }, fetchedAt = clock(),
+                relatedIds = d.relatedIds.joinToString(",").ifEmpty { null }, fetchedAt = clock(), trailerKey = d.trailerKey,
             )
         )
     }

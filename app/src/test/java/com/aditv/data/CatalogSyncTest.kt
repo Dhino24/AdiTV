@@ -57,6 +57,10 @@ class CatalogSyncTest {
         override fun observeItem(id: String): Flow<CatalogItemEntity?> = emptyFlow()
         override suspend fun categoryName(id: String): String? = null
         override fun count(accountId: String, type: String): Flow<Int> = emptyFlow()
+        override suspend fun variantSiblings(accountId: String, type: String, variantKey: String) = emptyList<CatalogItemEntity>()
+        override suspend fun itemsWithoutVariant(limit: Int) = emptyList<com.aditv.data.db.VariantBackfillRow>()
+        override suspend fun setVariant(id: String, key: String, lang: String?, quality: Int) {}
+        override suspend fun allChannels(accountId: String) = emptyList<CatalogCard>()
     }
 
     private class FakeAdapter(var movies: List<String>, var failMovies: ProviderError? = null) : ProviderAdapter {
@@ -70,6 +74,8 @@ class CatalogSyncTest {
         }
         override suspend fun seriesEpisodes(seriesProviderId: String) = emptyList<com.aditv.data.provider.RawEpisode>()
         override fun streamUrl(target: com.aditv.data.provider.StreamTarget): String? = null
+        override fun xmltvUrl(): String? = null
+        override suspend fun shortEpg(streamProviderId: String) = emptyList<com.aditv.data.provider.RawShortProgramme>()
         private fun raw(id: String) = RawItem(id, MediaType.MOVIE, "FR| Titre $id", null, "c1", null, null, null, null, null, null, null, null, null, null)
     }
 
@@ -110,6 +116,8 @@ class CatalogSyncTest {
             override suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {}
             override suspend fun seriesEpisodes(seriesProviderId: String) = emptyList<com.aditv.data.provider.RawEpisode>()
             override fun streamUrl(target: com.aditv.data.provider.StreamTarget): String? = null
+            override fun xmltvUrl(): String? = null
+            override suspend fun shortEpg(streamProviderId: String) = emptyList<com.aditv.data.provider.RawShortProgramme>()
         }
         sync(dao).run("acc", adapter)
         assertEquals(1, adapter.calls)

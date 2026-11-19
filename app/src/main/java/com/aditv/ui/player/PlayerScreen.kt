@@ -63,17 +63,19 @@ import com.aditv.ui.theme.Aditv
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private enum class Panel { NONE, AUDIO, TEXT }
+private enum class Panel { NONE, AUDIO, TEXT, VERSION }
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean, onExit: () -> Unit) {
+fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean, liveList: String? = null, onExit: () -> Unit) {
     val c = LocalContainer.current
-    val vm: PlayerViewModel = viewModel(key = "player-$contentId") { PlayerViewModel(c, session, contentId, fromStart) }
+    val vm: PlayerViewModel = viewModel(key = "player-$contentId") { PlayerViewModel(c, session, contentId, fromStart, liveList) }
     val player = vm.player
     var controlsVisible by remember { mutableStateOf(true) }
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var panel by remember { mutableStateOf(Panel.NONE) }
+    var bannerUntil by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(bannerUntil) { if (bannerUntil > 0) { delay(4_000); bannerUntil = 0 } }
     var position by remember { mutableLongStateOf(0L) }
     var buffered by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
@@ -153,7 +155,12 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                                 // En VOD, ←/→ déplacent la lecture ; en direct, aucun seek inexistant.
                                 Key.DirectionLeft -> { seekBy(-10_000); touch(); true }
                                 Key.DirectionRight -> { seekBy(10_000); touch(); true }
-                                Key.DirectionCenter, Key.Enter, Key.DirectionUp, Key.DirectionDown -> { touch(); true }
+                                // En direct, ↑/↓ changent de chaîne dans la liste d'origine (favoris, catégorie…).
+                                Key.DirectionUp -> { if (vm.isLive) { vm.zap(-1); bannerUntil = System.currentTimeMillis() } else touch(); true }
+                                Key.DirectionDown -> { if (vm.isLive) { vm.zap(1); bannerUntil = System.currentTimeMillis() } else touch(); true }
+                                Key.ChannelUp -> { vm.zap(-1); bannerUntil = System.currentTimeMillis(); true }
+                                Key.ChannelDown -> { vm.zap(1); bannerUntil = System.currentTimeMillis(); true }
+                                Key.DirectionCenter, Key.Enter -> { touch(); true }
                                 else -> false
                             }
                         } else { lastInteraction = System.currentTimeMillis(); false }
@@ -182,6 +189,14 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             Text("Chargement…", style = MaterialTheme.typography.titleLarge, color = Aditv.Text, modifier = Modifier.align(Alignment.Center))
         }
 
+        if (!controlsVisible && vm.error == null && vm.isLive && bannerUntil > 0) {
+            Column(Modifier.align(Alignment.BottomStart).padding(40.dp).widthIn(max = 760.dp).background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(14.dp)).padding(20.dp)) {
+                Text(vm.title, style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
+                vm.channelPosition?.let { Text("Chaîne $it · ↑/↓ pour changer", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
+                NowNext(vm.nowNext)
+            }
+        }
+
         if (controlsVisible || vm.error != null) {
             Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent))).padding(horizontal = 40.dp, vertical = 28.dp)) {
                 Text(vm.title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
@@ -190,8 +205,10 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                         Text("● DIRECT", style = MaterialTheme.typography.labelMedium, color = Color(0xFFFF5A6A))
                         Spacer(Modifier.width(10.dp))
                     } else vm.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary); Spacer(Modifier.width(10.dp)) }
+                    vm.channelPosition?.let { Text("Chaîne $it", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary); Spacer(Modifier.width(10.dp)) }
                     Text("Moteur : Media3", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
                 }
+                if (vm.isLive) NowNext(vm.nowNext)
             }
         }
 
@@ -217,17 +234,22 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                         AditvButton("+ 10 s", { seekBy(10_000); touch() })
                     }
                     Spacer(Modifier.weight(1f))
+                    if (vm.isLive) AditvButton(if (vm.isFavorite) "★ Favori" else "☆ Favori", { vm.toggleFavorite(); touch() })
+                    if (vm.versions.size > 1) AditvButton("Version", { panel = Panel.VERSION })
                     AditvButton("Audio", { panel = Panel.AUDIO })
                     AditvButton("Sous-titres", { panel = Panel.TEXT })
                 }
-                if (!vm.isLive) Text(
-                    "Commandes masquées : ←/→ = −/+ 10 s · OK = afficher",
+                Text(
+                    if (vm.isLive) "Commandes masquées : ↑/↓ = chaîne précédente / suivante · OK = afficher"
+                    else "Commandes masquées : ←/→ = −/+ 10 s · OK = afficher",
                     style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 10.dp),
                 )
             }
         }
 
-        if (panel != Panel.NONE && player != null) {
+        if (panel == Panel.VERSION) {
+            VersionPanel(vm.versions, onPick = { vm.switchVersion(it); panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+        } else if (panel != Panel.NONE && player != null) {
             TrackPanel(player, panel == Panel.AUDIO, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         }
 
@@ -337,4 +359,39 @@ private fun fmt(ms: Long): String {
     val s = ms / 1000
     val h = s / 3600; val m = (s % 3600) / 60; val sec = s % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+}
+
+@Composable
+private fun NowNext(list: List<com.aditv.data.epg.Programme>) {
+    if (list.isEmpty()) { Text("Guide indisponible pour cette chaîne", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary); return }
+    val now = System.currentTimeMillis()
+    val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.FRANCE)
+    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        list.forEachIndexed { i, p ->
+            val label = if (p.isLive(now)) "Maintenant" else if (i == 0) "À ${fmt.format(java.util.Date(p.startUtc))}" else "Ensuite · ${fmt.format(java.util.Date(p.startUtc))}"
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = if (p.isLive(now)) Aditv.Accent else Aditv.TextSecondary, modifier = Modifier.width(150.dp))
+                Text(p.title, style = MaterialTheme.typography.bodyLarge, color = Aditv.Text, maxLines = 1)
+            }
+            if (p.isLive(now)) Box(Modifier.width(560.dp).height(3.dp).background(Color.White.copy(alpha = 0.25f))) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(((now - p.startUtc).toFloat() / (p.endUtc - p.startUtc)).coerceIn(0f, 1f)).background(Aditv.Accent))
+            }
+        }
+    }
+}
+
+@Composable
+private fun VersionPanel(options: List<VersionOption>, onPick: (String) -> Unit, modifier: Modifier) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first)
+    Column(modifier.fillMaxHeight().width(420.dp).background(Aditv.Surface1.copy(alpha = 0.96f)).padding(24.dp)) {
+        Text("Version", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
+        Text("Langue et qualité annoncées par le fournisseur ; la meilleure selon vos préférences est en tête.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+        Spacer(Modifier.height(12.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            items(options, key = { it.itemId }) { o ->
+                TrackRow(o.label, o.selected, if (o == options.first()) Modifier.focusRequester(first) else Modifier) { onPick(o.itemId) }
+            }
+        }
+    }
 }

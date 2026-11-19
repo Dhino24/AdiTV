@@ -47,6 +47,7 @@ class AppContainer(context: Context) {
     val tmdbKey = TmdbKeyStore(secrets)
     val metadata = MetadataRepository(db, TmdbClient(http.tmdb, { tmdbKey.get() }))
     val playback = PlaybackController(context, http.streams)
+    val epg = com.aditv.data.epg.EpgRepository(db, http.providerApi, http.images)
 
     val imageLoader: ImageLoader = ImageLoader.Builder(context)
         .components { add(OkHttpNetworkFetcherFactory(callFactory = { http.images })) }
@@ -58,13 +59,34 @@ class AppContainer(context: Context) {
     fun syncNow(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
         if (!sync.isRunning) sync.run(s.account.id, s.adapter)
+        backfillVariants()
+        refreshEpg()
         enrichInBackground()
+    }
+
+    /** Guide : jamais pendant une lecture (Fire TV Stick 1re génération : parsing coûteux). */
+    suspend fun refreshEpg(force: Boolean = false) {
+        val s = accounts.session.value as? Session.Active ?: return
+        if (playback.activeSessions.value > 0 && !force) return
+        epg.ensureProviderSource(s.account.id, if (s.isDemo) "Guide démo (fictif)" else "Guide du fournisseur")
+        val last = epg.lastRefresh(s.account.id)
+        if (force || last == null || System.currentTimeMillis() - last > 11 * 3_600_000L) epg.refresh(s.account.id, s.adapter, s.account.serverTimezone)
     }
 
     /** Enrichissement TMDB des ajouts récents, après synchronisation, si une clé est configurée. */
     fun enrichInBackground(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
         if (tmdbKey.get() != null && playback.activeSessions.value == 0) metadata.enrichRecent(s.account.id)
+    }
+
+    /** Après la mise à jour 0.3 : calcule les variantes des éléments déjà en cache (par lots, hors interface). */
+    suspend fun backfillVariants() {
+        val dao = db.catalog()
+        while (true) {
+            val rows = dao.itemsWithoutVariant(500)
+            if (rows.isEmpty()) return
+            dao.setVariants(rows.map { it.id to com.aditv.data.variants.VariantParser.parse(it.rawTitle, it.type, it.categoryName, it.year) })
+        }
     }
 
     suspend fun syncIfStale(maxAgeMs: Long) {
@@ -74,5 +96,6 @@ class AppContainer(context: Context) {
         if (states.size < 3 || System.currentTimeMillis() - oldest > maxAgeMs) {
             if (!sync.isRunning) sync.run(s.account.id, s.adapter)
         }
+        refreshEpg()
     }
 }

@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.aditv.data.db.CatalogCard
+import com.aditv.data.variants.collapsed
 import com.aditv.data.db.ResumeRow
 import com.aditv.data.library.ProgressPolicy
 import com.aditv.ui.common.ProgressCard
@@ -57,7 +58,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
-data class HomeRow(val title: String, val subtitle: String?, val type: MediaType, val cards: List<CatalogCard>)
+data class HomeRow(val title: String, val subtitle: String?, val type: MediaType, val cards: List<Pair<CatalogCard, Int>>, val liveList: String? = null)
 
 data class HomeState(
     val loaded: Boolean = false,
@@ -72,22 +73,27 @@ class HomeViewModel(c: AppContainer, accountId: String) : ViewModel() {
     private val dao = c.db.catalog()
     val progress: StateFlow<SyncProgress> = c.sync.progress
 
-    private val catalogRows = combine(
-        dao.recentlyAdded(accountId, MediaType.MOVIE.name, 24),
-        dao.recentlyAdded(accountId, MediaType.SERIES.name, 24),
-        dao.firstItems(accountId, MediaType.LIVE.name, 24),
-        dao.firstItems(accountId, MediaType.MOVIE.name, 24),
+    private val rawRows = combine(
+        dao.recentlyAdded(accountId, MediaType.MOVIE.name, 80),
+        dao.recentlyAdded(accountId, MediaType.SERIES.name, 80),
+        dao.firstItems(accountId, MediaType.LIVE.name, 80),
+        dao.firstItems(accountId, MediaType.MOVIE.name, 80),
         c.db.library().watchlist(accountId),
-    ) { recentMovies, recentSeries, channels, anyMovies, myList ->
+    ) { recentMovies, recentSeries, channels, anyMovies, myList -> listOf(recentMovies, recentSeries, channels, anyMovies, myList) }
+
+    private val catalogRows = combine(rawRows, c.db.live().favorites(accountId), c.prefs.variantPrefs) { lists, favorites, prefs ->
+        val (recentMovies, recentSeries, channels, anyMovies, myList) = lists.map { it.collapsed(prefs).take(24) }
         val rows = buildList {
-            if (myList.isNotEmpty()) add(HomeRow("Ma liste", null, MediaType.MOVIE, myList.take(24)))
+            // Chaînes épinglées = favoris ; sinon les premières chaînes du fournisseur.
+            if (favorites.isNotEmpty()) add(HomeRow("Chaînes favorites", "OK pour regarder · ↑/↓ dans le lecteur pour zapper", MediaType.LIVE, favorites.collapsed(prefs), liveList = "fav"))
+            if (myList.isNotEmpty()) add(HomeRow("Ma liste", null, MediaType.MOVIE, myList))
             // « Ajouts récents » = date d'ajout déclarée par le fournisseur, pas des sorties récentes.
             if (recentMovies.isNotEmpty()) add(HomeRow("Ajouts récents · Films", "selon la date d'ajout du fournisseur", MediaType.MOVIE, recentMovies))
             else if (anyMovies.isNotEmpty()) add(HomeRow("Films", null, MediaType.MOVIE, anyMovies))
             if (recentSeries.isNotEmpty()) add(HomeRow("Ajouts récents · Séries", "selon la date d'ajout du fournisseur", MediaType.SERIES, recentSeries))
-            if (channels.isNotEmpty()) add(HomeRow("Chaînes", "ordre du fournisseur · OK pour regarder", MediaType.LIVE, channels))
+            if (favorites.isEmpty() && channels.isNotEmpty()) add(HomeRow("Chaînes", "ordre du fournisseur · OK pour regarder", MediaType.LIVE, channels, liveList = "all"))
         }
-        rows to (recentMovies.firstOrNull() ?: recentSeries.firstOrNull() ?: anyMovies.firstOrNull())
+        rows to (recentMovies.firstOrNull() ?: recentSeries.firstOrNull() ?: anyMovies.firstOrNull())?.first
     }
 
     val state: StateFlow<HomeState> = combine(
@@ -104,7 +110,7 @@ class HomeViewModel(c: AppContainer, accountId: String) : ViewModel() {
 fun typeLabel(type: String) = when (type) { "LIVE" -> "Direct"; "MOVIE" -> "Films"; else -> "Séries" }
 
 @Composable
-fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit) {
+fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit, onPlayLive: (String, String?) -> Unit) {
     val c = LocalContainer.current
     val vm: HomeViewModel = viewModel(key = "home-$accountId") { HomeViewModel(c, accountId) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -124,7 +130,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                     if (r != null) ResumeHero(r, heroRequester, onOpen, onPlay) else Hero(state.hero, isDemo, heroRequester, onOpen)
                 }
                 if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay) }
-                items(state.rows, key = { it.title }) { row -> ContentRow(row, onOpen, onPlay) }
+                items(state.rows, key = { it.title }) { row -> ContentRow(row, onOpen, onPlayLive) }
             }
         }
         SyncBadge(progress, state.lastSyncAt, state.syncErrors.isNotEmpty(), Modifier.align(Alignment.TopEnd).padding(24.dp))
@@ -162,7 +168,8 @@ private fun Hero(card: CatalogCard?, isDemo: Boolean, requester: FocusRequester,
 }
 
 @Composable
-private fun ContentRow(row: HomeRow, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit) {
+private fun ContentRow(row: HomeRow, onOpen: (String) -> Unit, onPlayLive: (String, String?) -> Unit) {
+    val nowPlaying = if (row.type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(row.cards.firstOrNull()?.first?.id?.substringBefore('|').orEmpty(), row.cards.map { it.first }) else emptyMap()
     Column {
         Row(Modifier.padding(start = 40.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
             Text(row.title, style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
@@ -176,9 +183,10 @@ private fun ContentRow(row: HomeRow, onOpen: (String) -> Unit, onPlay: (String, 
             contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            items(row.cards, key = { it.id }) { card ->
-                if (row.type == MediaType.LIVE) ChannelCard(card.title, card.imageUrl, null, { onPlay(card.id, false) })
-                else PosterCard(card.title, card.displayImage(), card.year?.toString(), { onOpen(card.id) })
+            items(row.cards, key = { it.first.id }) { (card, versions) ->
+                val badge = com.aditv.data.variants.variantBadge(card.lang, card.quality)
+                if (card.type == "LIVE") ChannelCard(card.title, card.imageUrl, nowPlaying[card.id] ?: listOfNotNull(badge, if (versions > 1) "$versions versions" else null).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, row.liveList) })
+                else PosterCard(card.title, card.displayImage(), listOfNotNull(card.year?.toString(), badge).joinToString(" · ").ifEmpty { null }, { onOpen(card.id) })
             }
         }
     }

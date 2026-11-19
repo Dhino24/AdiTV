@@ -77,7 +77,7 @@ interface LibraryDao {
     @Query("SELECT EXISTS(SELECT 1 FROM watchlist WHERE accountId = :accountId AND itemId = :itemId)") fun inWatchlist(accountId: String, itemId: String): Flow<Boolean>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM watchlist w JOIN catalog_items ci ON ci.id = w.itemId
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -104,7 +104,7 @@ interface MetadataDao {
 
     /** Éléments du catalogue dont la correspondance confirmée figure dans la liste d'IDs TMDB (suggestions disponibles). */
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM metadata_match mm JOIN catalog_items ci ON ci.id = mm.itemId
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
            WHERE mm.accountId = :accountId AND mm.status = 'confirmed' AND mm.mediaType = :mediaType

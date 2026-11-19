@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -243,4 +245,21 @@ fun ProgressCard(title: String, subtitle: String?, imageUrl: String?, progress: 
         Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text)
         if (subtitle != null) Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
     }
+}
+
+/** Programme en cours par chaîne (clé = id de carte), rafraîchi chaque minute ; vide si pas de guide. */
+@Composable
+fun rememberNowPlaying(accountId: String, cards: List<com.aditv.data.db.CatalogCard>): Map<String, String> {
+    val c = com.aditv.ui.LocalContainer.current
+    val live = cards.filter { it.type == "LIVE" }
+    val guideVersion by c.epg.version.collectAsStateWithLifecycle()
+    val state = androidx.compose.runtime.produceState(emptyMap<String, String>(), live.map { it.id }, guideVersion) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            value = c.epg.programmesFor(accountId, live.map { it.id to it.epgChannelId }, now, now + 60_000)
+                .mapNotNull { (id, list) -> list.firstOrNull { p -> p.isLive(now) }?.let { id to it.title } }.toMap()
+            kotlinx.coroutines.delay(60_000)
+        }
+    }
+    return state.value
 }

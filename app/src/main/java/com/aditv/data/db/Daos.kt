@@ -56,7 +56,7 @@ interface CatalogDao {
     fun categories(accountId: String, type: String): Flow<List<CategoryEntity>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -66,7 +66,7 @@ interface CatalogDao {
     fun cardsInCategory(accountId: String, type: String, categoryId: String): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -76,7 +76,7 @@ interface CatalogDao {
     fun recentlyAdded(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -86,7 +86,7 @@ interface CatalogDao {
     fun firstItems(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -97,8 +97,36 @@ interface CatalogDao {
 
     @Query("SELECT * FROM catalog_items WHERE id = :id") fun observeItem(id: String): Flow<CatalogItemEntity?>
 
+    // ---------- variantes ----------
+    @Query("SELECT * FROM catalog_items WHERE accountId = :accountId AND type = :type AND variantKey = :variantKey AND available = 1")
+    suspend fun variantSiblings(accountId: String, type: String, variantKey: String): List<CatalogItemEntity>
+
+    @Query(
+        """SELECT ci.id, ci.type, ci.rawTitle, ci.year, c.name AS categoryName FROM catalog_items ci
+           LEFT JOIN categories c ON c.id = ci.categoryId WHERE ci.variantKey IS NULL LIMIT :limit"""
+    )
+    suspend fun itemsWithoutVariant(limit: Int): List<VariantBackfillRow>
+
+    @Query("UPDATE catalog_items SET variantKey = :key, lang = :lang, quality = :quality WHERE id = :id")
+    suspend fun setVariant(id: String, key: String, lang: String?, quality: Int)
+
+    @Transaction
+    suspend fun setVariants(rows: List<Pair<String, com.aditv.data.variants.VariantInfo>>) { rows.forEach { (id, v) -> setVariant(id, v.key, v.lang, v.quality) } }
+
+    @Query(
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.type = 'LIVE' AND ci.available = 1
+           ORDER BY ci.position IS NULL, ci.position, ci.title"""
+    )
+    suspend fun allChannels(accountId: String): List<CatalogCard>
+
     @Query("SELECT name FROM categories WHERE id = :id") suspend fun categoryName(id: String): String?
 
     @Query("SELECT COUNT(*) FROM catalog_items WHERE accountId = :accountId AND type = :type AND available = 1")
     fun count(accountId: String, type: String): Flow<Int>
 }
+
+data class VariantBackfillRow(val id: String, val type: String, val rawTitle: String, val year: Int?, val categoryName: String?)

@@ -60,7 +60,12 @@ sealed interface StreamTarget {
     data class Movie(val providerId: String, val containerExt: String?) : StreamTarget
     data class Episode(val providerId: String, val containerExt: String?) : StreamTarget
     data class Live(val providerId: String) : StreamTarget
+    /** Replay (« catch-up ») : uniquement si le fournisseur déclare une archive pour la chaîne. */
+    data class Catchup(val providerId: String, val startUtc: Long, val durationMin: Int, val serverZone: String?) : StreamTarget
 }
+
+/** Programme court renvoyé par l'API du fournisseur (maintenant / ensuite), horaires UTC. */
+data class RawShortProgramme(val title: String, val description: String?, val startUtc: Long, val endUtc: Long)
 
 /** Erreurs typées : chaque cas a un message utile, sans prétendre identifier une cause invisible. */
 sealed class ProviderError(message: String, cause: Throwable? = null) : Exception(message, cause) {

@@ -40,13 +40,15 @@ class CatalogSync(private val dao: CatalogDao, private val clock: () -> Long = S
                 val prev = dao.syncStates(accountId).firstOrNull { it.type == type.name }
                 try {
                     _progress.value = SyncProgress.Running(type, "Catégories", 0)
-                    val cats = adapter.categories(type).map { CatalogMapping.toCategory(accountId, type, it, syncId) }
+                    val rawCats = adapter.categories(type)
+                    val cats = rawCats.map { CatalogMapping.toCategory(accountId, type, it, syncId) }
+                    val catNames = rawCats.associate { it.providerId to it.name }
                     dao.upsertCategories(cats, cats.map(CatalogMapping::toCategoryUpdate))
 
                     var n = 0
                     adapter.streamItems(type, BATCH) { batch ->
                         val now = clock()
-                        val entities = batch.map { CatalogMapping.toEntity(accountId, it, syncId, now) }
+                        val entities = batch.map { CatalogMapping.toEntity(accountId, it, syncId, now, it.categoryProviderId?.let(catNames::get)) }
                         dao.upsertItems(entities, entities.map(CatalogMapping::toUpdate))
                         n += batch.size
                         _progress.value = SyncProgress.Running(type, "Éléments", n)

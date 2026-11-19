@@ -13,8 +13,9 @@ object CatalogMapping {
     fun itemId(accountId: String, type: MediaType, providerId: String) = "$accountId|${type.name}|$providerId"
     fun categoryId(accountId: String, type: MediaType, providerId: String) = "$accountId|${type.name}|cat:$providerId"
 
-    fun toEntity(accountId: String, raw: RawItem, syncId: Long, now: Long): CatalogItemEntity {
+    fun toEntity(accountId: String, raw: RawItem, syncId: Long, now: Long, categoryName: String? = null): CatalogItemEntity {
         val c = TitleNormalizer.clean(raw.rawTitle)
+        val v = com.aditv.data.variants.VariantParser.parse(raw.rawTitle, raw.type.name, categoryName, raw.releaseYear ?: c.year)
         return CatalogItemEntity(
             id = itemId(accountId, raw.type, raw.providerId), accountId = accountId, type = raw.type.name,
             providerId = raw.providerId, rawTitle = raw.rawTitle, title = c.displayTitle, searchKey = c.searchKey,
@@ -24,12 +25,14 @@ object CatalogMapping {
             addedAt = raw.addedAtEpochSec, containerExt = raw.containerExt, epgChannelId = raw.epgChannelId,
             catchupDays = raw.catchupDays, plot = raw.plot, genre = raw.genre, position = raw.position,
             available = true, lastSeenSync = syncId, firstSeenAt = now,
+            variantKey = v.key, lang = v.lang, quality = v.quality,
         )
     }
 
     fun toUpdate(e: CatalogItemEntity) = CatalogItemSyncUpdate(
         e.id, e.rawTitle, e.title, e.searchKey, e.year, e.categoryId, e.imageUrl, e.providerTmdbId, e.providerRating,
         e.addedAt, e.containerExt, e.epgChannelId, e.catchupDays, e.plot, e.genre, e.position, e.available, e.lastSeenSync,
+        e.variantKey, e.lang, e.quality,
     )
 
     fun toCategory(accountId: String, type: MediaType, raw: RawCategory, syncId: Long) = CategoryEntity(

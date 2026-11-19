@@ -58,7 +58,7 @@ Entités Room : `ProviderAccount`, `CatalogItem`, `Category`, `Channel`, `Series
 | 0 ✅ | Dossier versionné, synthèse, 3 maquettes HF | Direction visuelle validée |
 | 1 ✅ code | Projet Gradle compilable, thème, navigation, connexion (test + erreurs), catalogue Room incrémental, adaptateur Démo + Xtream | APK debug installable ; connexion réelle testée sur la Stick |
 | 2 ✅ code | TMDB + matching + correction manuelle, fiches, Media3, progression/reprise | Un film et un épisode réellement lus et repris |
-| 3 | Direct, favoris, EPG (XMLTV/API), grille virtualisée | Couverture EPG mesurée |
+| 3 ✅ code | Direct, favoris, EPG (XMLTV/API), grille virtualisée | Couverture EPG mesurée |
 | 4 | LibVLC, politique Auto, métriques par moteur | Comparaison reproductible, 1 seule session |
 | 5 | Turbo, intro + son, optimisation | Gain mesuré… ou absence de gain documentée |
 | 6 | PIN adultes, accessibilité, sommeil, export prefs, recette | APK + sources + limites |

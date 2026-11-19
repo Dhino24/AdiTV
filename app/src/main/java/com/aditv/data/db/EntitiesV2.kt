@@ -84,6 +84,8 @@ data class TmdbMetadataEntity(
     /** IDs TMDB similaires / recommandés, séparés par des virgules. */
     val relatedIds: String?,
     val fetchedAt: Long,
+    /** Clé YouTube de la bande-annonce choisie (fr, sinon en), si TMDB en référence une. */
+    val trailerKey: String? = null,
 )
 
 /** Élément « Reprendre » : contenu, titre à afficher, progression. */

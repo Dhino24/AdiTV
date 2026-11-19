@@ -144,8 +144,36 @@ class XtreamAdapter(
                 .addPathSegment("${target.providerId}.${target.containerExt ?: "mp4"}")
             is StreamTarget.Live -> addPathSegment("live").addPathSegment(creds.username).addPathSegment(creds.password)
                 .addPathSegment("${target.providerId}.$liveExtension")
+            // Schéma de replay courant des panneaux Xtream (heure locale du serveur) : expérimental, à valider avec une émission autorisée.
+            is StreamTarget.Catchup -> {
+                val zone = runCatching { java.time.ZoneId.of(target.serverZone ?: "UTC") }.getOrDefault(java.time.ZoneOffset.UTC)
+                val t = java.time.Instant.ofEpochMilli(target.startUtc).atZone(zone)
+                val stamp = "%04d-%02d-%02d:%02d-%02d".format(t.year, t.monthValue, t.dayOfMonth, t.hour, t.minute)
+                addPathSegment("timeshift").addPathSegment(creds.username).addPathSegment(creds.password)
+                    .addPathSegment(target.durationMin.toString()).addPathSegment(stamp).addPathSegment("${target.providerId}.ts")
+            }
         }
     }.build().toString()
+
+    override fun xmltvUrl(): String = creds.endpoint.newBuilder().addPathSegment("xmltv.php")
+        .addQueryParameter("username", creds.username).addQueryParameter("password", creds.password).build().toString()
+
+    /** `get_short_epg` : titres et résumés encodés en base64, horaires en secondes UTC. */
+    override suspend fun shortEpg(streamProviderId: String): List<RawShortProgramme> {
+        val root = getJson(apiUrl("get_short_epg").newBuilder().addQueryParameter("stream_id", streamProviderId).addQueryParameter("limit", "4").build())
+        return parseShortEpg(root)
+    }
+
+    internal fun parseShortEpg(root: JsonElement): List<RawShortProgramme> {
+        val list = (root as? JsonObject)?.get("epg_listings") as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        fun b64(s: String?) = s?.let { runCatching { String(java.util.Base64.getDecoder().decode(it), Charsets.UTF_8) }.getOrDefault(it) }?.trim()?.ifEmpty { null }
+        return list.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val start = o.long("start_timestamp") ?: return@mapNotNull null
+            val stop = o.long("stop_timestamp", "end_timestamp") ?: return@mapNotNull null
+            RawShortProgramme(b64(o.str("title")) ?: "Sans titre", b64(o.str("description")), start * 1000, stop * 1000)
+        }.filter { it.endUtc > it.startUtc }.sortedBy { it.startUtc }
+    }
 
     /** Format direct : ts si autorisé (ou non communiqué), sinon m3u8. */
     var liveExtension: String = "ts"

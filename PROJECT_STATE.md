@@ -5,36 +5,44 @@ _Mis à jour : 19/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : 2 — terminée côté code (0.2.0), lecture à valider sur la Stick
-0.1.1 installée par Adama sur la Stick (installation OK).
+## Phase actuelle : 3 — terminée côté code (0.3.0), à valider sur la Stick
+0.2.0 installée par Adama (installation OK).
 
-### Livré en phase 2
-- **Lecture Media3** : films, épisodes, chaînes en direct. URL construite à la demande depuis les accès chiffrés (jamais stockée ni journalisée). Une seule session active dans toute l'app (ouvrir un contenu libère le précédent). Pistes audio / sous-titres **réellement présentes** dans le flux. Erreurs traduites prudemment (accès refusé / limite de connexions possible, flux introuvable, format non décodable…), « Réessayer » borné.
-- **Télécommande dans le lecteur** : OK affiche les commandes ; ←/→ = −/+10 s en VOD (jamais en direct) ; touches lecture/pause, avance et retour rapides (±30 s) ; Retour ferme le panneau puis quitte.
-- **Progression et reprise** : sauvegarde toutes les 10 s, à la pause, à la sortie et à la mise en veille (session libérée, réouverture en pause au réveil, pas de seconde session). Terminé à 95 % ou moins de 3 min restantes. « Reprendre » sur l'accueil (un élément par film/série), « Reprendre » / « Depuis le début » sur la fiche.
-- **Séries** : saisons et épisodes du fournisseur (`get_series_info`), chargés à l'ouverture, cache conservé si le serveur échoue ; épisode suivant proposé à la fin (10 s, annulable).
-- **TMDB** : clé personnelle (v3 ou jeton v4) saisie et testée dans Paramètres, chiffrée. Titre FR, résumé FR avec repli anglais signalé, affiche/fond à taille adaptée, genres, durée, note avec nombre de votes et source, distribution, réalisation, nombre de saisons. Correspondance : ID TMDB fourni **vérifié**, sinon titre nettoyé + année + type avec score ; remakes/homonymes sans année → **ambigu**, jamais validé au hasard. **Correction manuelle** (recherche, choix, « aucune correspondance »), verrouillée et conservée. Suggestions « Disponibles dans votre abonnement » = similaires TMDB ∩ catalogue confirmé. Enrichissement de fond des ajouts récents, espacé, backoff 429/5xx. TMDB en panne = fiches fournisseur, rien ne bloque.
-- **Ma liste** : ajout/retrait depuis la fiche, écran dédié, rangée sur l'accueil.
-- **Base v2** : migration automatique 1→2 testée (compte et catalogue conservés lors de la mise à jour 0.1.1 → 0.2.0).
-- **47 tests** : matching (remakes, VOSTFR, titre original, suites, mauvaise année), client TMDB simulé (clé v3/v4, repli anglais, 401, 429), épisodes Xtream, URLs de flux et masquage, règles de reprise, migration, session unique Media3, verrou manuel, parcours télécommande complet en API 25 et 35.
+### Livré en phase 3
+- **Version française et qualité max mises en avant** (demande d'Adama) : les variantes d'un même contenu chez le fournisseur (VF, VOSTFR, MULTI, SD/HD/FHD/4K, préfixes pays, catégories « VOSTFR »…) sont regroupées en **une seule carte** ; la meilleure selon les préférences est affichée et lue (par défaut : français d'abord, qualité maximale). Chaînes : même pays + même nom = même chaîne (« BE| RTL » ≠ « FR| RTL »). Films : même titre + même année (un remake reste distinct).
+  - Réglages (Paramètres → Lecture) : VF / VOSTFR / VO d'abord ; 4K / 1080p / 720p max ; flux adaptatifs « débit max » (défaut) ou « adapté au réseau ».
+  - Fiche : « Versions disponibles (annoncées par le fournisseur) » ; lecteur : bouton **Version** pour changer en cours de lecture (position conservée).
+  - Lecteur : audio français préféré quand le flux en contient ; sous-titres français préférés pour une version VOSTFR.
+  - Langue et qualité viennent du **titre fournisseur** (jamais de TMDB) et sont affichées « annoncées ».
+- **Direct** : favoris (★ dans le lecteur et sur la fiche chaîne), catégorie « ★ Favoris », rangée « Chaînes favorites » sur l'accueil ; **zapping ↑/↓** (et touches chaîne) dans la liste d'origine (favoris, catégorie ou toutes), une seule session ; bandeau chaîne avec maintenant / ensuite et progression ; programme en cours sous chaque chaîne.
+- **Guide TV (EPG)** : XMLTV du fournisseur (`xmltv.php`, URL reconstruite avec les accès chiffrés) + sources XMLTV https ajoutées ; lecture en flux, gzip, limite 400 Mo, DTD/entités externes non traitées ; horaires stockés en UTC, changement d'heure géré, horaires sans fuseau → fuseau du serveur (comptés et affichés) ; fin manquante déduite du programme suivant seulement, sinon ignorée ; fenêtre −1/+7 jours ; remplacement seulement après import complet ; une seule source par chaîne (fournisseur prioritaire) ; décalage par source et par chaîne ; **association manuelle** (fiche chaîne → Guide), « pas de guide » ; couverture affichée. Repli « maintenant / ensuite » via `get_short_epg`. Actualisation ~12 h, jamais pendant une lecture.
+  - **Grille télécommandable** : chaînes en lignes (virtualisées), axe horaire commun qui suit le focus, repère « maintenant », filtres Favoris / Toutes / catégories, Maintenant / −6 h / +6 h / jour suivant ; panneau programme (regarder, fiche chaîne).
+  - **Replay** : visible seulement si le fournisseur déclare une archive (`tv_archive`) couvrant l'émission ; schéma `timeshift` Xtream **expérimental**, à valider avec une émission autorisée.
+- **Bandes-annonces** : bouton « Bande-annonce » sur la fiche si TMDB référence une vidéo YouTube (française d'abord, sinon anglaise) **et** si l'application YouTube (ou un navigateur) est installée sur la Stick ; sinon pas de bouton.
+- **Base v3** : migration 1→2→3 testée (favoris, guide, colonnes de variantes recalculées au démarrage).
+- **60 tests** : variantes et préférences, XMLTV (offsets, été/hiver, fins manquantes, XXE, gzip, taille, fenêtre), dépôt du guide (priorité, décalages, association manuelle, panne sans perte), API courte et URL de replay, migration v3, parcours télécommande complet (Direct, Guide, panneau programme, Retour système) en API 25 et 35.
 
 ### Réel / simulé
 | Élément | État |
 |---|---|
-| Lecture film / épisode / direct | Code complet, session unique testée — **jamais lue sur la Stick ni avec ton abonnement** |
+| Lecture film / épisode / direct, zapping | Code complet, session unique testée — **lecture réelle à confirmer par Adama** |
+| Guide fournisseur (XMLTV / short EPG) | Testé sur données simulées — **taille et temps d'import à mesurer sur la Stick** |
+| Replay | Schéma Xtream courant implémenté — **expérimental, jamais testé** |
 | TMDB | Testé contre un serveur simulé — **jamais avec une vraie clé** |
 | Interface | Testée en JVM (Robolectric) — fluidité réelle à juger sur la Stick |
 
 ### Limites connues
-- Bandes-annonces non intégrées (pas de lecteur YouTube sur la Stick sans application tierce) : reportées.
-- Pas de zapping ↑/↓ en direct ni de guide (phase 3). Pas de choix de moteur (LibVLC, phase 4).
+- Bandes-annonces : ouvertes dans l'application YouTube, pas de lecture intégrée ni d'aperçu automatique en fond (non recommandé sur la Stick 1re génération ; à mesurer avant d'envisager).
+- Pas de choix de moteur (LibVLC, phase 4). Favoris et reprise sont liés à la version choisie, pas à toutes les versions.
+- La grille charge les programmes de toutes les chaînes du filtre « Toutes » : à mesurer avec un gros bouquet.
 - Une catégorie par élément ; chaque catégorie chargée en entier (à mesurer sur un gros catalogue).
 - Les journaux internes de Media3 sont coupés en release ; en debug ils restent actifs (niveau avertissement).
 
 ## À faire par Adama
-- [ ] Installer `ADITV-0.2.0-debug.apk` par-dessus la 0.1.1 (`adb install -r`, données conservées).
-- [ ] Lire **un film**, **un épisode** et **une chaîne** ; noter les messages d'erreur éventuels et la fluidité.
+- [x] 0.2.0 installée.
+- [ ] Installer `ADITV-0.3.0-debug.apk` par-dessus (`adb install -r`, données conservées).
+- [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.
 - [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.
 
-## Prochaine étape : phase 3
-Direct : favoris, zapping, EPG (API fournisseur / XMLTV), grille télécommandable, maintenant/suivant dans le lecteur.
+## Prochaine étape : phase 4
+LibVLC (ARMv7) derrière le même contrat de lecture, choix Auto / Media3 / VLC mémorisé par contenu, bascule bornée sur erreur de format, diagnostic de lecture (débits, réserve, interruptions, décodeur) avec états mesuré / estimé / N/D.

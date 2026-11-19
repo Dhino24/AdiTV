@@ -17,4 +17,13 @@ interface ProviderAdapter {
 
     /** URL de lecture, ou null si la source ne permet pas la lecture (démo). Contient des secrets : ne jamais la stocker ni la journaliser. */
     fun streamUrl(target: StreamTarget): String?
+
+    /** URL du guide XMLTV du fournisseur (secrète : contient les accès), ou null. */
+    fun xmltvUrl(): String?
+
+    /** Maintenant / ensuite pour une chaîne, via l'API courte du fournisseur (repli si pas de XMLTV). */
+    suspend fun shortEpg(streamProviderId: String): List<RawShortProgramme>
+
+    /** Guide XMLTV fourni en mémoire (démo uniquement), sinon null. */
+    fun inlineXmltv(nowMs: Long): String? = null
 }

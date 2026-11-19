@@ -31,7 +31,10 @@ class PlaybackController(private val context: Context, private val streamClient:
     val current: ExoPlayer? get() = player
     var request: PlaybackRequest? = null; private set
 
-    fun open(req: PlaybackRequest): ExoPlayer {
+    /** Préférences de pistes et de qualité appliquées avant la préparation. */
+    data class TrackPrefs(val audioLanguages: List<String>, val subtitlesFr: Boolean, val maxQuality: Int, val forceHighest: Boolean)
+
+    fun open(req: PlaybackRequest, prefs: TrackPrefs? = null): ExoPlayer {
         release()
         val dataSource = OkHttpDataSource.Factory(streamClient).setUserAgent("ADITV/${BuildConfig.VERSION_NAME}")
         val p = ExoPlayer.Builder(context)
@@ -46,6 +49,18 @@ class PlaybackController(private val context: Context, private val streamClient:
         val item = MediaItem.Builder().setUri(req.url).apply {
             mimeTypeFor(req.url)?.let { setMimeType(it) }
             if (req.isLive) setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        }.build()
+        if (prefs != null) p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().apply {
+            setPreferredAudioLanguages(*prefs.audioLanguages.toTypedArray())
+            if (prefs.subtitlesFr) setPreferredTextLanguages("fr") // VOSTFR : sous-titres français si le flux en contient
+            when (prefs.maxQuality) {
+                3 -> setMaxVideoSize(1920, 1080)
+                2 -> setMaxVideoSize(1280, 720)
+                1 -> setMaxVideoSize(854, 576)
+                else -> clearVideoSizeConstraints()
+            }
+            // Flux multi-débits : débit le plus élevé supporté plutôt qu'adaptation au réseau (réglable).
+            setForceHighestSupportedBitrate(prefs.forceHighest)
         }.build()
         if (req.startPositionMs != null && !req.isLive) p.setMediaItem(item, req.startPositionMs) else p.setMediaItem(item)
         p.prepare()

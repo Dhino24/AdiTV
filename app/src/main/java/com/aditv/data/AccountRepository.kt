@@ -115,6 +115,7 @@ class AccountRepository(
             db.catalog().deleteItems(id); db.catalog().deleteCategories(id); db.catalog().deleteSyncStates(id)
             db.library().deleteEpisodes(id); db.library().deleteProgress(id); db.library().deleteWatchlist(id)
             db.metadata().deleteMatches(id)
+            db.live().clearAccount(id)
             db.accounts().get(id)?.secretRef?.let(secrets::remove)
             db.accounts().delete(id)
         }

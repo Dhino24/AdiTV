@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Before
+import org.junit.Assert.assertEquals
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -62,6 +63,13 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
             rule.onAllNodesWithText("Ma liste").fetchSemanticsNodes().isEmpty()
         }
     } catch (e: Throwable) { shot("echec_menu_ouvert"); throw AssertionError("Menu resté ouvert. Focus : " + focusedDump(), e) }
+
+    /** Touche Retour de la télécommande : passe par le gestionnaire Retour de l'activité, comme sur l'appareil. */
+    private fun back() {
+        rule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(300))
+        rule.waitForIdle()
+    }
 
     private fun key(k: Key, times: Int = 1) = repeat(times) {
         rule.onRoot().performKeyInput { pressKey(k) }
@@ -149,9 +157,13 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         key(Key.DirectionCenter)
         waitText("✓ Dans ma liste")
 
-        // Retour : revient à la grille Films.
-        key(Key.Back)
-        waitText("Thrillers")
+        // Retour système : la fiche se ferme, retour à la grille Films.
+        back()
+        rule.waitUntil(5_000) {
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
+            rule.onAllNodesWithText("fournisseur : «", substring = true).fetchSemanticsNodes().isEmpty()
+        }
+        waitText("Comédies")
 
         // ← depuis la grille : catégories, puis menu (sur Films, rubrique active).
         key(Key.DirectionLeft, 2)
@@ -164,14 +176,47 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         shot("06_ma_liste")
         key(Key.DirectionLeft)
         assertFocused("Ma liste")
+
+        // Direct : une seule carte par chaîne, la meilleure version (« Sport Plus » SD / FHD / 4K → 4K).
+        key(Key.DirectionUp, 4)
+        assertFocused("Direct")
+        key(Key.DirectionCenter)
+        waitText("Information")
+        waitText("Info 24 (démo)")
+        assertEquals("variantes regroupées", 1, rule.onAllNodesWithText("Info 24 (démo)", substring = true).fetchSemanticsNodes().size)
+        waitText("2 versions")
+        shot("07_direct")
+
+        // Guide TV : programmes fictifs de la démo, panneau de détail, Retour.
+        key(Key.DirectionLeft, 2)
+        assertFocused("Direct")
         key(Key.DirectionDown)
+        assertFocused("Guide TV")
+        key(Key.DirectionCenter)
+        waitText("fictif n°")
+        waitText("Couverture")
+        waitMenuClosed()
+        shot("08_guide")
+        key(Key.DirectionCenter)
+        waitText("Fiche de la chaîne")
+        shot("09_programme")
+        back()
+        rule.waitUntil(5_000) {
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
+            rule.onAllNodesWithText("Fiche de la chaîne").fetchSemanticsNodes().isEmpty()
+        }
+
+        // Vers les paramètres : ← (chaîne) ← (menu sur Guide TV) puis ↓ ×4.
+        key(Key.DirectionLeft, 2)
+        assertFocused("Guide TV")
+        key(Key.DirectionDown, 4)
         assertFocused("Paramètres")
         key(Key.DirectionCenter)
         waitText("Compte fournisseur")
         // Le focus est entré dans le contenu : le menu est replié.
         waitMenuClosed()
         waitText("éléments")
-        shot("07_parametres")
+        shot("10_parametres")
     }
 }
 

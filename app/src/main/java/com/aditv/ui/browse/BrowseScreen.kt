@@ -54,6 +54,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.combine
+import com.aditv.data.variants.collapsed
+import com.aditv.data.variants.variantBadge
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 
@@ -61,15 +64,27 @@ import kotlinx.coroutines.flow.stateIn
 class BrowseViewModel(c: AppContainer, private val accountId: String, private val type: MediaType) : ViewModel() {
     private val dao = c.db.catalog()
     val categories: StateFlow<List<CategoryEntity>?> =
-        dao.categories(accountId, type.name).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        (if (type != MediaType.LIVE) dao.categories(accountId, type.name)
+        else dao.categories(accountId, type.name).combine(c.db.live().favoriteIds(accountId)) { cats, favs ->
+            // « ★ Favoris » en tête du Direct dès qu'une chaîne est favorite.
+            if (favs.isEmpty()) cats
+            else listOf(CategoryEntity(FAVORITES, accountId, type.name, FAVORITES, "★ Favoris", -1, true, 0)) + cats
+        }).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val selected = MutableStateFlow<String?>(null)
-    val cards: StateFlow<List<CatalogCard>> = selected
-        .flatMapLatest { id -> if (id == null) flowOf(emptyList()) else dao.cardsInCategory(accountId, type.name, id) }
+    /** Une carte par contenu : la meilleure version selon la langue et la qualité préférées. */
+    val cards: StateFlow<List<Pair<CatalogCard, Int>>> = selected
+        .flatMapLatest { id ->
+            if (id == FAVORITES) c.db.live().favorites(accountId)
+            else if (id == null) flowOf(emptyList()) else dao.cardsInCategory(accountId, type.name, id)
+        }
+        .combine(c.prefs.variantPrefs) { list, prefs -> list.collapsed(prefs) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    companion object { const val FAVORITES = "★favoris" }
 }
 
 @Composable
-fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, onPlayLive: (String) -> Unit) {
+fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, onPlayLive: (id: String, list: String?) -> Unit) {
     val c = LocalContainer.current
     val vm: BrowseViewModel = viewModel(key = "browse-$accountId-$type") { BrowseViewModel(c, accountId, type) }
     val categories by vm.categories.collectAsStateWithLifecycle()
@@ -97,7 +112,7 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
             Text(title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
             if (type == MediaType.LIVE) {
                 Spacer(Modifier.width(16.dp))
-                Text("OK : regarder · Guide et favoris : phase 3", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 12.dp))
+                Text("OK : regarder · ★ dans le lecteur pour ajouter aux favoris · meilleure version selon vos préférences", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 12.dp))
             }
         }
         when {
@@ -135,6 +150,7 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
                     if (cards.isEmpty() && selected != null) {
                         Text("Catégorie vide.", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(24.dp))
                     }
+                    val nowPlaying = if (type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(accountId, cards.map { it.first }) else emptyMap()
                     LazyVerticalGrid(
                         columns = if (type == MediaType.LIVE) GridCells.Adaptive(190.dp) else GridCells.Adaptive(146.dp),
                         modifier = Modifier.fillMaxSize().focusRestorer(),
@@ -142,9 +158,11 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
-                        items(cards, key = { it.id }) { card ->
-                            if (type == MediaType.LIVE) ChannelCard(card.title, card.imageUrl, null, { onPlayLive(card.id) })
-                            else PosterCard(card.title, card.displayImage(), card.year?.toString(), { onOpen(card.id) })
+                        items(cards, key = { it.first.id }) { (card, versions) ->
+                            val badge = variantBadge(card.lang, card.quality)
+                            val extra = if (versions > 1) "$versions versions" else null
+                            if (type == MediaType.LIVE) ChannelCard(card.title, card.imageUrl, listOfNotNull(nowPlaying[card.id], badge, extra).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, selected) })
+                            else PosterCard(card.title, card.displayImage(), listOfNotNull(card.year?.toString(), badge, extra).joinToString(" · ").ifEmpty { null }, { onOpen(card.id) })
                         }
                     }
                 }
