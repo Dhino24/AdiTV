@@ -1,0 +1,45 @@
+{
+  "demo": true,
+  "provider": {
+    "url": "https://provider.example",
+    "username": "A_RENSEIGNER_LOCALEMENT",
+    "password": "NE_PAS_ENREGISTRER_DANS_CE_FICHIER"
+  },
+  "items": [
+    {
+      "id": "demo-film-1",
+      "type": "movie",
+      "title": "Les Ombres de Dakar",
+      "year": 2026,
+      "tmdb_id": null,
+      "metadata_status": "fictional_demo",
+      "playback_url": null
+    },
+    {
+      "id": "demo-series-1",
+      "type": "series",
+      "title": "Les Fils du Sable",
+      "tmdb_id": null,
+      "seasons": [
+        {
+          "number": 1,
+          "episodes": [
+            {
+              "number": 1,
+              "title": "Le retour",
+              "playback_url": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "id": "demo-channel-1",
+      "name": "ADITV Démo",
+      "epg_id": "aditv.demo",
+      "playback_url": null
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="ADITV demonstration uniquement">
+  <channel id="aditv.demo"><display-name>ADITV Démo</display-name></channel>
+  <programme channel="aditv.demo" start="20261119200000 +0100" stop="20261119210000 +0100">
+    <title lang="fr">Programme fictif</title><desc lang="fr">Exemple technique XMLTV sans diffusion réelle.</desc><category lang="fr">Démonstration</category>
+  </programme>
+</tv>

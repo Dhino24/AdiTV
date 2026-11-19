@@ -1,0 +1,12 @@
+# Confidentialité et compatibilité
+- Accès personnels uniquement. Aucune clé ou URL réelle dans ce ZIP, les exemples, le dépôt ou les captures.
+- Chiffrement des identifiants avec clé protégée par Android Keystore ; ne pas stocker le mot de passe dans DataStore en clair. Prévoir invalidation de clé et reconnexion. Ne pas promettre l’inviolabilité d’un client.
+- HTTPS privilégié. Si un fournisseur impose HTTP, informer concrètement avant connexion : identifiants et flux peuvent transiter en clair ; choix utilisateur explicite et politique réseau restreinte, pas une autorisation globale silencieuse.
+- Ne pas désactiver la validation TLS pour « réparer » une connexion. Valider URL et redirections ; ne pas transmettre Authorization ou paramètres sensibles à un autre hôte sans règles explicites de flux fournisseur. Aucun endpoint tiers de télémétrie par défaut.
+- Logs HTTP nettoyés aussi pour query parameters, chemins et exceptions contenant user/password. Rapport diagnostic aperçu avant partage, sans secrets et sans historique complet par défaut.
+- Sauvegardes Android : exclure secrets et liens sensibles. Export volontaire préférences/favoris sans credentials ; procédure de restauration et reconnexion.
+- Accès et clés TMDB configurables localement ; aucun secret collectif considéré protégé parce qu’il est dans l’APK.
+- Catégories adultes cachées par défaut jusqu’au choix utilisateur, accès par PIN pour profils enfants ; ne pas se fier à TMDB pour classifier tout le direct. PIN avec hash salé et ralentissement d’essais, stockage séparé. Une protection locale limite l’accès UI, ce n’est pas un DRM.
+- Fire OS et génération à identifier ; vérifier pas de Google Play requis, ABI des bibliothèques natives, taille APK, licence LibVLC et dépendances effectives.
+- Sous-titres, HDR, Dolby, framerate et passthrough testés par capacité réelle. Ne pas forcer le passthrough ou un décodeur logiciel coûteux par défaut.
+- Application perso sans compte ADITV supplémentaire. Aucune publication, souscription payante ou backend cloud sans décision explicite.

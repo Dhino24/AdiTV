@@ -1,0 +1,132 @@
+{
+  "project": "ADITV",
+  "version": "1.0",
+  "date": "2026-11-19",
+  "files": [
+    {
+      "path": "00_LIRE_EN_PREMIER.md",
+      "bytes": 3049,
+      "sha256": "34a401d8de50d44ce2f0259117771b94b0cb066bb24c8af8b9e8042991e59838"
+    },
+    {
+      "path": "01_Produit/01_CAHIER_DES_CHARGES.md",
+      "bytes": 2496,
+      "sha256": "2c2ff2a8744f4f3e5dc1c03c412bff774cd20657a48543f524b849a22ca453d5"
+    },
+    {
+      "path": "01_Produit/02_BACKLOG_ET_PHASES.md",
+      "bytes": 1702,
+      "sha256": "810b8ad7d843b70f550bd67cbbb8d8fc6c8301f495f9480df052bcaed2a1c6b6"
+    },
+    {
+      "path": "02_Design/01_CHARTE_ET_MOUVEMENT.md",
+      "bytes": 2613,
+      "sha256": "638c24a848e9d83feb14f61b1c8c54c256c5264313fbe3b84eca330f8ed5368a"
+    },
+    {
+      "path": "02_Design/02_ECRANS_ET_TELECOMMANDE.md",
+      "bytes": 2640,
+      "sha256": "dd0cf97e505d8f35988d9b45bf4d82471c04596b2725fb39526c5caf5e4be6e3"
+    },
+    {
+      "path": "02_Design/03_INTRO_ET_SON.md",
+      "bytes": 1804,
+      "sha256": "fcb536dbca4d449029d3c11a834255fa9d4b0c7af81520bb5ba8da219a4c4e43"
+    },
+    {
+      "path": "03_Technique/01_ARCHITECTURE_ET_DONNEES.md",
+      "bytes": 3160,
+      "sha256": "2486449e35d5f09918aa795727812685dcf0af592bcecf00db3321f5b2f560c1"
+    },
+    {
+      "path": "03_Technique/02_TMDB.md",
+      "bytes": 2449,
+      "sha256": "ebb3877cb93baa1cfc446c92f1125870a81d72cce041d847206f9625caec5a10"
+    },
+    {
+      "path": "03_Technique/03_EPG.md",
+      "bytes": 2528,
+      "sha256": "cf1a86a5d11274e8c06073046f95cb1cea5fccd6a9f85abf01f733e7154764d8"
+    },
+    {
+      "path": "03_Technique/04_LECTEURS_STATS_TURBO.md",
+      "bytes": 4317,
+      "sha256": "109a0855bb6b4d2e7f59b6855d343917c7a84f2f3208754d75b2273e3f075338"
+    },
+    {
+      "path": "03_Technique/05_CONFIDENTIALITE_ET_COMPATIBILITE.md",
+      "bytes": 2150,
+      "sha256": "25ff8a0b8df6a11b536cc7e8499e8484ed9f9229d66c78bbe06c7b24e3c70439"
+    },
+    {
+      "path": "04_Validation/01_RECETTE_ET_LIVRAISON.md",
+      "bytes": 2538,
+      "sha256": "4b27e197eb73aea09fd6db2f922301adfc17380d9d5594523cdb0815484ea4bc"
+    },
+    {
+      "path": "04_Validation/02_SOURCES_ET_DECISIONS.md",
+      "bytes": 2154,
+      "sha256": "1f4290b80af0c2ec184cc5486e02207c749ffcac73c0d9b12b48d4406b5cc0bc"
+    },
+    {
+      "path": "04_Validation/MATRICE_EXIGENCES.csv",
+      "bytes": 1976,
+      "sha256": "ace8da2cc6b7d7ac11e4059a28c804b13f99204b1f227ea95b161eb4ea24467b"
+    },
+    {
+      "path": "05_Assets/ADITV_accueil_reference.png",
+      "bytes": 2053241,
+      "sha256": "ba81c2c3c99c3b2a26cbd7aeb8e9d1af9107763dded720eb48ca906ed6f0cdc6"
+    },
+    {
+      "path": "05_Assets/ADITV_logo_valide.png",
+      "bytes": 1151016,
+      "sha256": "128a4af5a3691b2730c85b481016b5835b6b5bd98b7cc1d6ff7b807adade3083"
+    },
+    {
+      "path": "05_Assets/ADITV_signature_sonore_concept.wav",
+      "bytes": 460844,
+      "sha256": "811ed81ccb4119a1a1c956d3402efdc83af59ad7d5ec1540e94770943a5768ec"
+    },
+    {
+      "path": "05_Assets/README_ASSETS.md",
+      "bytes": 761,
+      "sha256": "bc69d4b6a5efd81322a321f1cefc057435906faeab948f5ffaf246eb8677a602"
+    },
+    {
+      "path": "06_Apercu/README.md",
+      "bytes": 594,
+      "sha256": "a335a138e0103658a7b22d94ccfe9fb9b144742b27b5bff6bc24cc8a80e134c8"
+    },
+    {
+      "path": "06_Apercu/index.html",
+      "bytes": 5427,
+      "sha256": "1e0a2897836d9a009b841ab22cac959e33f69b056e8139127be0a641003f5d20"
+    },
+    {
+      "path": "07_Donnees_demo/README.md",
+      "bytes": 404,
+      "sha256": "d8ed464316e98ef29046d21435be27be28ee03d60a15dd735f63afc835568a1e"
+    },
+    {
+      "path": "07_Donnees_demo/catalogue_fictif.json",
+      "bytes": 912,
+      "sha256": "5bbfb87fc41f7278317bc8dbd9b693594f9f8bbb5bb1bede15c519f399e22121"
+    },
+    {
+      "path": "07_Donnees_demo/epg_fictif.xml",
+      "bytes": 449,
+      "sha256": "1cac644c6a8983e0f0d8f81e4aad8c96f18c7822f9d40ff56e3ae2a41ce7d126"
+    },
+    {
+      "path": "99_AJOUTS_PROPOSES.md",
+      "bytes": 4164,
+      "sha256": "d8af058b7b5634241a7407537d148774879a9cb63c12f65a1b12fe30183a51ed"
+    },
+    {
+      "path": "PROMPT_MAITRE_CLAUDE.md",
+      "bytes": 6791,
+      "sha256": "5611a42eb6c648b000e29125dd9db268e5b6a4764b088091aab7ec501d05900d"
+    }
+  ]
+}

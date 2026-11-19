@@ -1,0 +1,19 @@
+﻿ID;Exigence;Priorite;Verification;Statut
+AUTH;URL et accès fournisseur;P0;Compte de test et erreurs accès;À développer / non testé sur appareil
+CAT;Catalogue incrémental/cache;P0;Réseau lent et grand catalogue;À développer / non testé sur appareil
+TVUI;Navigation télécommande;P0;Parcours sans souris et restauration focus;À développer / non testé sur appareil
+TMDB;Matching enrichissement;P0;Homonymes remakes correction et panne;À développer / non testé sur appareil
+EPG;Couverture et grille;P0;Sources réelles UTC DST mapping et trous;À développer / non testé sur appareil
+PLAY;Lecture Media3;P0;Film épisode et direct sur appareil;À développer / non testé sur appareil
+VLC;LibVLC et bascule;P1;Formats comparés et une seule session;À développer / non testé sur appareil
+PROG;Progression et reprise;P0;Pause kill relance changement moteur;À développer / non testé sur appareil
+STATS;Mesures honnêtes;P1;Définitions et N/D par moteur;À développer / non testé sur appareil
+TURBO;Stabilité et limites;P1;Comparaison normal Turbo et mémoire;À développer / non testé sur appareil
+UHD;Vidéo 4K et résolution UI;P1;Modèle OS HDMI et décodage réels;À développer / non testé sur appareil
+PERF;Fluidité;P1;Profilage sur Stick et grands catalogues;À développer / non testé sur appareil
+INTRO;Ouverture et son;P1;Froid veille muet et désactivation;À développer / non testé sur appareil
+SEC;Secrets et réseau;P0;Logs backup TLS clés et export;À développer / non testé sur appareil
+PIN;Protection catégories;P1;Accès local et PIN;À développer / non testé sur appareil
+A11Y;Lisibilité et animation réduite;P1;Canapé contraste et sous-titres;À développer / non testé sur appareil
+LIFE;Cycle de vie;P0;Veille réseau et session libérée;À développer / non testé sur appareil
+BUILD;APK et documentation;P0;Compilation et installation reproductibles;À développer / non testé sur appareil
