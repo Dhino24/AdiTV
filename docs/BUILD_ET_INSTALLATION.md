@@ -12,21 +12,21 @@
 ./gradlew testDebugUnitTest      # tests unitaires + parcours UI Robolectric (captures dans design/captures-app/)
 sha256sum app/build/outputs/apk/debug/app-debug.apk
 ```
-L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.1.0-debug` : il peut cohabiter avec un futur build release.
+L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.1.1-debug` : il peut cohabiter avec un futur build release.
 
 ## Installer sur la Fire TV Stick (une seule fois : activer le débogage)
-1. Fire TV : **Paramètres → Mon Fire TV → À propos**, sélectionner 7 fois le nom de l'appareil pour afficher les *Options pour les développeurs* (inutile sur les anciens Fire OS où le menu est déjà visible).
+1. Sur la Stick 4K 1re génération (Fire OS 6), le menu **Options pour les développeurs** est déjà visible dans **Paramètres → Mon Fire TV**. (Sur les Fire OS plus récents : **À propos**, sélectionner 7 fois le nom de l'appareil.)
 2. **Paramètres → Mon Fire TV → Options pour les développeurs** : activer **Débogage ADB**.
 3. Noter l'adresse IP : **Paramètres → Mon Fire TV → À propos → Réseau**.
 4. Depuis l'ordinateur, sur le même réseau :
    ```bash
    adb connect <IP-de-la-stick>:5555     # accepter l'autorisation affichée sur la TV
-   adb install -r ADITV-0.1.0-debug.apk
+   adb install -r ADITV-0.1.1-debug.apk
    ```
 5. ADITV apparaît dans **Vos applis et chaînes** (bannière ADITV). Après usage, le débogage ADB peut être désactivé.
 
 Mise à jour : `adb install -r` sur un APK signé avec la **même clé** conserve les données (compte, catalogue). La clé debug est propre à chaque machine de développement : si la clé change, désinstaller d'abord (`adb uninstall com.aditv.app.debug`) — compte et catalogue local sont alors effacés.
 
 ## À relever sur la Stick (pour la phase 2)
-- Modèle et version Fire OS (**À propos**).
+- Espace libre (**Stockage**) : l'appareil cible n'a qu'environ 1 Go disponible.
 - Si la connexion au fournisseur échoue : le message affiché à l'écran (il ne contient jamais vos accès).

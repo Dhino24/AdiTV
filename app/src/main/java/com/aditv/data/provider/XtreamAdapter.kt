@@ -160,7 +160,7 @@ class XtreamAdapter(
             val b = input.read()
             if (b == -1) return null
             val c = b.toChar()
-            if (c == '﻿' || c.isWhitespace() || b == 0xEF || b == 0xBB || b == 0xBF) continue
+            if (c.isWhitespace() || b == 0xEF || b == 0xBB || b == 0xBF) continue
             input.reset()
             return c
         }

@@ -13,12 +13,14 @@ android {
 
     defaultConfig {
         applicationId = "com.aditv.app"
-        // Fire OS 6 (Android 7.1, API 25) = plus ancienne Stick 4K sous Android. À confirmer avec le modèle réel.
+        // Appareil cible confirmé : Fire TV Stick 4K (1re génération), Fire OS 6.7.1.1 = Android 7.1 (API 25).
         minSdk = 25
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Fire OS 6 exécute un espace utilisateur 32 bits : seules les bibliothèques ARMv7 sont embarquées.
+        ndk { abiFilters += listOf("armeabi-v7a") }
     }
 
     buildTypes {
@@ -38,6 +40,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // java.time & co. n'existent qu'à partir d'Android 8 : désucrage obligatoire pour Fire OS 6.
+        isCoreLibraryDesugaringEnabled = true
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
@@ -46,6 +50,11 @@ android {
             it.systemProperty("aditv.screens", rootProject.file("design/captures-app").absolutePath)
             it.maxHeapSize = "3g"
         }
+    }
+    lint {
+        // Les appels d'API trop récents pour Fire OS 6 bloquent le build.
+        error += listOf("NewApi", "InlinedApi")
+        abortOnError = true
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -61,6 +70,7 @@ ksp {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

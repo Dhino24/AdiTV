@@ -1,6 +1,6 @@
 package com.aditv.ui.shell
 
-import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import android.net.Uri
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -44,7 +44,6 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -191,7 +190,7 @@ private fun Entry(entries: Map<String, FocusRequester>, route: String, content: 
 /** À la racine, Retour ne ferme l'application qu'après un second appui (2 s). */
 @Composable
 private fun ExitOnDoubleBack(enabled: Boolean) {
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     var armed by remember { mutableStateOf(false) }
     BackHandler(enabled) { if (armed) activity?.finish() else armed = true }
     LaunchedEffect(armed) { if (armed) { delay(2_000); armed = false } }

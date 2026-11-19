@@ -19,8 +19,8 @@ Source de référence : `docs/dossier/` (dossier v1.0 du 19/11/2026). Ce documen
 ## 2. Inconnues — seules celles qui bloquent
 | Inconnue | Bloque | Comment la lever |
 |---|---|---|
-| **SDK Android non téléchargeable dans cet environnement cloud** (`dl.google.com` refusé ; Maven Google accessible) | Compilation de l'APK (phase 1) | Autoriser `dl.google.com` dans l'environnement, ou compiler sur ton PC (Android Studio). |
-| Génération exacte de la Stick + version Fire OS | `minSdk`, choix LibVLC (ABI), décodeurs | Paramètres → Mon Fire TV → À propos (nom du modèle + version Fire OS). |
+| ~~SDK Android non téléchargeable dans l'environnement cloud~~ | — | ✅ `dl.google.com` autorisé. |
+| ~~Génération exacte de la Stick + version Fire OS~~ | — | ✅ Fire TV Stick 4K (1re génération), Fire OS 6.7.1.1 (Android 7.1, API 25). |
 | API du fournisseur réellement compatible Xtream ? | Adaptateur réel (phase 1) | Test de connexion sur ta Stick avec tes accès, saisis **dans l'app**, jamais dans le chat. |
 | Clé/jeton TMDB | Enrichissement (phase 2) | Compte TMDB gratuit personnel, saisi dans Paramètres. |
 

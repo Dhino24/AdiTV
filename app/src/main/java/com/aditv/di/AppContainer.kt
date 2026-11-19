@@ -20,6 +20,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 
+/**
+ * Cache d'images : 5 % de l'espace libre, entre 16 et 64 Mo.
+ * La Stick 4K 1re génération n'a que ~5 Go utilisables, souvent presque pleins.
+ */
+internal fun imageCacheBytes(context: Context): Long {
+    val free = runCatching { android.os.StatFs(context.cacheDir.path).availableBytes }.getOrDefault(0L)
+    return (free / 20).coerceIn(16L * 1024 * 1024, 64L * 1024 * 1024)
+}
+
 /** Injection manuelle : pas de framework DI pour un seul module. */
 class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -32,7 +41,7 @@ class AppContainer(context: Context) {
     val imageLoader: ImageLoader = ImageLoader.Builder(context)
         .components { add(OkHttpNetworkFetcherFactory(callFactory = { http.images })) }
         .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.15).build() }
-        .diskCache { DiskCache.Builder().directory(context.cacheDir.resolve("images").toOkioPath()).maxSizeBytes(150L * 1024 * 1024).build() }
+        .diskCache { DiskCache.Builder().directory(context.cacheDir.resolve("images").toOkioPath()).maxSizeBytes(imageCacheBytes(context)).build() }
         .crossfade(false)
         .build()
 

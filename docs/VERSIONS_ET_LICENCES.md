@@ -13,8 +13,9 @@ Versions figées dans `gradle/libs.versions.toml`. Aucune dépendance Google Pla
 | kotlinx.coroutines / kotlinx.serialization | 1.11.0 / 1.13.0 | Apache 2.0 |
 | OkHttp | 5.5.1 | Apache 2.0 |
 | Coil 3 | 3.6.3 | Apache 2.0 |
+| Désucrage des API Java (java.time sur Android 7.1) | desugar_jdk_libs 2.1.5 | GPL 2 + exception de liaison (Classpath) |
 | Tests : JUnit 4, MockWebServer, Robolectric | 4.13.2 / 5.5.1 / 4.18.1 | EPL 1.0 / Apache 2.0 / MIT |
 
-SDK : `compileSdk` 37.2, `targetSdk` 34, `minSdk` 25 (Fire OS 6 = plus ancienne Stick 4K sous Android). À ajuster une fois le modèle connu.
+SDK : `compileSdk` 37.2, `targetSdk` 34, `minSdk` 25 = Fire OS 6.7.1.1 de la Stick 4K 1re génération (confirmé). ABI embarquée : `armeabi-v7a` uniquement. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
 Prévu plus tard : Media3 (Apache 2.0, phase 2) ; LibVLC (LGPL 2.1+, phase 4 — obligations de la LGPL à respecter si l'APK est un jour distribué).

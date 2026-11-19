@@ -36,16 +36,14 @@ import org.robolectric.annotation.GraphicsMode
  * Ne remplace pas la validation sur Fire TV (performances, télécommande physique, IME Amazon).
  */
 @OptIn(ExperimentalTestApi::class)
-@RunWith(AndroidJUnit4::class)
-@Config(sdk = [35], qualifiers = "w960dp-h540dp-land-xhdpi")
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
-class UiFlowTest {
+abstract class UiFlowBase(private val screenshots: Boolean) {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
     private val outDir = File(System.getProperty("aditv.screens", "build/screens")).apply { mkdirs() }
 
     private fun shot(name: String) {
         rule.waitForIdle()
+        if (!screenshots) return
         val bmp = rule.onRoot().captureToImage().asAndroidBitmap()
         File(outDir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
@@ -155,3 +153,14 @@ class UiFlowTest {
         shot("06_parametres")
     }
 }
+
+/** Android 15 avec rendu natif : génère les captures de design/captures-app/. */
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [35], qualifiers = "w960dp-h540dp-land-xhdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class UiFlowTest : UiFlowBase(screenshots = true)
+
+/** Android 7.1 (API 25) = Fire OS 6 de la Fire TV Stick 4K 1re génération. Même parcours, sans capture. */
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [25], qualifiers = "w960dp-h540dp-land-xhdpi")
+class UiFlowFireOs6Test : UiFlowBase(screenshots = false)
