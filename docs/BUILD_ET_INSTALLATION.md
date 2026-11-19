@@ -17,10 +17,11 @@ L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.1.1-debug` : il 
 ## Installer sur la Fire TV Stick (une seule fois : activer le débogage)
 1. Sur la Stick 4K 1re génération (Fire OS 6), le menu **Options pour les développeurs** est déjà visible dans **Paramètres → Mon Fire TV**. (Sur les Fire OS plus récents : **À propos**, sélectionner 7 fois le nom de l'appareil.)
 2. **Paramètres → Mon Fire TV → Options pour les développeurs** : activer **Débogage ADB**.
-3. Noter l'adresse IP : **Paramètres → Mon Fire TV → À propos → Réseau**.
+3. Noter l'adresse IP **de la Stick** : **Paramètres → Mon Fire TV → À propos → Réseau** (ce n'est pas l'adresse de la box, souvent 192.168.1.1).
+   Sous Windows, `adb` vient des *SDK Platform Tools* de Google : décompresser l'archive, puis lancer les commandes depuis ce dossier (`.\adb.exe ...` dans PowerShell).
 4. Depuis l'ordinateur, sur le même réseau :
    ```bash
-   adb connect <IP-de-la-stick>:5555     # accepter l'autorisation affichée sur la TV
+   adb connect 192.168.1.42:5555     # remplacer 192.168.1.42 par l'IP de la Stick, sans < > ; accepter l'autorisation sur la TV
    adb install -r ADITV-0.1.1-debug.apk
    ```
 5. ADITV apparaît dans **Vos applis et chaînes** (bannière ADITV). Après usage, le débogage ADB peut être désactivé.
