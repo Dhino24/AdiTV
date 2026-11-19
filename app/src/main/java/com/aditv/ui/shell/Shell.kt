@@ -37,6 +37,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -63,7 +64,6 @@ import com.aditv.data.Session
 import com.aditv.data.provider.MediaType
 import com.aditv.ui.browse.BrowseScreen
 import com.aditv.ui.common.NotYetAvailable
-import com.aditv.ui.detail.ItemScreen
 import com.aditv.ui.home.HomeScreen
 import com.aditv.ui.search.SearchScreen
 import com.aditv.ui.settings.SettingsScreen
@@ -93,6 +93,7 @@ fun Shell(session: Session.Active) {
     val requesters = remember { destinations.associate { it.route to FocusRequester() } }
     val contentRequester = remember { FocusRequester() }
     val entries = remember { destinations.associate { it.route to FocusRequester() } }
+    var drawerHasFocus by remember { mutableStateOf(false) }
     val accountId = session.account.id
 
     val scope = rememberCoroutineScope()
@@ -103,26 +104,35 @@ fun Shell(session: Session.Active) {
             restoreState = true
         }
         // OK sur une rubrique : le focus entre dans le contenu une fois l'écran composé.
+        // Le composant de menu peut reprendre le focus juste après : on vérifie qu'il l'a bien quitté.
         scope.launch {
-            repeat(30) {
+            var stable = 0
+            // ~2 s au plus ; succès après ~0,4 s sans reprise (au-delà de la transition de 180 ms).
+            repeat(120) {
                 withFrameNanos { }
-                if (runCatching { entries.getValue(route).requestFocus() }.getOrDefault(false)) return@launch
+                if (drawerHasFocus) { stable = 0; runCatching { entries.getValue(route).requestFocus() } }
+                else if (++stable >= 24) return@launch
             }
         }
     }
 
     ExitOnDoubleBack(enabled = currentRoute == "home")
+    // Le lecteur occupe tout l'écran : pas de menu latéral.
+    val fullScreen = currentRoute?.startsWith("play/") == true
+    val openItem: (String) -> Unit = { nav.navigate("item/" + Uri.encode(it)) }
+    val play: (String, Boolean) -> Unit = { id, fromStart -> nav.navigate("play/" + Uri.encode(id) + "?start=" + fromStart) }
 
     ModalNavigationDrawer(
         scrimBrush = Brush.horizontalGradient(listOf(Aditv.Bg.copy(alpha = 0.92f), Color.Transparent)),
         drawerContent = { value ->
-            Column(
+            if (!fullScreen) Column(
                 Modifier
                     .fillMaxHeight()
                     .background(Brush.horizontalGradient(listOf(Aditv.Bg, Aditv.Bg.copy(alpha = 0.6f))))
                     .padding(horizontal = 12.dp, vertical = 20.dp)
                     // Le menu retient sa sélection : y entrer ramène sur la rubrique active.
                     .focusProperties { onEnter = { requesters[selected]?.requestFocus() } }
+                    .onFocusChanged { drawerHasFocus = it.hasFocus }
                     .focusGroup(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -158,26 +168,39 @@ fun Shell(session: Session.Active) {
             }
         },
     ) {
-        Box(Modifier.fillMaxSize().background(Aditv.Bg).padding(start = 72.dp).focusRequester(contentRequester).focusRestorer()) {
+        Box(Modifier.fillMaxSize().background(Aditv.Bg).padding(start = if (fullScreen) 0.dp else 72.dp).focusRequester(contentRequester).focusRestorer()) {
             // Transitions courtes (cible 120–300 ms) : opacité seulement, pas de recalcul de mise en page.
             NavHost(
                 nav, startDestination = "home",
                 enterTransition = { fadeIn(tween(180)) }, exitTransition = { fadeOut(tween(120)) },
                 popEnterTransition = { fadeIn(tween(180)) }, popExitTransition = { fadeOut(tween(120)) },
             ) {
-                composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = { nav.navigate("item/" + Uri.encode(it)) }) } }
-                composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = { nav.navigate("item/" + Uri.encode(it)) }) } }
-                composable("live") { Entry(entries, "live") { BrowseScreen(accountId, MediaType.LIVE, onOpen = { nav.navigate("item/" + Uri.encode(it)) }) } }
-                composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = { nav.navigate("item/" + Uri.encode(it)) }) } }
-                composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = { nav.navigate("item/" + Uri.encode(it)) }) } }
+                composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play) } }
+                composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { play(it, false) }) } }
+                composable("live") { Entry(entries, "live") { BrowseScreen(accountId, MediaType.LIVE, onOpen = openItem, onPlayLive = { play(it, false) }) } }
+                composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onPlayLive = { play(it, false) }) } }
+                composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onPlayLive = { play(it, false) }) } }
                 composable("guide") {
                     NotYetAvailable("Guide TV", "phase 3", "Grille EPG alimentée par l'API du fournisseur ou vos sources XMLTV, couverture affichée chaîne par chaîne. Aucun programme ne sera inventé.")
                 }
-                composable("mylist") {
-                    NotYetAvailable("Ma liste", "phase 2", "Films et séries suivis, séparés des chaînes favorites et de l'historique de lecture.")
-                }
+                composable("mylist") { Entry(entries, "mylist") { com.aditv.ui.library.MyListScreen(accountId, onOpen = openItem) } }
                 composable("settings") { Entry(entries, "settings") { SettingsScreen(session) } }
-                composable("item/{id}") { e -> ItemScreen(Uri.decode(e.arguments?.getString("id").orEmpty())) }
+                composable("item/{id}") { e ->
+                    com.aditv.ui.detail.DetailScreen(
+                        session, Uri.decode(e.arguments?.getString("id").orEmpty()),
+                        onPlay = play, onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
+                    )
+                }
+                composable("match/{id}") { e -> com.aditv.ui.match.MatchScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
+                composable(
+                    "play/{id}?start={start}",
+                    arguments = listOf(androidx.navigation.navArgument("start") { type = androidx.navigation.NavType.BoolType; defaultValue = false }),
+                ) { e ->
+                    com.aditv.ui.player.PlayerScreen(
+                        session, Uri.decode(e.arguments?.getString("id").orEmpty()), e.arguments?.getBoolean("start") ?: false,
+                        onExit = { nav.popBackStack() },
+                    )
+                }
             }
         }
     }

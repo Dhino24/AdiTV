@@ -68,6 +68,8 @@ class CatalogSyncTest {
             failMovies?.let { onBatch(listOf(raw(movies.first()))); throw it }
             movies.chunked(batchSize).forEach { onBatch(it.map(::raw)) }
         }
+        override suspend fun seriesEpisodes(seriesProviderId: String) = emptyList<com.aditv.data.provider.RawEpisode>()
+        override fun streamUrl(target: com.aditv.data.provider.StreamTarget): String? = null
         private fun raw(id: String) = RawItem(id, MediaType.MOVIE, "FR| Titre $id", null, "c1", null, null, null, null, null, null, null, null, null, null)
     }
 
@@ -106,6 +108,8 @@ class CatalogSyncTest {
             override suspend fun authenticate() = error("unused")
             override suspend fun categories(type: MediaType): List<RawCategory> { calls++; throw ProviderError.InvalidCredentials() }
             override suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {}
+            override suspend fun seriesEpisodes(seriesProviderId: String) = emptyList<com.aditv.data.provider.RawEpisode>()
+            override fun streamUrl(target: com.aditv.data.provider.StreamTarget): String? = null
         }
         sync(dao).run("acc", adapter)
         assertEquals(1, adapter.calls)

@@ -16,8 +16,8 @@ android {
         // Appareil cible confirmé : Fire TV Stick 4K (1re génération), Fire OS 6.7.1.1 = Android 7.1 (API 25).
         minSdk = 25
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Fire OS 6 exécute un espace utilisateur 32 bits : seules les bibliothèques ARMv7 sont embarquées.
         ndk { abiFilters += listOf("armeabi-v7a") }
@@ -69,6 +69,9 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// Schémas Room exposés aux tests de migration (Robolectric lit les assets du build debug ; absents du build release).
+android.sourceSets.getByName("debug").assets.srcDir("$projectDir/schemas")
+
 dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.androidx.core.ktx)
@@ -92,11 +95,16 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.datasource.okhttp)
+    implementation(libs.media3.ui)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.robolectric)
+    testImplementation(libs.room.testing)
     testImplementation(libs.androidx.test.junit)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)

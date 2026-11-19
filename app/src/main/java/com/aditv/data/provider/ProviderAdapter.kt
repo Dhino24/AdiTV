@@ -11,4 +11,10 @@ interface ProviderAdapter {
 
     /** Diffuse les éléments par lots pour éviter de charger tout le catalogue en mémoire. */
     suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit)
+
+    /** Saisons/épisodes d'une série, chargés à la demande. */
+    suspend fun seriesEpisodes(seriesProviderId: String): List<RawEpisode>
+
+    /** URL de lecture, ou null si la source ne permet pas la lecture (démo). Contient des secrets : ne jamais la stocker ni la journaliser. */
+    fun streamUrl(target: StreamTarget): String?
 }

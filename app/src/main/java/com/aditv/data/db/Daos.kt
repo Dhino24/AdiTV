@@ -56,30 +56,42 @@ interface CatalogDao {
     fun categories(accountId: String, type: String): Flow<List<CategoryEntity>>
 
     @Query(
-        """SELECT id, type, title, year, imageUrl, genre FROM catalog_items
-           WHERE accountId = :accountId AND type = :type AND categoryId = :categoryId AND available = 1
-           ORDER BY position IS NULL, position, title"""
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.type = :type AND ci.categoryId = :categoryId AND ci.available = 1
+           ORDER BY ci.position IS NULL, ci.position, ci.title"""
     )
     fun cardsInCategory(accountId: String, type: String, categoryId: String): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT id, type, title, year, imageUrl, genre FROM catalog_items
-           WHERE accountId = :accountId AND type = :type AND available = 1 AND addedAt IS NOT NULL
-           ORDER BY addedAt DESC LIMIT :limit"""
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.type = :type AND ci.available = 1 AND ci.addedAt IS NOT NULL
+           ORDER BY ci.addedAt DESC LIMIT :limit"""
     )
     fun recentlyAdded(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT id, type, title, year, imageUrl, genre FROM catalog_items
-           WHERE accountId = :accountId AND type = :type AND available = 1
-           ORDER BY position IS NULL, position, title LIMIT :limit"""
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.type = :type AND ci.available = 1
+           ORDER BY ci.position IS NULL, ci.position, ci.title LIMIT :limit"""
     )
     fun firstItems(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT id, type, title, year, imageUrl, genre FROM catalog_items
-           WHERE accountId = :accountId AND available = 1 AND searchKey LIKE '%' || :key || '%'
-           ORDER BY (searchKey LIKE :key || '%') DESC, type, title LIMIT :limit"""
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.available = 1 AND ci.searchKey LIKE '%' || :key || '%'
+           ORDER BY (ci.searchKey LIKE :key || '%') DESC, ci.type, ci.title LIMIT :limit"""
     )
     suspend fun search(accountId: String, key: String, limit: Int): List<CatalogCard>
 

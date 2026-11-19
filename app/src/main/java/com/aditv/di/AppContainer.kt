@@ -13,6 +13,11 @@ import com.aditv.data.prefs.AppPrefs
 import com.aditv.data.sync.CatalogSync
 import com.aditv.net.HttpClients
 import com.aditv.security.SecretStore
+import com.aditv.data.library.LibraryRepository
+import com.aditv.data.tmdb.MetadataRepository
+import com.aditv.data.tmdb.TmdbClient
+import com.aditv.data.tmdb.TmdbKeyStore
+import com.aditv.playback.PlaybackController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,8 +40,13 @@ class AppContainer(context: Context) {
     val http = HttpClients()
     val db = AditvDatabase.build(context)
     val prefs = AppPrefs(context)
-    val accounts = AccountRepository(db, SecretStore(context), prefs, http)
+    val secrets = SecretStore(context)
+    val accounts = AccountRepository(db, secrets, prefs, http)
     val sync = CatalogSync(db.catalog())
+    val library = LibraryRepository(db)
+    val tmdbKey = TmdbKeyStore(secrets)
+    val metadata = MetadataRepository(db, TmdbClient(http.tmdb, { tmdbKey.get() }))
+    val playback = PlaybackController(context, http.streams)
 
     val imageLoader: ImageLoader = ImageLoader.Builder(context)
         .components { add(OkHttpNetworkFetcherFactory(callFactory = { http.images })) }
@@ -48,6 +58,13 @@ class AppContainer(context: Context) {
     fun syncNow(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
         if (!sync.isRunning) sync.run(s.account.id, s.adapter)
+        enrichInBackground()
+    }
+
+    /** Enrichissement TMDB des ajouts récents, après synchronisation, si une clé est configurée. */
+    fun enrichInBackground(): Job = appScope.launch {
+        val s = accounts.session.value as? Session.Active ?: return@launch
+        if (tmdbKey.get() != null && playback.activeSessions.value == 0) metadata.enrichRecent(s.account.id)
     }
 
     suspend fun syncIfStale(maxAgeMs: Long) {

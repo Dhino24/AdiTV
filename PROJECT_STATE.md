@@ -1,43 +1,40 @@
 # PROJECT_STATE — ADITV
 _Mis à jour : 19/11/2026_
 
-## Phase actuelle : 1 — terminée côté code (0.1.1), à valider sur la Stick
-Direction visuelle validée (phase 0). Environnement cloud : `dl.google.com` et `gcp.mirrors.maven.org` autorisés.
+## Appareil cible (confirmé)
+Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
+Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-### Appareil cible (confirmé le 19/11/2026)
-Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), espace utilisateur 32 bits (ARMv7).
-Stockage : ~1 Go libre sur 5,28 Go → cache d'images limité à 5 % de l'espace libre (16–64 Mo) ; LibVLC (phase 4) devra rester en ARMv7 seul.
-Capacités annoncées par Amazon pour ce modèle (HEVC, VP9, HDR10, HDR10+, Dolby Vision, Dolby Atmos) : **à mesurer sur l'appareil**, aucune n'est supposée acquise.
+## Phase actuelle : 2 — terminée côté code (0.2.0), lecture à valider sur la Stick
+0.1.1 installée par Adama sur la Stick (installation OK).
 
-### Correctif 0.1.1
-- 0.1.0 utilisait `java.time` (Android 8+) : **plantage probable sur Fire OS 6** à l'affichage des dates. Corrigé par le désucrage des bibliothèques Java ; le lint bloque désormais tout appel d'API postérieur à Android 7.1.
-- APK limité à ARMv7, parcours UI rejoué aussi en API 25 (Robolectric).
-
-### Livré
-- Projet Android compilable : Kotlin, Compose for TV, Room, DataStore, WorkManager, OkHttp, Coil — `docs/VERSIONS_ET_LICENCES.md`.
-- Connexion : adresse normalisée, test avant enregistrement, erreurs typées (accès refusé, compte inactif, délai, DNS, TLS, HTTP, réponse non Xtream), avertissement explicite avant tout HTTP en clair (autorisé pour cet hôte seulement), redirections vers un autre hôte refusées.
-- Secrets : mot de passe chiffré AES-GCM (clé Android Keystore), sauvegardes Android désactivées, journaux masqués (`Redactor`).
-- Catalogue : import progressif par lots (catégories puis Direct / Films / Séries), consultable pendant l'import, éléments absents marqués indisponibles (jamais supprimés), IDs locaux préfixés par le compte, actualisation ~12 h.
-- Interface TV : menu latéral (mémoire de la rubrique active, → revient à l'élément quitté), accueil (ajouts récents déclarés, chaînes), Films/Séries/Direct (catégories + grille), fiche fournisseur, recherche locale, paramètres (statut, expiration, état de synchronisation, déconnexion avec effacement). Retour à la racine = double appui.
-- Mode **Démo** fictif clairement identifié (pas de lien de lecture).
-- 27 tests : redaction, nettoyage des titres, adresses, API Xtream simulée (MockWebServer), synchronisation, parcours UI complet à la télécommande (Robolectric, captures `design/captures-app/`).
+### Livré en phase 2
+- **Lecture Media3** : films, épisodes, chaînes en direct. URL construite à la demande depuis les accès chiffrés (jamais stockée ni journalisée). Une seule session active dans toute l'app (ouvrir un contenu libère le précédent). Pistes audio / sous-titres **réellement présentes** dans le flux. Erreurs traduites prudemment (accès refusé / limite de connexions possible, flux introuvable, format non décodable…), « Réessayer » borné.
+- **Télécommande dans le lecteur** : OK affiche les commandes ; ←/→ = −/+10 s en VOD (jamais en direct) ; touches lecture/pause, avance et retour rapides (±30 s) ; Retour ferme le panneau puis quitte.
+- **Progression et reprise** : sauvegarde toutes les 10 s, à la pause, à la sortie et à la mise en veille (session libérée, réouverture en pause au réveil, pas de seconde session). Terminé à 95 % ou moins de 3 min restantes. « Reprendre » sur l'accueil (un élément par film/série), « Reprendre » / « Depuis le début » sur la fiche.
+- **Séries** : saisons et épisodes du fournisseur (`get_series_info`), chargés à l'ouverture, cache conservé si le serveur échoue ; épisode suivant proposé à la fin (10 s, annulable).
+- **TMDB** : clé personnelle (v3 ou jeton v4) saisie et testée dans Paramètres, chiffrée. Titre FR, résumé FR avec repli anglais signalé, affiche/fond à taille adaptée, genres, durée, note avec nombre de votes et source, distribution, réalisation, nombre de saisons. Correspondance : ID TMDB fourni **vérifié**, sinon titre nettoyé + année + type avec score ; remakes/homonymes sans année → **ambigu**, jamais validé au hasard. **Correction manuelle** (recherche, choix, « aucune correspondance »), verrouillée et conservée. Suggestions « Disponibles dans votre abonnement » = similaires TMDB ∩ catalogue confirmé. Enrichissement de fond des ajouts récents, espacé, backoff 429/5xx. TMDB en panne = fiches fournisseur, rien ne bloque.
+- **Ma liste** : ajout/retrait depuis la fiche, écran dédié, rangée sur l'accueil.
+- **Base v2** : migration automatique 1→2 testée (compte et catalogue conservés lors de la mise à jour 0.1.1 → 0.2.0).
+- **47 tests** : matching (remakes, VOSTFR, titre original, suites, mauvaise année), client TMDB simulé (clé v3/v4, repli anglais, 401, 429), épisodes Xtream, URLs de flux et masquage, règles de reprise, migration, session unique Media3, verrou manuel, parcours télécommande complet en API 25 et 35.
 
 ### Réel / simulé
 | Élément | État |
 |---|---|
-| API Xtream | Implémentée et testée contre un serveur simulé — **jamais testée avec ton fournisseur** |
-| Interface | Testée en JVM (Robolectric 1920×1080) — **pas encore sur Fire TV** (fluidité, IME Amazon, télécommande physique) |
-| Lecture, TMDB, EPG, Ma liste | Non commencés (écrans marqués « phase 2 / 3 ») |
+| Lecture film / épisode / direct | Code complet, session unique testée — **jamais lue sur la Stick ni avec ton abonnement** |
+| TMDB | Testé contre un serveur simulé — **jamais avec une vraie clé** |
+| Interface | Testée en JVM (Robolectric) — fluidité réelle à juger sur la Stick |
 
 ### Limites connues
-- Une seule catégorie par élément (la principale) ; les catégories multiples Xtream sont ignorées.
-- Pas de pagination base de données : chaque catégorie est chargée en entier (à mesurer sur un gros catalogue).
-- Les « ajouts récents » reposent sur la date d'ajout déclarée par le fournisseur.
+- Bandes-annonces non intégrées (pas de lecteur YouTube sur la Stick sans application tierce) : reportées.
+- Pas de zapping ↑/↓ en direct ni de guide (phase 3). Pas de choix de moteur (LibVLC, phase 4).
+- Une catégorie par élément ; chaque catégorie chargée en entier (à mesurer sur un gros catalogue).
+- Les journaux internes de Media3 sont coupés en release ; en debug ils restent actifs (niveau avertissement).
 
 ## À faire par Adama
-- [x] Modèle et Fire OS communiqués.
-- [ ] Installer `ADITV-0.1.1-debug.apk` (pas la 0.1.0) (`docs/BUILD_ET_INSTALLATION.md`) et tester connexion + import avec le vrai abonnement.
-- [ ] Communiquer les éventuels messages d'erreur affichés et l'impression de fluidité.
+- [ ] Installer `ADITV-0.2.0-debug.apk` par-dessus la 0.1.1 (`adb install -r`, données conservées).
+- [ ] Lire **un film**, **un épisode** et **une chaîne** ; noter les messages d'erreur éventuels et la fluidité.
+- [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.
 
-## Prochaine étape : phase 2
-TMDB (clé personnelle saisie dans l'app) + matching, fiches enrichies, Media3, lecture film/épisode, progression et reprise, Ma liste.
+## Prochaine étape : phase 3
+Direct : favoris, zapping, EPG (API fournisseur / XMLTV), grille télécommandable, maintenant/suivant dans le lecteur.

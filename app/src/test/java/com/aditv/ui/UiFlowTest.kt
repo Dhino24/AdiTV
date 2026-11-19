@@ -82,7 +82,11 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
     private fun focusedDump(): String = rule.onAllNodes(androidx.compose.ui.test.isFocused(), useUnmergedTree = true)
         .fetchSemanticsNodes().joinToString { it.config.toString().take(160) + " @" + it.boundsInRoot }
 
-    private fun assertFocused(text: String) = try { node(text).assertIsFocused() } catch (e: AssertionError) { shot("echec_focus_" + text.take(12)); throw AssertionError("Focus actuel : " + focusedDump(), e) }
+    /** Au moins un nœud portant ce texte a le focus (un même libellé peut apparaître dans le menu et l'écran). */
+    private fun assertFocused(text: String): Unit = try {
+        val focused = rule.onAllNodes(hasText(text) and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes()
+        if (focused.isEmpty()) throw AssertionError("« $text » n'a pas le focus") else Unit
+    } catch (e: AssertionError) { shot("echec_focus_" + text.take(12)); throw AssertionError("Focus actuel : " + focusedDump(), e) }
 
     @Test fun demoJourneyWithRemote() {
         waitText("Connectez votre abonnement")
@@ -132,9 +136,18 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         // Catégorie → grille → fiche.
         key(Key.DirectionRight)
         key(Key.DirectionCenter)
-        waitText("Titre fournisseur")
+        waitText("fournisseur : «")
         waitMenuClosed()
-        shot("05_fiche_fournisseur")
+        // Démo : la lecture est annoncée indisponible, sans faux lecteur.
+        assertFocused("Lecture indisponible (démo)")
+        waitText("Ajoutez votre clé TMDB")
+        shot("05_fiche")
+
+        // → puis OK : ajout à Ma liste.
+        key(Key.DirectionRight)
+        assertFocused("+ Ma liste")
+        key(Key.DirectionCenter)
+        waitText("✓ Dans ma liste")
 
         // Retour : revient à la grille Films.
         key(Key.Back)
@@ -143,14 +156,22 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         // ← depuis la grille : catégories, puis menu (sur Films, rubrique active).
         key(Key.DirectionLeft, 2)
         assertFocused("Films")
-        key(Key.DirectionDown, 3)
+        // Ma liste (2 crans plus bas que Films) contient le film ajouté.
+        key(Key.DirectionDown, 2)
+        assertFocused("Ma liste")
+        key(Key.DirectionCenter)
+        waitText("Les Ombres de Dakar")
+        shot("06_ma_liste")
+        key(Key.DirectionLeft)
+        assertFocused("Ma liste")
+        key(Key.DirectionDown)
         assertFocused("Paramètres")
         key(Key.DirectionCenter)
         waitText("Compte fournisseur")
         // Le focus est entré dans le contenu : le menu est replié.
         waitMenuClosed()
         waitText("éléments")
-        shot("06_parametres")
+        shot("07_parametres")
     }
 }
 

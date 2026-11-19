@@ -10,8 +10,13 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
+        // Journaux internes de Media3 : avertissements en debug, coupés en release (aucune URL de flux dans logcat).
+        androidx.media3.common.util.Log.setLogLevel(
+            if (BuildConfig.DEBUG) androidx.media3.common.util.Log.LOG_LEVEL_WARNING else androidx.media3.common.util.Log.LOG_LEVEL_OFF
+        )
         container = AppContainer(this)
         container.appScope.launch { container.accounts.restore() }
         // WorkManager absent (environnement de test) : l'app reste utilisable, actualisation manuelle.

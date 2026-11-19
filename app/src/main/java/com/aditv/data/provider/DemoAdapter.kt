@@ -21,6 +21,18 @@ class DemoAdapter : ProviderAdapter {
         items(type).chunked(batchSize).forEach { delay(120); onBatch(it) }
     }
 
+    override suspend fun seriesEpisodes(seriesProviderId: String): List<RawEpisode> {
+        delay(150)
+        return (1..2).flatMap { s ->
+            (1..(if (s == 1) 6 else 4)).map { e ->
+                RawEpisode("$seriesProviderId-s${s}e$e", s, e, "Épisode $e", "Épisode fictif de démonstration.", null, 2700, null, null)
+            }
+        }
+    }
+
+    /** Démo : aucune lecture possible, aucun flux tiers. */
+    override fun streamUrl(target: StreamTarget): String? = null
+
     private val cats = mapOf(
         MediaType.LIVE to listOf("l1" to "DÉMO | Information", "l2" to "DÉMO | Sport", "l3" to "DÉMO | Jeunesse", "l4" to "DÉMO | Culture"),
         MediaType.MOVIE to listOf("m1" to "FR| Thrillers", "m2" to "FR| Comédies", "m3" to "FR| Science-fiction", "m4" to "FR| Documentaires"),

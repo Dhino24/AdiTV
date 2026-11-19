@@ -51,7 +51,10 @@ class AccountRepository(
                 val s = account.secretRef?.let(secrets::get)
                     ?: return run { _session.value = Session.SignedOut("Vos accès enregistrés ne sont plus lisibles. Reconnectez-vous ; le catalogue local sera réimporté.") }
                 Redactor.registerSecret(s.username); Redactor.registerSecret(s.password)
-                XtreamAdapter(http.providerApi, ProviderCredentials(account.endpoint.toHttpUrl(), s.username, s.password))
+                XtreamAdapter(http.providerApi, ProviderCredentials(account.endpoint.toHttpUrl(), s.username, s.password)).apply {
+                    val formats = account.liveFormats?.split(',')
+                    if (formats != null && "ts" !in formats && "m3u8" in formats) liveExtension = "m3u8"
+                }
             }
         }
         _session.value = Session.Active(account, adapter)
@@ -75,7 +78,7 @@ class AccountRepository(
         val hosts = if (!endpoint.isHttps && cleartextConsent) setOf(endpoint.host) else emptySet()
         prefs.setCleartextHosts(hosts)
         CleartextGate.setAllowedHosts(hosts)
-        db.accounts().upsert(account(id, ProviderKind.XTREAM, Endpoint.display(endpoint), ref, cleartextConsent, status))
+        db.accounts().upsert(account(id, ProviderKind.XTREAM, Endpoint.display(endpoint), ref, cleartextConsent, status).copy(liveFormats = status.liveFormats?.joinToString(",")))
         prefs.setActiveAccount(id)
         restore()
     }
@@ -110,6 +113,8 @@ class AccountRepository(
     private suspend fun clearCurrent() {
         prefs.activeAccountIdNow()?.let { id ->
             db.catalog().deleteItems(id); db.catalog().deleteCategories(id); db.catalog().deleteSyncStates(id)
+            db.library().deleteEpisodes(id); db.library().deleteProgress(id); db.library().deleteWatchlist(id)
+            db.metadata().deleteMatches(id)
             db.accounts().get(id)?.secretRef?.let(secrets::remove)
             db.accounts().delete(id)
         }

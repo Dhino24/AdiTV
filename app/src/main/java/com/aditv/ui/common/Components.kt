@@ -113,11 +113,11 @@ fun RemoteImage(url: String?, title: String, modifier: Modifier = Modifier, cont
 
 /** Carte affiche 2:3 (films, séries). */
 @Composable
-fun PosterCard(title: String, imageUrl: String?, subtitle: String?, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 128.dp) {
-    Column(modifier.width(width)) {
+fun PosterCard(title: String, imageUrl: String?, subtitle: String?, onClick: () -> Unit, cardModifier: Modifier = Modifier, width: Dp = 128.dp) {
+    Column(Modifier.width(width)) {
         Card(
             onClick = onClick,
-            modifier = Modifier.width(width).height(width * 1.5f),
+            modifier = cardModifier.width(width).height(width * 1.5f),
             shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
             scale = CardDefaults.scale(focusedScale = 1.05f),
             border = CardDefaults.border(focusedBorder = FocusBorder),
@@ -189,12 +189,58 @@ fun Tag(text: String, dashed: Boolean = false) {
  * sans boucle infinie : la télécommande doit toujours avoir un point de départ visible.
  */
 @Composable
-fun InitialFocus(requester: androidx.compose.ui.focus.FocusRequester, key: Any? = Unit, enabled: Boolean = true) {
+fun InitialFocus(
+    requester: androidx.compose.ui.focus.FocusRequester,
+    key: Any? = Unit,
+    enabled: Boolean = true,
+    /** Si fourni : on insiste tant que la cible n'a pas réellement le focus (un autre composant peut le reprendre). */
+    isFocused: (() -> Boolean)? = null,
+) {
     androidx.compose.runtime.LaunchedEffect(key, enabled) {
         if (!enabled) return@LaunchedEffect
-        repeat(30) {
+        var stableFrames = 0
+        repeat(60) {
             androidx.compose.runtime.withFrameNanos { }
-            if (runCatching { requester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            if (isFocused == null) {
+                if (runCatching { requester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            } else if (isFocused()) {
+                if (++stableFrames >= 3) return@LaunchedEffect
+            } else {
+                stableFrames = 0
+                runCatching { requester.requestFocus() }
+            }
         }
+    }
+}
+
+/** URL d'image TMDB à la taille d'affichage (jamais l'original). */
+fun tmdbImage(path: String?, size: String): String? = path?.let { com.aditv.data.tmdb.TmdbClient.DEFAULT_IMAGE_BASE + size + it }
+
+/** Affiche TMDB si correspondance confirmée, sinon visuel du fournisseur. */
+fun com.aditv.data.db.CatalogCard.displayImage(): String? = tmdbImage(tmdbPoster, "w342") ?: imageUrl
+
+/** Carte paysage avec barre de progression (Reprendre, épisodes). */
+@Composable
+fun ProgressCard(title: String, subtitle: String?, imageUrl: String?, progress: Float?, onClick: () -> Unit, cardModifier: Modifier = Modifier, width: Dp = 240.dp) {
+    Column(Modifier.width(width)) {
+        Card(
+            onClick = onClick,
+            modifier = cardModifier.width(width).height(width * 9f / 16f),
+            shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
+            scale = CardDefaults.scale(focusedScale = 1.05f),
+            border = CardDefaults.border(focusedBorder = FocusBorder),
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                RemoteImage(imageUrl, title, Modifier.fillMaxSize(), fallbackTitle = false)
+                if (progress != null) {
+                    Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(10.dp).height(4.dp).background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(2.dp))) {
+                        Box(Modifier.fillMaxSize(progress.coerceIn(0f, 1f)).background(Aditv.Accent, RoundedCornerShape(2.dp)))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text)
+        if (subtitle != null) Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
     }
 }

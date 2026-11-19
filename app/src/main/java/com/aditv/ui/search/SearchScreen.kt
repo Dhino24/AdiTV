@@ -31,12 +31,13 @@ import com.aditv.ui.LocalContainer
 import com.aditv.ui.common.ChannelCard
 import com.aditv.ui.common.PosterCard
 import com.aditv.ui.common.TvTextField
+import com.aditv.ui.common.displayImage
 import com.aditv.ui.theme.Aditv
 import kotlinx.coroutines.delay
 
 /** Recherche locale dans le catalogue en cache : aucune requête serveur par frappe. */
 @Composable
-fun SearchScreen(accountId: String, onOpen: (String) -> Unit) {
+fun SearchScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (String) -> Unit) {
     val c = LocalContainer.current
     var query by rememberSaveable { mutableStateOf("") }
     var results by remember { mutableStateOf<List<CatalogCard>>(emptyList()) }
@@ -68,8 +69,8 @@ fun SearchScreen(accountId: String, onOpen: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             items(results, key = { it.id }) { card ->
-                if (card.type == "LIVE") ChannelCard(card.title, card.imageUrl, "Chaîne", { onOpen(card.id) })
-                else PosterCard(card.title, card.imageUrl, (if (card.type == "SERIES") "Série" else "Film") + (card.year?.let { " · $it" } ?: ""), { onOpen(card.id) })
+                if (card.type == "LIVE") ChannelCard(card.title, card.imageUrl, "Chaîne · OK pour regarder", { onPlayLive(card.id) })
+                else PosterCard(card.title, card.displayImage(), (if (card.type == "SERIES") "Série" else "Film") + (card.year?.let { " · $it" } ?: ""), { onOpen(card.id) })
             }
         }
     }

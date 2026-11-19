@@ -46,6 +46,7 @@ import com.aditv.di.AppContainer
 import com.aditv.ui.LocalContainer
 import com.aditv.ui.common.ChannelCard
 import com.aditv.ui.common.PosterCard
+import com.aditv.ui.common.displayImage
 import com.aditv.ui.theme.Aditv
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -68,7 +69,7 @@ class BrowseViewModel(c: AppContainer, private val accountId: String, private va
 }
 
 @Composable
-fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit) {
+fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, onPlayLive: (String) -> Unit) {
     val c = LocalContainer.current
     val vm: BrowseViewModel = viewModel(key = "browse-$accountId-$type") { BrowseViewModel(c, accountId, type) }
     val categories by vm.categories.collectAsStateWithLifecycle()
@@ -96,7 +97,7 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit) {
             Text(title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
             if (type == MediaType.LIVE) {
                 Spacer(Modifier.width(16.dp))
-                Text("Lecture : phase 2 · Guide : phase 3", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 12.dp))
+                Text("OK : regarder · Guide et favoris : phase 3", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 12.dp))
             }
         }
         when {
@@ -142,8 +143,8 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
                         items(cards, key = { it.id }) { card ->
-                            if (type == MediaType.LIVE) ChannelCard(card.title, card.imageUrl, null, { onOpen(card.id) })
-                            else PosterCard(card.title, card.imageUrl, card.year?.toString(), { onOpen(card.id) })
+                            if (type == MediaType.LIVE) ChannelCard(card.title, card.imageUrl, null, { onPlayLive(card.id) })
+                            else PosterCard(card.title, card.displayImage(), card.year?.toString(), { onOpen(card.id) })
                         }
                     }
                 }

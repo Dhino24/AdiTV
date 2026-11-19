@@ -17,14 +17,20 @@ class CrossHostRedirectException(val from: String, val to: String) :
  * - HTTP uniquement vers les hôtes que l'utilisateur a explicitement acceptés ;
  * - optionnellement, refuse qu'une redirection emmène la requête vers un autre hôte (requêtes API avec identifiants).
  */
-class CleartextGate(private val blockCrossHostRedirects: Boolean) : Interceptor {
+class CleartextGate(
+    private val blockCrossHostRedirects: Boolean,
+    /** Flux : un hôte consenti peut rediriger vers son CDN en HTTP (URL donnée par le fournisseur). */
+    private val trustConsentedOriginRedirects: Boolean = false,
+) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val hop = chain.request().url
         val original = chain.call().request().url
         if (blockCrossHostRedirects && hop.host != original.host) {
             throw CrossHostRedirectException(original.host, hop.host)
         }
-        if (!hop.isHttps && hop.host !in allowedCleartextHosts.get()) {
+        val allowed = allowedCleartextHosts.get()
+        val viaConsentedOrigin = trustConsentedOriginRedirects && original.host in allowed
+        if (!hop.isHttps && hop.host !in allowed && !viaConsentedOrigin) {
             throw CleartextNotAllowedException(hop.host)
         }
         return chain.proceed(chain.request())

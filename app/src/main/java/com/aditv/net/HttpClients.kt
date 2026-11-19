@@ -25,6 +25,21 @@ class HttpClients {
         .addNetworkInterceptor(CleartextGate(blockCrossHostRedirects = true))
         .build()
 
+    /**
+     * Flux vidéo : délais de lecture plus longs, redirections autorisées (CDN du fournisseur).
+     * HTTP en clair seulement si l'origine est un hôte consenti.
+     */
+    val streams: OkHttpClient = base.newBuilder()
+        .readTimeout(20, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false) // les reprises sont gérées par le lecteur, de façon bornée
+        .addNetworkInterceptor(CleartextGate(blockCrossHostRedirects = false, trustConsentedOriginRedirects = true))
+        .build()
+
+    /** TMDB : HTTPS uniquement (le filtre refuse tout HTTP non consenti). */
+    val tmdb: OkHttpClient = base.newBuilder()
+        .addNetworkInterceptor(CleartextGate(blockCrossHostRedirects = false))
+        .build()
+
     /** Images (logos, affiches) : pas d'identifiants, redirections permises mais HTTP toujours filtré. */
     val images: OkHttpClient = base.newBuilder()
         .addNetworkInterceptor(CleartextGate(blockCrossHostRedirects = false))

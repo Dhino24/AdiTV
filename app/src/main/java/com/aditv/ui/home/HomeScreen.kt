@@ -35,6 +35,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.aditv.data.db.CatalogCard
+import com.aditv.data.db.ResumeRow
+import com.aditv.data.library.ProgressPolicy
+import com.aditv.ui.common.ProgressCard
+import com.aditv.ui.common.displayImage
+import com.aditv.ui.common.tmdbImage
 import com.aditv.data.provider.MediaType
 import com.aditv.data.sync.SyncProgress
 import com.aditv.di.AppContainer
@@ -56,6 +61,7 @@ data class HomeRow(val title: String, val subtitle: String?, val type: MediaType
 
 data class HomeState(
     val loaded: Boolean = false,
+    val resume: List<ResumeRow> = emptyList(),
     val hero: CatalogCard? = null,
     val rows: List<HomeRow> = emptyList(),
     val lastSyncAt: Long? = null,
@@ -66,24 +72,29 @@ class HomeViewModel(c: AppContainer, accountId: String) : ViewModel() {
     private val dao = c.db.catalog()
     val progress: StateFlow<SyncProgress> = c.sync.progress
 
-    val state: StateFlow<HomeState> = combine(
+    private val catalogRows = combine(
         dao.recentlyAdded(accountId, MediaType.MOVIE.name, 24),
         dao.recentlyAdded(accountId, MediaType.SERIES.name, 24),
         dao.firstItems(accountId, MediaType.LIVE.name, 24),
         dao.firstItems(accountId, MediaType.MOVIE.name, 24),
-        dao.observeSyncStates(accountId),
-    ) { recentMovies, recentSeries, channels, anyMovies, syncStates ->
+        c.db.library().watchlist(accountId),
+    ) { recentMovies, recentSeries, channels, anyMovies, myList ->
         val rows = buildList {
+            if (myList.isNotEmpty()) add(HomeRow("Ma liste", null, MediaType.MOVIE, myList.take(24)))
             // « Ajouts récents » = date d'ajout déclarée par le fournisseur, pas des sorties récentes.
             if (recentMovies.isNotEmpty()) add(HomeRow("Ajouts récents · Films", "selon la date d'ajout du fournisseur", MediaType.MOVIE, recentMovies))
             else if (anyMovies.isNotEmpty()) add(HomeRow("Films", null, MediaType.MOVIE, anyMovies))
             if (recentSeries.isNotEmpty()) add(HomeRow("Ajouts récents · Séries", "selon la date d'ajout du fournisseur", MediaType.SERIES, recentSeries))
-            if (channels.isNotEmpty()) add(HomeRow("Chaînes", "ordre du fournisseur", MediaType.LIVE, channels))
+            if (channels.isNotEmpty()) add(HomeRow("Chaînes", "ordre du fournisseur · OK pour regarder", MediaType.LIVE, channels))
         }
+        rows to (recentMovies.firstOrNull() ?: recentSeries.firstOrNull() ?: anyMovies.firstOrNull())
+    }
+
+    val state: StateFlow<HomeState> = combine(
+        catalogRows, c.db.library().resumeRows(accountId, 20), dao.observeSyncStates(accountId),
+    ) { (rows, hero), resume, syncStates ->
         HomeState(
-            loaded = true,
-            hero = recentMovies.firstOrNull() ?: recentSeries.firstOrNull() ?: anyMovies.firstOrNull(),
-            rows = rows,
+            loaded = true, resume = resume, hero = hero, rows = rows,
             lastSyncAt = syncStates.mapNotNull { it.lastSuccessAt }.maxOrNull(),
             syncErrors = syncStates.mapNotNull { s -> s.lastError?.let { "${typeLabel(s.type)} : $it" } },
         )
@@ -93,22 +104,27 @@ class HomeViewModel(c: AppContainer, accountId: String) : ViewModel() {
 fun typeLabel(type: String) = when (type) { "LIVE" -> "Direct"; "MOVIE" -> "Films"; else -> "Séries" }
 
 @Composable
-fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit) {
+fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit) {
     val c = LocalContainer.current
     val vm: HomeViewModel = viewModel(key = "home-$accountId") { HomeViewModel(c, accountId) }
     val state by vm.state.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
     val heroRequester = remember { FocusRequester() }
 
-    com.aditv.ui.common.InitialFocus(heroRequester, key = state.hero != null, enabled = state.hero != null)
+    val hasHero = state.resume.isNotEmpty() || state.hero != null
+    com.aditv.ui.common.InitialFocus(heroRequester, key = hasHero, enabled = hasHero)
 
     Box(Modifier.fillMaxSize()) {
-        if (state.loaded && state.rows.isEmpty()) {
+        if (state.loaded && state.rows.isEmpty() && state.resume.isEmpty()) {
             EmptyCatalog(progress, state.syncErrors)
         } else {
             LazyColumn(contentPadding = PaddingValues(bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-                item { Hero(state.hero, isDemo, heroRequester, onOpen) }
-                items(state.rows, key = { it.title }) { row -> ContentRow(row, onOpen) }
+                item {
+                    val r = state.resume.firstOrNull()
+                    if (r != null) ResumeHero(r, heroRequester, onOpen, onPlay) else Hero(state.hero, isDemo, heroRequester, onOpen)
+                }
+                if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay) }
+                items(state.rows, key = { it.title }) { row -> ContentRow(row, onOpen, onPlay) }
             }
         }
         SyncBadge(progress, state.lastSyncAt, state.syncErrors.isNotEmpty(), Modifier.align(Alignment.TopEnd).padding(24.dp))
@@ -146,7 +162,7 @@ private fun Hero(card: CatalogCard?, isDemo: Boolean, requester: FocusRequester,
 }
 
 @Composable
-private fun ContentRow(row: HomeRow, onOpen: (String) -> Unit) {
+private fun ContentRow(row: HomeRow, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit) {
     Column {
         Row(Modifier.padding(start = 40.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
             Text(row.title, style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
@@ -161,8 +177,8 @@ private fun ContentRow(row: HomeRow, onOpen: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             items(row.cards, key = { it.id }) { card ->
-                if (row.type == MediaType.LIVE) ChannelCard(card.title, card.imageUrl, null, { onOpen(card.id) })
-                else PosterCard(card.title, card.imageUrl, card.year?.toString(), { onOpen(card.id) })
+                if (row.type == MediaType.LIVE) ChannelCard(card.title, card.imageUrl, null, { onPlay(card.id, false) })
+                else PosterCard(card.title, card.displayImage(), card.year?.toString(), { onOpen(card.id) })
             }
         }
     }
@@ -198,6 +214,47 @@ private fun SyncBadge(progress: SyncProgress, lastSyncAt: Long?, hasError: Boole
             progress is SyncProgress.Running -> { StatusDot(Aditv.Accent); Spacer(Modifier.width(8.dp)); Text("Mise à jour · ${typeLabel(progress.type.name)} ${progress.count}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
             hasError -> { StatusDot(Aditv.Warn); Spacer(Modifier.width(8.dp)); Text("Synchronisation incomplète · voir Paramètres", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
             lastSyncAt != null -> { StatusDot(Aditv.Ok); Spacer(Modifier.width(8.dp)); Text("Catalogue du ${formatMillisDateTime(lastSyncAt)}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
+        }
+    }
+}
+
+@Composable
+private fun ResumeHero(r: ResumeRow, requester: FocusRequester, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit) {
+    Box(Modifier.fillMaxWidth().height(290.dp)) {
+        val bg = tmdbImage(r.tmdbBackdrop, "w1280")
+        if (bg != null) {
+            RemoteImage(bg, r.title, Modifier.fillMaxHeight().fillMaxWidth(0.62f).align(Alignment.TopEnd), fallbackTitle = false)
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.38f to Aditv.Bg, 0.6f to Aditv.Bg.copy(alpha = 0.6f), 0.9f to Aditv.Bg.copy(alpha = 0f))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Aditv.Bg.copy(alpha = 0f), 1f to Aditv.Bg)))
+        }
+        Column(Modifier.padding(start = 40.dp, top = 44.dp).width(560.dp)) {
+            Text("REPRENDRE · " + if (r.kind == "EPISODE") "SÉRIE" else "FILM", style = MaterialTheme.typography.labelSmall, color = Aditv.Accent)
+            Spacer(Modifier.height(10.dp))
+            Text(r.title, style = MaterialTheme.typography.displaySmall, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            r.episodeLabel?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, maxLines = 1) }
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val left = (r.durationMs - r.positionMs).coerceAtLeast(0) / 60_000
+                AditvButton("Reprendre", { onPlay(r.contentId, false) }, Modifier.focusRequester(requester).focusRequester(com.aditv.ui.LocalScreenEntry.current), secondaryText = "· reste $left min")
+                AditvButton("Voir la fiche", { onOpen(r.itemId) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Unit) {
+    Column {
+        Text("Reprendre la lecture", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text, modifier = Modifier.padding(start = 40.dp, bottom = 12.dp))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            items(rows, key = { it.contentId }) { r ->
+                ProgressCard(
+                    title = r.title, subtitle = r.episodeLabel,
+                    imageUrl = tmdbImage(r.tmdbBackdrop, "w780") ?: r.imageUrl ?: tmdbImage(r.tmdbPoster, "w342"),
+                    progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
+                    onClick = { onPlay(r.contentId, false) },
+                )
+            }
         }
     }
 }

@@ -64,6 +64,8 @@ class XtreamAdapter(
             isTrial = user.bool("is_trial"),
             serverTimezone = server?.str("timezone"),
             apiShape = "xtream/player_api",
+            liveFormats = (user["allowed_output_formats"] as? kotlinx.serialization.json.JsonArray)
+                ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.lowercase() }?.takeIf { it.isNotEmpty() },
         )
     }
 
@@ -96,6 +98,57 @@ class XtreamAdapter(
         }
         if (batch.isNotEmpty()) onBatch(batch.toList())
     }
+
+    override suspend fun seriesEpisodes(seriesProviderId: String): List<RawEpisode> {
+        val root = getJson(apiUrl("get_series_info").newBuilder().addQueryParameter("series_id", seriesProviderId).build())
+        return parseSeriesEpisodes(root)
+    }
+
+    /** `episodes` est un objet indexé par saison (le plus courant) ou une liste selon les panneaux. */
+    internal fun parseSeriesEpisodes(root: JsonElement): List<RawEpisode> {
+        val obj = root as? JsonObject ?: return emptyList()
+        val raw = obj["episodes"] ?: return emptyList()
+        val entries: List<Pair<Int?, JsonElement>> = when (raw) {
+            is JsonObject -> raw.entries.flatMap { (season, list) ->
+                ((list as? kotlinx.serialization.json.JsonArray) ?: return@flatMap emptyList()).map { season.toIntOrNull() to it }
+            }
+            is kotlinx.serialization.json.JsonArray -> raw.flatMap { el ->
+                if (el is kotlinx.serialization.json.JsonArray) el.map { null to it } else listOf(null to el)
+            }
+            else -> emptyList()
+        }
+        return entries.mapNotNull { (seasonKey, el) ->
+            val e = el as? JsonObject ?: return@mapNotNull null
+            val id = e.str("id") ?: return@mapNotNull null
+            val info = e["info"] as? JsonObject
+            RawEpisode(
+                providerId = id,
+                season = e.int("season") ?: seasonKey ?: 0,
+                number = e.int("episode_num"),
+                title = e.str("title") ?: "Épisode",
+                plot = info?.str("plot"),
+                imageUrl = info?.str("movie_image")?.takeIf { it.startsWith("http", true) },
+                durationSec = info?.int("duration_secs"),
+                containerExt = e.str("container_extension"),
+                airDate = info?.str("releasedate", "air_date"),
+            )
+        }.sortedWith(compareBy({ it.season }, { it.number ?: Int.MAX_VALUE }))
+    }
+
+    /** Schéma de flux Xtream habituel, sur l'hôte de connexion. Identifiants dans le chemin : URL secrète. */
+    override fun streamUrl(target: StreamTarget): String = creds.endpoint.newBuilder().apply {
+        when (target) {
+            is StreamTarget.Movie -> addPathSegment("movie").addPathSegment(creds.username).addPathSegment(creds.password)
+                .addPathSegment("${target.providerId}.${target.containerExt ?: "mp4"}")
+            is StreamTarget.Episode -> addPathSegment("series").addPathSegment(creds.username).addPathSegment(creds.password)
+                .addPathSegment("${target.providerId}.${target.containerExt ?: "mp4"}")
+            is StreamTarget.Live -> addPathSegment("live").addPathSegment(creds.username).addPathSegment(creds.password)
+                .addPathSegment("${target.providerId}.$liveExtension")
+        }
+    }.build().toString()
+
+    /** Format direct : ts si autorisé (ou non communiqué), sinon m3u8. */
+    var liveExtension: String = "ts"
 
     internal fun parseItem(type: MediaType, o: JsonObject): RawItem? {
         val id = (if (type == MediaType.SERIES) o.str("series_id") else o.str("stream_id")) ?: return null

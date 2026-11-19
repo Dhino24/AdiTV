@@ -23,6 +23,8 @@ data class AccountEntity(
     val isTrial: Boolean?,
     val serverTimezone: String?,
     val statusCheckedAt: Long?,
+    /** Formats de flux direct déclarés (ex. « ts,m3u8 »), null si non communiqués. */
+    val liveFormats: String? = null,
 )
 
 /** Identifiant local = accountId|type|providerId : les IDs fournisseur ne sont jamais réutilisés entre comptes. */
@@ -126,4 +128,6 @@ data class CatalogCard(
     val year: Int?,
     val imageUrl: String?,
     val genre: String?,
+    /** Affiche TMDB si la correspondance est confirmée. */
+    val tmdbPoster: String? = null,
 )

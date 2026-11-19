@@ -74,7 +74,7 @@ fun SettingsScreen(session: Session.Active) {
                 })
                 AditvButton(
                     if (confirmSignOut) "Confirmer : effacer compte et catalogue local" else "Se déconnecter",
-                    { if (confirmSignOut) scope.launch { c.accounts.signOut() } else confirmSignOut = true },
+                    { if (confirmSignOut) scope.launch { c.playback.release(); c.accounts.signOut() } else confirmSignOut = true },
                 )
             }
         }
@@ -96,10 +96,15 @@ fun SettingsScreen(session: Session.Active) {
             AditvButton(if (progress is SyncProgress.Running) "Synchronisation en cours…" else "Synchroniser maintenant", { c.syncNow() }, enabled = progress !is SyncProgress.Running)
         }
 
+        Section("Métadonnées TMDB") {
+            TmdbSection()
+        }
+
         Section("Application") {
             Fact("Version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (build de test)" else "")
             Fact("Confidentialité", "Aucune télémétrie. Accès chiffrés (Android Keystore), exclus des sauvegardes et des journaux.")
-            Fact("À venir", "Moteur de lecture, TMDB (phase 2) · EPG (phase 3) · Turbo, intro (phase 5)")
+            Fact("Lecture", "Moteur Media3 (LibVLC et choix Auto : phase 4)")
+            Fact("À venir", "Guide TV et favoris (phase 3) · diagnostic (phase 4) · Turbo, intro (phase 5)")
         }
     }
 }
@@ -120,4 +125,48 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 private fun Fact(k: String, v: String, color: androidx.compose.ui.graphics.Color = Aditv.Text) = Row {
     Text(k, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, modifier = Modifier.width(180.dp))
     Text(v, style = MaterialTheme.typography.bodyMedium, color = color)
+}
+
+/** Clé TMDB personnelle : chiffrée sur l'appareil, testée avant enregistrement, jamais affichée en clair. */
+@Composable
+private fun TmdbSection() {
+    val c = LocalContainer.current
+    val scope = rememberCoroutineScope()
+    var configured by remember { mutableStateOf(c.tmdbKey.get() != null) }
+    var input by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    Fact("État", if (configured) "Clé configurée (chiffrée sur l'appareil)" else "Aucune clé : fiches limitées aux informations du fournisseur", if (configured) Aditv.Text else Aditv.Warn)
+    Text(
+        "Créez gratuitement une clé sur themoviedb.org (Paramètres du compte → API), puis saisissez la clé API (v3) ou le jeton d'accès en lecture (v4).",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary,
+    )
+    com.aditv.ui.common.TvTextField("Clé ou jeton TMDB", input, { input = it; message = null }, Modifier.widthIn(max = 640.dp), password = true, placeholder = if (configured) "•••••• (laisser vide pour conserver)" else "OK pour saisir")
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AditvButton(if (busy) "Vérification…" else "Enregistrer et tester", {
+            val key = input.trim()
+            if (key.isEmpty()) { message = "Saisissez une clé."; return@AditvButton }
+            busy = true
+            scope.launch {
+                val test = com.aditv.data.tmdb.TmdbClient(c.http.tmdb, { key })
+                message = try {
+                    test.imageBaseUrl() // appel /configuration : vérifie la clé
+                    c.tmdbKey.set(key); configured = true; input = ""
+                    c.enrichInBackground()
+                    "Clé valide et enregistrée. Enrichissement des ajouts récents en arrière-plan."
+                } catch (e: com.aditv.data.tmdb.TmdbError) { e.message } catch (e: Exception) { "Erreur : ${e.javaClass.simpleName}" }
+                busy = false
+            }
+        }, enabled = !busy)
+        if (configured) AditvButton("Supprimer la clé", { c.tmdbKey.clear(); configured = false; message = "Clé supprimée." })
+        AditvButton("Vider le cache TMDB", {
+            scope.launch {
+                (c.accounts.session.value as? Session.Active)?.let { c.db.metadata().deleteAutomaticMatches(it.account.id) }
+                c.db.metadata().clearMetadataCache()
+                message = "Cache vidé. Les choix manuels sont conservés ; leurs fiches seront rechargées à l'ouverture."
+            }
+        })
+    }
+    message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+    Text(com.aditv.data.tmdb.TmdbClient.ATTRIBUTION, style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
 }
