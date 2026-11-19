@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  L'hôte du fournisseur n'est pas connu à la compilation : la plateforme doit donc autoriser HTTP
+  pour qu'un fournisseur uniquement HTTP reste utilisable. Cette autorisation n'est PAS utilisée telle quelle :
+  l'application refuse toute requête HTTP en clair sauf vers l'hôte pour lequel l'utilisateur a donné
+  un consentement explicite à la connexion (voir net/CleartextGate.kt). Pas de certificats utilisateur,
+  pas de désactivation de la validation TLS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
