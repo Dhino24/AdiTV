@@ -51,5 +51,14 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.
 - [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.
 
+## Demandé par Adama (à faire avant la phase 4)
+- [ ] Logo ADITV qui ne s'affiche plus dans l'appli (photo de l'écran demandée ; non reproduit en test).
+- [ ] **Rappels de matchs à venir** (à partir du guide uniquement, rien d'inventé) :
+  - « 🔔 Me rappeler » sur un programme à venir du guide ; à l'heure (avance réglable, 5 min par défaut) : bandeau dans l'appli avec « Regarder » (même pendant une lecture), sinon notification Fire TV (comportement à vérifier sur Fire OS 6).
+  - Rangée « Matchs à venir » (accueil) + filtre Sport dans le guide : catégorie du guide (Sport, Football…) et titres « A – B », compétitions ; favoris d'abord ; meilleure version (VF, qualité max).
+  - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
+  - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
+  - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
 ## Prochaine étape : phase 4
 LibVLC (ARMv7) derrière le même contrat de lecture, choix Auto / Media3 / VLC mémorisé par contenu, bascule bornée sur erreur de format, diagnostic de lecture (débits, réserve, interruptions, décodeur) avec états mesuré / estimé / N/D.
