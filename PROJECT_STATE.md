@@ -8,6 +8,12 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 ## Phase actuelle : 3 — terminée côté code (0.3.0), à valider sur la Stick
 0.2.0 installée par Adama (installation OK).
 
+### Correctif 0.3.1 (retour d'Adama : « films et séries vides »)
+- Panneaux Xtream récents : `category_id` vide, seulement `category_ids` → titres importés mais rattachés à aucune catégorie. Lecture de `category_ids` en repli (testé).
+- Entrée « Tous les films / Toutes les séries / Toutes les chaînes » en tête de chaque écran : tout reste accessible même sans catégorie exploitable.
+- Délai de lecture des listes porté à 240 s (serveurs lents à générer les gros catalogues).
+- Resynchronisation automatique unique au premier démarrage de la 0.3.1. **Cause exacte encore à confirmer** sur l'abonnement d'Adama (Paramètres → Catalogue local).
+
 ### Livré en phase 3
 - **Version française et qualité max mises en avant** (demande d'Adama) : les variantes d'un même contenu chez le fournisseur (VF, VOSTFR, MULTI, SD/HD/FHD/4K, préfixes pays, catégories « VOSTFR »…) sont regroupées en **une seule carte** ; la meilleure selon les préférences est affichée et lue (par défaut : français d'abord, qualité maximale). Chaînes : même pays + même nom = même chaîne (« BE| RTL » ≠ « FR| RTL »). Films : même titre + même année (un remake reste distinct).
   - Réglages (Paramètres → Lecture) : VF / VOSTFR / VO d'abord ; 4K / 1080p / 720p max ; flux adaptatifs « débit max » (défaut) ou « adapté au réseau ».
@@ -40,7 +46,8 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 
 ## À faire par Adama
 - [x] 0.2.0 installée.
-- [ ] Installer `ADITV-0.3.0-debug.apk` par-dessus (`adb install -r`, données conservées).
+- [x] 0.3.0 installée : films et séries vides signalés → 0.3.1.
+- [ ] Installer `ADITV-0.3.1-debug.apk`, attendre la resynchronisation, vérifier Films / Séries et relever Paramètres → Catalogue local.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.
 - [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.
 

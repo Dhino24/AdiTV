@@ -81,6 +81,7 @@ class LoginViewModel(private val c: AppContainer) : ViewModel() {
             try {
                 c.accounts.saveXtream(url, username.trim(), password, cleartextConsentFor == url.host, status)
                 password = ""
+                c.prefs.setCatalogParseVersion(com.aditv.di.CATALOG_PARSE_VERSION)
                 c.syncNow()
             } catch (e: Exception) {
                 phase = LoginPhase.Failed("Enregistrement impossible (${e.javaClass.simpleName}).")

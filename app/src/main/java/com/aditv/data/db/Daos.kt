@@ -95,6 +95,16 @@ interface CatalogDao {
     )
     suspend fun search(accountId: String, key: String, limit: Int): List<CatalogCard>
 
+    @Query(
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.type = :type AND ci.available = 1
+           ORDER BY ci.addedAt IS NULL, ci.addedAt DESC, ci.title"""
+    )
+    fun allCards(accountId: String, type: String): Flow<List<CatalogCard>>
+
     @Query("SELECT * FROM catalog_items WHERE id = :id") fun observeItem(id: String): Flow<CatalogItemEntity?>
 
     // ---------- variantes ----------

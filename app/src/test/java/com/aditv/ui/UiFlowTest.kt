@@ -138,7 +138,13 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         key(Key.DirectionDown, 4)
         key(Key.DirectionCenter)
         waitText("Thrillers")
-        waitText("Les Ombres de Dakar")
+        // « Tous les films » est la première entrée : visible même sans catégories exploitables.
+        assertFocused("Tous les films")
+        waitText("Les Grands Fleuves") // le plus récent en premier
+        // ↓ : catégorie Thrillers (sélection au focus).
+        key(Key.DirectionDown)
+        assertFocused("Thrillers")
+        waitText("Fjord noir")
         shot("04_films")
 
         // Catégorie → grille → fiche.

@@ -64,23 +64,28 @@ import kotlinx.coroutines.flow.stateIn
 class BrowseViewModel(c: AppContainer, private val accountId: String, private val type: MediaType) : ViewModel() {
     private val dao = c.db.catalog()
     val categories: StateFlow<List<CategoryEntity>?> =
-        (if (type != MediaType.LIVE) dao.categories(accountId, type.name)
-        else dao.categories(accountId, type.name).combine(c.db.live().favoriteIds(accountId)) { cats, favs ->
-            // « ★ Favoris » en tête du Direct dès qu'une chaîne est favorite.
-            if (favs.isEmpty()) cats
-            else listOf(CategoryEntity(FAVORITES, accountId, type.name, FAVORITES, "★ Favoris", -1, true, 0)) + cats
-        }).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        dao.categories(accountId, type.name)
+            .combine(c.db.live().favoriteIds(accountId)) { cats, favs ->
+                buildList {
+                    // « ★ Favoris » en tête du Direct dès qu'une chaîne est favorite.
+                    if (type == MediaType.LIVE && favs.isNotEmpty()) add(CategoryEntity(FAVORITES, accountId, type.name, FAVORITES, "★ Favoris", -2, true, 0))
+                    // « Tout » : visible même si le fournisseur ne rattache pas ses titres à des catégories.
+                    add(CategoryEntity(ALL, accountId, type.name, ALL, when (type) { MediaType.LIVE -> "Toutes les chaînes"; MediaType.MOVIE -> "Tous les films"; MediaType.SERIES -> "Toutes les séries" }, -1, true, 0))
+                    addAll(cats)
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val selected = MutableStateFlow<String?>(null)
     /** Une carte par contenu : la meilleure version selon la langue et la qualité préférées. */
     val cards: StateFlow<List<Pair<CatalogCard, Int>>> = selected
         .flatMapLatest { id ->
             if (id == FAVORITES) c.db.live().favorites(accountId)
+            else if (id == ALL) dao.allCards(accountId, type.name)
             else if (id == null) flowOf(emptyList()) else dao.cardsInCategory(accountId, type.name, id)
         }
         .combine(c.prefs.variantPrefs) { list, prefs -> list.collapsed(prefs) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    companion object { const val FAVORITES = "★favoris" }
+    companion object { const val FAVORITES = "★favoris"; const val ALL = "★tout" }
 }
 
 @Composable
@@ -148,7 +153,7 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
                 }
                 Box(Modifier.fillMaxSize()) {
                     if (cards.isEmpty() && selected != null) {
-                        Text("Catégorie vide.", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(24.dp))
+                        Text(if (selected == BrowseViewModel.ALL) "Aucun élément importé pour ce type : voir Paramètres → Catalogue local (nombre d'éléments et éventuelle erreur)." else "Catégorie vide chez le fournisseur. Essayez « ${categories?.getOrNull(if (type == MediaType.LIVE && categories!!.firstOrNull()?.id == BrowseViewModel.FAVORITES) 1 else 0)?.name ?: "Tout"} ».", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(24.dp))
                     }
                     val nowPlaying = if (type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(accountId, cards.map { it.first }) else emptyMap()
                     LazyVerticalGrid(

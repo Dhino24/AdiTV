@@ -61,6 +61,7 @@ class CatalogSyncTest {
         override suspend fun itemsWithoutVariant(limit: Int) = emptyList<com.aditv.data.db.VariantBackfillRow>()
         override suspend fun setVariant(id: String, key: String, lang: String?, quality: Int) {}
         override suspend fun allChannels(accountId: String) = emptyList<CatalogCard>()
+        override fun allCards(accountId: String, type: String): Flow<List<CatalogCard>> = emptyFlow()
     }
 
     private class FakeAdapter(var movies: List<String>, var failMovies: ProviderError? = null) : ProviderAdapter {

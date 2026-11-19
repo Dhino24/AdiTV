@@ -18,7 +18,8 @@ class HttpClients {
 
     /** API fournisseur : identifiants dans l'URL, donc aucune redirection vers un autre hôte. */
     val providerApi: OkHttpClient = base.newBuilder()
-        .readTimeout(90, TimeUnit.SECONDS) // listes VOD volumineuses
+        // Listes VOD volumineuses : certains serveurs mettent plusieurs minutes avant d'envoyer le premier octet.
+        .readTimeout(240, TimeUnit.SECONDS)
         .followRedirects(false)
         .followSslRedirects(false)
         .addInterceptor(SameHostRedirects())

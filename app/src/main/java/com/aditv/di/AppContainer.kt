@@ -34,6 +34,8 @@ internal fun imageCacheBytes(context: Context): Long {
     return (free / 20).coerceIn(16L * 1024 * 1024, 64L * 1024 * 1024)
 }
 
+const val CATALOG_PARSE_VERSION = 2
+
 /** Injection manuelle : pas de framework DI pour un seul module. */
 class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -87,6 +89,18 @@ class AppContainer(context: Context) {
             if (rows.isEmpty()) return
             dao.setVariants(rows.map { it.id to com.aditv.data.variants.VariantParser.parse(it.rawTitle, it.type, it.categoryName, it.year) })
         }
+    }
+
+    /**
+     * Après un correctif de lecture du catalogue (0.3.1 : `category_ids`), resynchronise une fois
+     * pour rattacher les titres déjà en cache à leurs catégories.
+     */
+    suspend fun resyncIfParserChanged() {
+        if (prefs.catalogParseVersion() >= CATALOG_PARSE_VERSION) return
+        val s = accounts.session.value as? Session.Active ?: return
+        if (!sync.isRunning) sync.run(s.account.id, s.adapter)
+        prefs.setCatalogParseVersion(CATALOG_PARSE_VERSION)
+        backfillVariants()
     }
 
     suspend fun syncIfStale(maxAgeMs: Long) {

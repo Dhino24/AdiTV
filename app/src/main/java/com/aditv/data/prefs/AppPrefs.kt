@@ -25,6 +25,11 @@ class AppPrefs(private val context: Context) {
     suspend fun cleartextHostsNow(): Set<String> = context.dataStore.data.first()[cleartextHosts].orEmpty()
     suspend fun setCleartextHosts(hosts: Set<String>) = context.dataStore.edit { it[cleartextHosts] = hosts }
 
+    // ---------- version de l'analyse du catalogue (resynchronisation après correctif) ----------
+    private val parseVersion = intPreferencesKey("catalog_parse_version")
+    suspend fun catalogParseVersion(): Int = context.dataStore.data.first()[parseVersion] ?: 0
+    suspend fun setCatalogParseVersion(v: Int) = context.dataStore.edit { it[parseVersion] = v }
+
     // ---------- lecture : langue et qualité ----------
     private val languagePreset = stringPreferencesKey("language_preset")
     private val maxQuality = intPreferencesKey("max_quality")

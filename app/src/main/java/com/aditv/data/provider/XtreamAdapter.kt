@@ -186,7 +186,9 @@ class XtreamAdapter(
             type = type,
             rawTitle = name,
             position = o.int("num"),
-            categoryProviderId = o.str("category_id"),
+            // Panneaux récents : `category_id` vide et seulement une liste `category_ids`.
+            categoryProviderId = o.str("category_id") ?: (o["category_ids"] as? kotlinx.serialization.json.JsonArray)
+                ?.firstNotNullOfOrNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.trim()?.takeIf { c -> c.isNotEmpty() && c != "null" } },
             imageUrl = o.str("stream_icon", "cover")?.takeIf { it.startsWith("http", ignoreCase = true) },
             providerTmdbId = o.str("tmdb", "tmdb_id")?.takeIf { it != "0" },
             providerRating = o.str("rating")?.takeIf { it != "0" && it != "0.0" },

@@ -81,6 +81,15 @@ class XtreamAdapterTest {
         assertNull(b.imageUrl); assertNull(b.providerRating); assertNull(b.addedAtEpochSec); assertEquals(2, b.position)
     }
 
+    @Test fun readsCategoryIdsListWhenCategoryIdIsMissing() = runTest {
+        enqueue("""[{"name":"Film XUI","stream_id":1,"category_id":null,"category_ids":[42,7]},
+                    {"name":"Film vide","stream_id":2,"category_id":"","category_ids":["9"]},
+                    {"name":"Sans catégorie","stream_id":3}]""")
+        val items = mutableListOf<com.aditv.data.provider.RawItem>()
+        adapter.streamItems(MediaType.MOVIE, 10) { items += it }
+        assertEquals(listOf("42", "9", null), items.map { it.categoryProviderId })
+    }
+
     @Test fun acceptsObjectKeyedListsAndEmptyBodies() = runTest {
         enqueue("""{"1":{"category_id":"1","category_name":"A"},"2":{"category_id":"2","category_name":"B"}}""")
         assertEquals(listOf("A", "B"), adapter.categories(MediaType.LIVE).map { it.name })
