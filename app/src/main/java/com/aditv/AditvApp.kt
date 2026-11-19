@@ -14,7 +14,8 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         container.appScope.launch { container.accounts.restore() }
-        CatalogSyncWorker.schedule(this)
+        // WorkManager absent (environnement de test) : l'app reste utilisable, actualisation manuelle.
+        runCatching { CatalogSyncWorker.schedule(this) }.onFailure { com.aditv.core.AppLog.w("Planification indisponible", it) }
     }
 
     override fun newImageLoader(context: android.content.Context) = container.imageLoader
