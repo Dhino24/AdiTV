@@ -124,6 +124,18 @@ class MetadataRepository(
         return n
     }
 
+    /** Recharge les fiches en cache d'avant 0.4 (sans logo-titre), espacées. */
+    suspend fun refreshMissingLogos(accountId: String, limit: Int = 60) {
+        for (itemId in dao.itemsMissingLogoInfo(accountId, limit)) {
+            val m = dao.match(itemId) ?: continue
+            val id = m.tmdbId ?: continue
+            val err = runCatching { fetchAndStore(m.mediaType, id) }.exceptionOrNull()
+            if (err is CancellationException) throw err
+            if (err is TmdbError.NoKey || err is TmdbError.InvalidKey) break
+            delay(250)
+        }
+    }
+
     private suspend fun refreshIfStale(type: String, id: Int) {
         val m = dao.metadata(type, id)
         if (m == null || clock() - m.fetchedAt > STALE_MS) runCatching { fetchAndStore(type, id) }
@@ -142,7 +154,7 @@ class MetadataRepository(
                 voteAverage = d.voteAverage, voteCount = d.voteCount,
                 cast = d.cast.joinToString("\n") { (n, r) -> if (r.isNullOrBlank()) n else "$n|$r" }.ifEmpty { null },
                 crew = d.crew.joinToString(", ").ifEmpty { null }, seasonCount = d.seasonCount,
-                relatedIds = d.relatedIds.joinToString(",").ifEmpty { null }, fetchedAt = clock(), trailerKey = d.trailerKey,
+                relatedIds = d.relatedIds.joinToString(",").ifEmpty { null }, fetchedAt = clock(), trailerKey = d.trailerKey, logoPath = d.logoPath, hasLogoInfo = true,
             )
         )
     }

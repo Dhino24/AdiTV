@@ -34,7 +34,7 @@ internal fun imageCacheBytes(context: Context): Long {
     return (free / 20).coerceIn(16L * 1024 * 1024, 64L * 1024 * 1024)
 }
 
-const val CATALOG_PARSE_VERSION = 2
+const val CATALOG_PARSE_VERSION = 3
 
 /** Injection manuelle : pas de framework DI pour un seul module. */
 class AppContainer(context: Context) {
@@ -78,7 +78,7 @@ class AppContainer(context: Context) {
     /** Enrichissement TMDB des ajouts récents, après synchronisation, si une clé est configurée. */
     fun enrichInBackground(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
-        if (tmdbKey.get() != null && playback.activeSessions.value == 0) metadata.enrichRecent(s.account.id)
+        if (tmdbKey.get() != null && playback.activeSessions.value == 0) { metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
     }
 
     /** Après la mise à jour 0.3 : calcule les variantes des éléments déjà en cache (par lots, hors interface). */

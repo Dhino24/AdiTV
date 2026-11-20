@@ -52,7 +52,7 @@ fun SettingsScreen(session: Session.Active) {
     LaunchedEffect(confirmSignOut) { if (confirmSignOut) { delay(5_000); confirmSignOut = false } }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 40.dp, top = 32.dp, end = 40.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        Text("Paramètres", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
+        Text("Réglages", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
 
         Section("Compte fournisseur") {
             Fact("Type", if (session.isDemo) "Démo (contenu fictif, sans lecture)" else "API compatible Xtream (vérifiée à la connexion)")
@@ -89,8 +89,9 @@ fun SettingsScreen(session: Session.Active) {
                 Fact(typeLabel(t), when {
                     s == null -> "jamais synchronisé"
                     s.lastError != null -> "${s.itemCount} en cache · échec le ${s.lastAttemptAt?.let(::formatMillisDateTime)} : ${s.lastError}"
-                    else -> "${s.itemCount} éléments · ${s.lastSuccessAt?.let(::formatMillisDateTime)}"
-                }, if (s?.lastError != null) Aditv.Warn else Aditv.Text)
+                    else -> "${s.itemCount} éléments · ${s.categoryCount} catégories · ${s.lastSuccessAt?.let(::formatMillisDateTime)}"
+                }, if (s?.lastError != null || s?.itemCount == 0) Aditv.Warn else Aditv.Text)
+                s?.detail?.let { d -> Text("   import : $d", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
             }
             Text("Actualisation automatique toutes les 12 h environ (réseau requis). Les titres retirés par le fournisseur sont masqués, pas supprimés.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
             AditvButton(if (progress is SyncProgress.Running) "Synchronisation en cours…" else "Synchroniser maintenant", { c.syncNow() }, enabled = progress !is SyncProgress.Running)

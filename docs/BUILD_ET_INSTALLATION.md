@@ -12,7 +12,7 @@
 ./gradlew testDebugUnitTest      # tests unitaires + parcours UI Robolectric (captures dans design/captures-app/)
 sha256sum app/build/outputs/apk/debug/app-debug.apk
 ```
-L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.3.1-debug` : il peut cohabiter avec un futur build release.
+L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.4.0-debug` : il peut cohabiter avec un futur build release.
 
 ## Installer sur la Fire TV Stick (une seule fois : activer le débogage)
 1. Sur la Stick 4K 1re génération (Fire OS 6), le menu **Options pour les développeurs** est déjà visible dans **Paramètres → Mon Fire TV**. (Sur les Fire OS plus récents : **À propos**, sélectionner 7 fois le nom de l'appareil.)
@@ -22,7 +22,7 @@ L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.3.1-debug` : il 
 4. Depuis l'ordinateur, sur le même réseau :
    ```bash
    adb connect 192.168.1.42:5555     # remplacer 192.168.1.42 par l'IP de la Stick, sans < > ; accepter l'autorisation sur la TV
-   adb install -r ADITV-0.3.1-debug.apk
+   adb install -r ADITV-0.4.0-debug.apk
    ```
 5. ADITV apparaît dans **Vos applis et chaînes** (bannière ADITV). Après usage, le débogage ADB peut être désactivé.
 
@@ -30,11 +30,11 @@ Mise à jour : `adb install -r` sur un APK signé avec la **même clé** conserv
 
 ## Clé TMDB (facultative)
 1. Créer un compte gratuit sur themoviedb.org, puis **Paramètres du compte → API** : demander une clé (usage personnel).
-2. Dans ADITV : **Paramètres → Métadonnées TMDB**, saisir la *clé API* (v3) ou le *jeton d'accès en lecture* (v4), puis **Enregistrer et tester**.
+2. Dans ADITV : **Réglages → Métadonnées TMDB**, saisir la *clé API* (v3) ou le *jeton d'accès en lecture* (v4), puis **Enregistrer et tester**.
 La clé est chiffrée sur la Stick. Sans clé, les fiches affichent uniquement les informations du fournisseur.
 
 ## Guide TV
-Le guide du fournisseur est importé automatiquement (au démarrage puis toutes les 12 h environ, jamais pendant une lecture). **Paramètres → Guide TV** : couverture, actualisation manuelle, décalage horaire par source, ajout d'une source XMLTV en `https://`. Pour une chaîne mal associée : fiche de la chaîne → **Guide**.
+Le guide du fournisseur est importé automatiquement (au démarrage puis toutes les 12 h environ, jamais pendant une lecture). **Réglages → Guide TV** : couverture, actualisation manuelle, décalage horaire par source, ajout d'une source XMLTV en `https://`. Pour une chaîne mal associée : fiche de la chaîne → **Guide**.
 
 ## Bandes-annonces
 Le bouton « Bande-annonce » n'apparaît que si une clé TMDB est configurée, que TMDB référence une vidéo, et que l'application **YouTube** est installée sur la Fire TV (Amazon Appstore).

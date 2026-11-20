@@ -1,5 +1,6 @@
 package com.aditv.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,20 +13,33 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -34,42 +48,69 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.aditv.R
 import com.aditv.data.db.CatalogCard
-import com.aditv.data.variants.collapsed
 import com.aditv.data.db.ResumeRow
 import com.aditv.data.library.ProgressPolicy
-import com.aditv.ui.common.ProgressCard
-import com.aditv.ui.common.displayImage
-import com.aditv.ui.common.tmdbImage
 import com.aditv.data.provider.MediaType
 import com.aditv.data.sync.SyncProgress
+import com.aditv.data.variants.collapsed
+import com.aditv.data.variants.variantBadge
 import com.aditv.di.AppContainer
 import com.aditv.ui.LocalContainer
-import com.aditv.ui.common.AditvButton
-import com.aditv.ui.common.ChannelCard
-import com.aditv.ui.common.PosterCard
+import com.aditv.ui.LocalScreenEntry
+import com.aditv.ui.common.InitialFocus
 import com.aditv.ui.common.RemoteImage
 import com.aditv.ui.common.StatusDot
-import com.aditv.ui.common.Tag
+import com.aditv.ui.common.tmdbImage
+import com.aditv.ui.design.ChannelTile
+import com.aditv.ui.design.LandscapeCard
+import com.aditv.ui.design.PageDots
+import com.aditv.ui.design.PillButton
+import com.aditv.ui.design.RoundIconButton
+import com.aditv.ui.design.RowTitle
+import com.aditv.ui.design.TitleArt
 import com.aditv.ui.formatMillisDateTime
 import com.aditv.ui.theme.Aditv
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class HomeRow(val title: String, val subtitle: String?, val type: MediaType, val cards: List<Pair<CatalogCard, Int>>, val liveList: String? = null)
 
+/** Élément du carrousel principal. */
+data class HeroItem(
+    val itemId: String,
+    /** Contenu à lancer (épisode en cours pour une série). */
+    val playId: String,
+    val fromStart: Boolean,
+    val title: String,
+    val logo: String?,
+    val backdrop: String?,
+    val poster: String?,
+    val meta: String,
+    val overview: String?,
+    val resumeLabel: String?,
+    val kicker: String,
+)
+
 data class HomeState(
     val loaded: Boolean = false,
+    val hero: List<HeroItem> = emptyList(),
     val resume: List<ResumeRow> = emptyList(),
-    val hero: CatalogCard? = null,
     val rows: List<HomeRow> = emptyList(),
+    val watchlist: Set<String> = emptySet(),
     val lastSyncAt: Long? = null,
     val syncErrors: List<String> = emptyList(),
 )
 
-class HomeViewModel(c: AppContainer, accountId: String) : ViewModel() {
+@OptIn(ExperimentalCoroutinesApi::class)
+class HomeViewModel(private val c: AppContainer, private val accountId: String) : ViewModel() {
     private val dao = c.db.catalog()
     val progress: StateFlow<SyncProgress> = c.sync.progress
 
@@ -77,34 +118,74 @@ class HomeViewModel(c: AppContainer, accountId: String) : ViewModel() {
         dao.recentlyAdded(accountId, MediaType.MOVIE.name, 80),
         dao.recentlyAdded(accountId, MediaType.SERIES.name, 80),
         dao.firstItems(accountId, MediaType.LIVE.name, 80),
-        dao.firstItems(accountId, MediaType.MOVIE.name, 80),
+        dao.allCards(accountId, MediaType.MOVIE.name),
         c.db.library().watchlist(accountId),
-    ) { recentMovies, recentSeries, channels, anyMovies, myList -> listOf(recentMovies, recentSeries, channels, anyMovies, myList) }
+    ) { recentMovies, recentSeries, channels, anyMovies, myList -> listOf(recentMovies, recentSeries, channels, anyMovies.take(200), myList) }
 
     private val catalogRows = combine(rawRows, c.db.live().favorites(accountId), c.prefs.variantPrefs) { lists, favorites, prefs ->
         val (recentMovies, recentSeries, channels, anyMovies, myList) = lists.map { it.collapsed(prefs).take(24) }
         val rows = buildList {
-            // Chaînes épinglées = favoris ; sinon les premières chaînes du fournisseur.
-            if (favorites.isNotEmpty()) add(HomeRow("Chaînes favorites", "OK pour regarder · ↑/↓ dans le lecteur pour zapper", MediaType.LIVE, favorites.collapsed(prefs), liveList = "fav"))
+            if (favorites.isNotEmpty()) add(HomeRow("Chaînes favorites", "↑/↓ dans le lecteur pour zapper", MediaType.LIVE, favorites.collapsed(prefs), liveList = "fav"))
             if (myList.isNotEmpty()) add(HomeRow("Ma liste", null, MediaType.MOVIE, myList))
             // « Ajouts récents » = date d'ajout déclarée par le fournisseur, pas des sorties récentes.
-            if (recentMovies.isNotEmpty()) add(HomeRow("Ajouts récents · Films", "selon la date d'ajout du fournisseur", MediaType.MOVIE, recentMovies))
+            if (recentMovies.isNotEmpty()) add(HomeRow("Nouveaux films", "ajoutés par le fournisseur", MediaType.MOVIE, recentMovies))
             else if (anyMovies.isNotEmpty()) add(HomeRow("Films", null, MediaType.MOVIE, anyMovies))
-            if (recentSeries.isNotEmpty()) add(HomeRow("Ajouts récents · Séries", "selon la date d'ajout du fournisseur", MediaType.SERIES, recentSeries))
-            if (favorites.isEmpty() && channels.isNotEmpty()) add(HomeRow("Chaînes", "ordre du fournisseur · OK pour regarder", MediaType.LIVE, channels, liveList = "all"))
+            if (recentSeries.isNotEmpty()) add(HomeRow("Nouvelles séries", "ajoutées par le fournisseur", MediaType.SERIES, recentSeries))
+            if (favorites.isEmpty() && channels.isNotEmpty()) add(HomeRow("Chaînes", null, MediaType.LIVE, channels, liveList = "all"))
         }
-        rows to (recentMovies.firstOrNull() ?: recentSeries.firstOrNull() ?: anyMovies.firstOrNull())?.first
+        // Carrousel : d'abord les titres avec un visuel paysage TMDB, puis les autres.
+        val candidates = (recentMovies + recentSeries + anyMovies).map { it.first }.distinctBy { it.id }
+        Triple(rows, candidates.sortedByDescending { it.tmdbBackdrop != null }.take(6), myList.map { it.first.id }.toSet())
     }
 
     val state: StateFlow<HomeState> = combine(
         catalogRows, c.db.library().resumeRows(accountId, 20), dao.observeSyncStates(accountId),
-    ) { (rows, hero), resume, syncStates ->
-        HomeState(
-            loaded = true, resume = resume, hero = hero, rows = rows,
-            lastSyncAt = syncStates.mapNotNull { it.lastSuccessAt }.maxOrNull(),
-            syncErrors = syncStates.mapNotNull { s -> s.lastError?.let { "${typeLabel(s.type)} : $it" } },
+    ) { rowsAndHero, resume, syncStates -> Triple(rowsAndHero, resume, syncStates) }
+        .mapLatest { (rowsAndHero, resume, syncStates) ->
+            val (rows, heroCards, myList) = rowsAndHero
+            val hero = buildList {
+                resume.firstOrNull()?.let { r -> add(resumeHero(r)) }
+                heroCards.forEach { add(cardHero(it)) }
+            }.distinctBy { it.itemId }.take(6)
+            HomeState(
+                loaded = true, hero = hero, resume = resume, rows = rows, watchlist = myList,
+                lastSyncAt = syncStates.mapNotNull { it.lastSuccessAt }.maxOrNull(),
+                syncErrors = syncStates.mapNotNull { s -> s.lastError?.let { "${typeLabel(s.type)} : $it" } },
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    private suspend fun meta(itemId: String, type: String) = c.db.metadata().match(itemId)?.takeIf { it.status == "confirmed" }?.tmdbId
+        ?.let { c.db.metadata().metadata(if (type == "SERIES") "tv" else "movie", it) }
+
+    private suspend fun cardHero(card: CatalogCard): HeroItem {
+        val m = meta(card.id, card.type)
+        val metaLine = listOfNotNull(
+            if (card.type == "SERIES") "Série" else "Film",
+            m?.genres?.split(", ")?.firstOrNull() ?: card.genre,
+            (m?.releaseDate?.take(4) ?: card.year?.toString()),
+            m?.runtimeMin?.takeIf { it > 0 }?.let { if (it >= 60) "${it / 60} h ${"%02d".format(it % 60)}" else "$it min" },
+            variantBadge(card.lang, card.quality),
+            m?.voteAverage?.takeIf { (m.voteCount ?: 0) > 0 }?.let { "★ " + "%.1f".format(it).replace('.', ',') + " TMDB" },
+        ).joinToString(" · ")
+        return HeroItem(
+            itemId = card.id, playId = card.id, fromStart = false, title = m?.title ?: card.title,
+            logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(m?.backdropPath, "w1280"), poster = tmdbImage(card.tmdbPoster, "w500") ?: card.imageUrl,
+            meta = metaLine, overview = m?.overview, resumeLabel = null, kicker = "NOUVEAU DANS VOTRE ABONNEMENT",
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+    }
+
+    private suspend fun resumeHero(r: ResumeRow): HeroItem {
+        val type = if (r.kind == "EPISODE") "SERIES" else "MOVIE"
+        val m = meta(r.itemId, type)
+        val left = (r.durationMs - r.positionMs).coerceAtLeast(0) / 60_000
+        return HeroItem(
+            itemId = r.itemId, playId = r.contentId, fromStart = false, title = m?.title ?: r.title,
+            logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(r.tmdbBackdrop, "w1280"), poster = tmdbImage(r.tmdbPoster, "w500") ?: r.imageUrl,
+            meta = listOfNotNull(r.episodeLabel, "reste $left min").joinToString(" · "), overview = m?.overview, resumeLabel = "Reprendre", kicker = "CONTINUER",
+        )
+    }
+
+    fun toggleList(itemId: String, inList: Boolean) = viewModelScope.launch { c.library.toggleWatchlist(accountId, itemId, !inList) }
 }
 
 fun typeLabel(type: String) = when (type) { "LIVE" -> "Direct"; "MOVIE" -> "Films"; else -> "Séries" }
@@ -115,78 +196,133 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
     val vm: HomeViewModel = viewModel(key = "home-$accountId") { HomeViewModel(c, accountId) }
     val state by vm.state.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
-    val heroRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 40 } }
+    var heroIndex by remember { mutableIntStateOf(0) }
+    var heroFocused by remember { mutableStateOf(false) }
+    val primary = remember { FocusRequester() }
+    val entry = LocalScreenEntry.current
+    val hero = state.hero.getOrNull(heroIndex.coerceAtMost((state.hero.size - 1).coerceAtLeast(0)))
 
-    val hasHero = state.resume.isNotEmpty() || state.hero != null
-    com.aditv.ui.common.InitialFocus(heroRequester, key = hasHero, enabled = hasHero)
+    InitialFocus(primary, key = state.hero.isNotEmpty(), enabled = state.hero.isNotEmpty())
+    // Défilement automatique du carrousel tant que l'on est en haut de l'accueil.
+    LaunchedEffect(heroIndex, atTop, state.hero.size) {
+        if (state.hero.size > 1 && atTop) { delay(9_000); heroIndex = (heroIndex + 1) % state.hero.size }
+    }
 
     Box(Modifier.fillMaxSize()) {
-        if (state.loaded && state.rows.isEmpty() && state.resume.isEmpty()) {
+        // Fond plein écran du carrousel, assombri dès que l'on descend dans les rangées.
+        HeroBackground(hero, dim = !atTop)
+        if (state.loaded && state.hero.isEmpty() && state.rows.isEmpty()) {
             EmptyCatalog(progress, state.syncErrors)
         } else {
-            LazyColumn(contentPadding = PaddingValues(bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-                item {
-                    val r = state.resume.firstOrNull()
-                    if (r != null) ResumeHero(r, heroRequester, onOpen, onPlay) else Hero(state.hero, isDemo, heroRequester, onOpen)
+            LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(26.dp)) {
+                item(key = "hero") {
+                    if (hero != null) HeroBlock(
+                        hero, heroIndex, state.hero.size, inList = hero.itemId in state.watchlist,
+                        primaryModifier = Modifier.focusRequester(primary).focusRequester(entry),
+                        onPlay = { onPlay(hero.playId, hero.fromStart) },
+                        onToggleList = { vm.toggleList(hero.itemId, hero.itemId in state.watchlist) },
+                        onInfo = { onOpen(hero.itemId) },
+                        onNext = { heroIndex = (heroIndex + 1) % state.hero.size },
+                        modifier = Modifier.onFocusChanged { heroFocused = it.hasFocus },
+                    ) else Spacer(Modifier.height(120.dp))
                 }
                 if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay) }
-                items(state.rows, key = { it.title }) { row -> ContentRow(row, onOpen, onPlayLive) }
+                items(state.rows, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive) }
             }
         }
-        SyncBadge(progress, state.lastSyncAt, state.syncErrors.isNotEmpty(), Modifier.align(Alignment.TopEnd).padding(24.dp))
+        TopBar(isDemo, progress, state.lastSyncAt, state.syncErrors.isNotEmpty(), visible = atTop)
     }
 }
 
 @Composable
-private fun Hero(card: CatalogCard?, isDemo: Boolean, requester: FocusRequester, onOpen: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().height(290.dp)) {
-        if (card?.imageUrl != null) {
-            RemoteImage(card.imageUrl, card.title, Modifier.fillMaxHeight().fillMaxWidth(0.62f).align(Alignment.TopEnd), fallbackTitle = false)
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.38f to Aditv.Bg, 0.6f to Aditv.Bg.copy(alpha = 0.6f), 0.9f to Aditv.Bg.copy(alpha = 0f))))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Aditv.Bg.copy(alpha = 0f), 1f to Aditv.Bg)))
-        } else {
-            // Pas d'image fiable : simple halo d'ambiance, aucune fausse affiche.
-            Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Aditv.Accent.copy(alpha = 0.16f), Aditv.Bg.copy(alpha = 0f)), center = androidx.compose.ui.geometry.Offset(1500f, 120f), radius = 900f)))
+private fun HeroBackground(hero: HeroItem?, dim: Boolean) {
+    Box(Modifier.fillMaxSize()) {
+        when {
+            hero?.backdrop != null -> RemoteImage(hero.backdrop, hero.title, Modifier.fillMaxSize(), fallbackTitle = false)
+            hero?.poster != null -> RemoteImage(hero.poster, hero.title, Modifier.fillMaxHeight().fillMaxWidth(0.45f).align(Alignment.TopEnd), ContentScale.Crop, fallbackTitle = false)
+            hero != null -> com.aditv.ui.common.GeneratedArt(hero.title, Modifier.fillMaxHeight().fillMaxWidth(0.6f).align(Alignment.TopEnd), showTitle = false)
         }
-        Column(Modifier.padding(start = 40.dp, top = 44.dp).width(520.dp)) {
-            Text(
-                if (isDemo) "MODE DÉMO · CONTENU FICTIF" else "AJOUT RÉCENT DU FOURNISSEUR",
-                style = MaterialTheme.typography.labelSmall, color = Aditv.Accent,
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(card?.title ?: "Bienvenue sur ADITV", style = MaterialTheme.typography.displaySmall, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                card?.year?.let { Text(it.toString(), style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary) }
-                card?.genre?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary) }
-                if (card != null) Tag(if (card.type == "SERIES") "Série" else "Film")
+        // Lisibilité : voile à gauche et en bas ; plus sombre hors du haut de page.
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg.copy(alpha = 0.92f), 0.45f to Aditv.Bg.copy(alpha = 0.55f), 0.8f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 0.75f to Aditv.Bg.copy(alpha = 0.85f), 1f to Aditv.Bg)))
+        if (dim) Box(Modifier.fillMaxSize().background(Aditv.Bg.copy(alpha = 0.78f)))
+    }
+}
+
+@Composable
+private fun HeroBlock(
+    hero: HeroItem, index: Int, count: Int, inList: Boolean, primaryModifier: Modifier,
+    onPlay: () -> Unit, onToggleList: () -> Unit, onInfo: () -> Unit, onNext: () -> Unit, modifier: Modifier,
+) {
+    Box(modifier.fillMaxWidth().height(430.dp)) {
+        Column(Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 8.dp).width(520.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(hero.kicker, style = MaterialTheme.typography.labelSmall, color = Aditv.Accent)
+            TitleArt(hero.title, hero.logo)
+            Text(hero.meta, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            hero.overview?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis) }
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top, modifier = Modifier.height(78.dp)) {
+                PillButton(hero.resumeLabel ?: "Lire", onPlay, primaryModifier)
+                RoundIconButton(if (inList) "✓" else "+", if (inList) "Dans ma liste" else "Ma liste", onToggleList, active = inList)
+                RoundIconButton("i", "Fiche", onInfo)
+                if (count > 1) RoundIconButton("›", "Suivant", onNext)
             }
-            Spacer(Modifier.height(20.dp))
-            if (card != null) AditvButton("Voir la fiche", { onOpen(card.id) }, Modifier.focusRequester(requester).focusRequester(com.aditv.ui.LocalScreenEntry.current))
+            PageDots(count, index)
         }
     }
 }
 
 @Composable
-private fun ContentRow(row: HomeRow, onOpen: (String) -> Unit, onPlayLive: (String, String?) -> Unit) {
-    val nowPlaying = if (row.type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(row.cards.firstOrNull()?.first?.id?.substringBefore('|').orEmpty(), row.cards.map { it.first }) else emptyMap()
+private fun TopBar(isDemo: Boolean, progress: SyncProgress, lastSyncAt: Long?, hasError: Boolean, visible: Boolean) {
+    if (!visible) return
+    Row(Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+        Image(painterResource(R.drawable.logo_full), contentDescription = "ADITV", modifier = Modifier.height(26.dp))
+        if (isDemo) { Spacer(Modifier.width(10.dp)); Text("DÉMO · CONTENU FICTIF", style = MaterialTheme.typography.labelSmall, color = Aditv.Accent) }
+        Spacer(Modifier.width(16.dp))
+        Text("‹ Menu", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+        Spacer(Modifier.weight(1f))
+        Row(Modifier.background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            when {
+                progress is SyncProgress.Running -> { StatusDot(Aditv.Accent); Spacer(Modifier.width(8.dp)); Text("Mise à jour · ${typeLabel(progress.type.name)} ${progress.count}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
+                hasError -> { StatusDot(Aditv.Warn); Spacer(Modifier.width(8.dp)); Text("Synchronisation incomplète · voir Réglages", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
+                lastSyncAt != null -> { StatusDot(Aditv.Ok); Spacer(Modifier.width(8.dp)); Text("Catalogue du ${formatMillisDateTime(lastSyncAt)}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit, onPlayLive: (String, String?) -> Unit) {
+    val nowPlaying = if (row.type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(accountId, row.cards.map { it.first }) else emptyMap()
     Column {
-        Row(Modifier.padding(start = 40.dp, bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
-            Text(row.title, style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
-            if (row.subtitle != null) {
-                Spacer(Modifier.width(12.dp))
-                Text(row.subtitle, style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+        RowTitle(row.title, row.subtitle, Modifier.padding(start = 48.dp, bottom = 12.dp))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+            items(row.cards, key = { it.first.id }) { (card, versions) ->
+                val badge = variantBadge(card.lang, card.quality)
+                if (card.type == "LIVE") ChannelTile(card.title, card.imageUrl, nowPlaying[card.id] ?: listOfNotNull(badge, if (versions > 1) "$versions versions" else null).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, row.liveList) })
+                else LandscapeCard(
+                    card.title, tmdbImage(card.tmdbBackdrop, "w780"), tmdbImage(card.tmdbLogo, "w300"),
+                    tmdbImage(card.tmdbPoster, "w342") ?: card.imageUrl,
+                    listOfNotNull(card.year?.toString(), badge).joinToString(" · ").ifEmpty { null }, { onOpen(card.id) },
+                )
             }
         }
-        LazyRow(
-            Modifier.focusRestorer(),
-            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            items(row.cards, key = { it.first.id }) { (card, versions) ->
-                val badge = com.aditv.data.variants.variantBadge(card.lang, card.quality)
-                if (card.type == "LIVE") ChannelCard(card.title, card.imageUrl, nowPlaying[card.id] ?: listOfNotNull(badge, if (versions > 1) "$versions versions" else null).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, row.liveList) })
-                else PosterCard(card.title, card.displayImage(), listOfNotNull(card.year?.toString(), badge).joinToString(" · ").ifEmpty { null }, { onOpen(card.id) })
+    }
+}
+
+@Composable
+private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Unit) {
+    Column {
+        RowTitle("Continuer à regarder", modifier = Modifier.padding(start = 48.dp, bottom = 12.dp))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+            items(rows, key = { it.contentId }) { r ->
+                LandscapeCard(
+                    r.title, tmdbImage(r.tmdbBackdrop, "w780") ?: r.imageUrl?.takeIf { r.kind == "EPISODE" }, null,
+                    tmdbImage(r.tmdbPoster, "w342") ?: r.imageUrl, r.episodeLabel, { onPlay(r.contentId, false) },
+                    progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
+                )
             }
         }
     }
@@ -205,63 +341,9 @@ private fun EmptyCatalog(progress: SyncProgress, errors: List<String>) {
             else -> {
                 Text("Catalogue vide", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
                 Spacer(Modifier.height(10.dp))
-                Text(
-                    if (errors.isEmpty()) "Aucun élément reçu pour le moment. Lancez une synchronisation depuis Paramètres."
-                    else "La dernière synchronisation a échoué :", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary,
-                )
+                Text(if (errors.isEmpty()) "Aucun élément reçu pour le moment. Lancez une synchronisation depuis Réglages." else "La dernière synchronisation a échoué :",
+                    style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
                 errors.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Error) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SyncBadge(progress: SyncProgress, lastSyncAt: Long?, hasError: Boolean, modifier: Modifier) {
-    Row(modifier.background(Aditv.Bg.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        when {
-            progress is SyncProgress.Running -> { StatusDot(Aditv.Accent); Spacer(Modifier.width(8.dp)); Text("Mise à jour · ${typeLabel(progress.type.name)} ${progress.count}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
-            hasError -> { StatusDot(Aditv.Warn); Spacer(Modifier.width(8.dp)); Text("Synchronisation incomplète · voir Paramètres", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
-            lastSyncAt != null -> { StatusDot(Aditv.Ok); Spacer(Modifier.width(8.dp)); Text("Catalogue du ${formatMillisDateTime(lastSyncAt)}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
-        }
-    }
-}
-
-@Composable
-private fun ResumeHero(r: ResumeRow, requester: FocusRequester, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit) {
-    Box(Modifier.fillMaxWidth().height(290.dp)) {
-        val bg = tmdbImage(r.tmdbBackdrop, "w1280")
-        if (bg != null) {
-            RemoteImage(bg, r.title, Modifier.fillMaxHeight().fillMaxWidth(0.62f).align(Alignment.TopEnd), fallbackTitle = false)
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.38f to Aditv.Bg, 0.6f to Aditv.Bg.copy(alpha = 0.6f), 0.9f to Aditv.Bg.copy(alpha = 0f))))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Aditv.Bg.copy(alpha = 0f), 1f to Aditv.Bg)))
-        }
-        Column(Modifier.padding(start = 40.dp, top = 44.dp).width(560.dp)) {
-            Text("REPRENDRE · " + if (r.kind == "EPISODE") "SÉRIE" else "FILM", style = MaterialTheme.typography.labelSmall, color = Aditv.Accent)
-            Spacer(Modifier.height(10.dp))
-            Text(r.title, style = MaterialTheme.typography.displaySmall, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            r.episodeLabel?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, maxLines = 1) }
-            Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                val left = (r.durationMs - r.positionMs).coerceAtLeast(0) / 60_000
-                AditvButton("Reprendre", { onPlay(r.contentId, false) }, Modifier.focusRequester(requester).focusRequester(com.aditv.ui.LocalScreenEntry.current), secondaryText = "· reste $left min")
-                AditvButton("Voir la fiche", { onOpen(r.itemId) })
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Unit) {
-    Column {
-        Text("Reprendre la lecture", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text, modifier = Modifier.padding(start = 40.dp, bottom = 12.dp))
-        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            items(rows, key = { it.contentId }) { r ->
-                ProgressCard(
-                    title = r.title, subtitle = r.episodeLabel,
-                    imageUrl = tmdbImage(r.tmdbBackdrop, "w780") ?: r.imageUrl ?: tmdbImage(r.tmdbPoster, "w342"),
-                    progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
-                    onClick = { onPlay(r.contentId, false) },
-                )
             }
         }
     }

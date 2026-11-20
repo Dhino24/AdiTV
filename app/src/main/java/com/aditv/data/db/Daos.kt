@@ -56,7 +56,7 @@ interface CatalogDao {
     fun categories(accountId: String, type: String): Flow<List<CategoryEntity>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -66,7 +66,7 @@ interface CatalogDao {
     fun cardsInCategory(accountId: String, type: String, categoryId: String): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -76,7 +76,7 @@ interface CatalogDao {
     fun recentlyAdded(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -86,7 +86,7 @@ interface CatalogDao {
     fun firstItems(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -96,7 +96,7 @@ interface CatalogDao {
     suspend fun search(accountId: String, key: String, limit: Int): List<CatalogCard>
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
@@ -124,7 +124,7 @@ interface CatalogDao {
     suspend fun setVariants(rows: List<Pair<String, com.aditv.data.variants.VariantInfo>>) { rows.forEach { (id, v) -> setVariant(id, v.key, v.lang, v.quality) } }
 
     @Query(
-        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
            LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
            LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId

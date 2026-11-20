@@ -87,7 +87,7 @@ fun EpgMapScreen(itemId: String, onDone: () -> Unit) {
         }
         Spacer(Modifier.width(32.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (results.isEmpty()) item { Text("Aucune chaîne de guide trouvée. Actualisez le guide dans Paramètres si besoin.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+            if (results.isEmpty()) item { Text("Aucune chaîne de guide trouvée. Actualisez le guide dans Réglages si besoin.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
             items(results, key = { r -> "${r.sourceId}|${r.channelId}" }) { r ->
                 ListItem(
                     selected = (mapping?.epgChannelId ?: it.epgChannelId) == r.channelId,

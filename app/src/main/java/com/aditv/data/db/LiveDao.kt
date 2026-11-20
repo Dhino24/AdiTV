@@ -17,7 +17,7 @@ interface LiveDao {
     @Query("SELECT itemId FROM favorite_channels WHERE accountId = :accountId") fun favoriteIds(accountId: String): Flow<List<String>>
 
     @Query(
-        """SELECT ci.id, ci.type, ci.title, ci.year, ci.imageUrl, ci.genre, NULL AS tmdbPoster, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+        """SELECT ci.id, ci.type, ci.title, ci.year, ci.imageUrl, ci.genre, NULL AS tmdbPoster, NULL AS tmdbBackdrop, NULL AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM favorite_channels f JOIN catalog_items ci ON ci.id = f.itemId
            WHERE f.accountId = :accountId AND ci.available = 1 ORDER BY f.addedAt"""
     )

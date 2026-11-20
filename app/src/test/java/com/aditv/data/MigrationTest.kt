@@ -29,7 +29,11 @@ class MigrationTest {
         db.close()
         val v3 = helper.runMigrationsAndValidate("m.db", 3, true)
         v3.query("SELECT variantKey FROM catalog_items").use { it.moveToFirst(); assertEquals("recalculé au démarrage", true, it.isNull(0)) }
-        v3.execSQL("INSERT INTO favorite_channels (accountId, itemId, addedAt) VALUES ('a','a|LIVE|1',1)")
-        v3.execSQL("INSERT INTO watch_progress (accountId, contentId, kind, seriesItemId, positionMs, durationMs, updatedAt, completed) VALUES ('a','a|MOVIE|1','MOVIE',NULL,1,2,3,0)")
+        v3.close()
+        val v4 = helper.runMigrationsAndValidate("m.db", 4, true)
+        v4.query("SELECT categoryCount FROM sync_state").use { }
+        val v3x = v4
+        v3x.execSQL("INSERT INTO favorite_channels (accountId, itemId, addedAt) VALUES ('a','a|LIVE|1',1)")
+        v3x.execSQL("INSERT INTO watch_progress (accountId, contentId, kind, seriesItemId, positionMs, durationMs, updatedAt, completed) VALUES ('a','a|MOVIE|1','MOVIE',NULL,1,2,3,0)")
     }
 }

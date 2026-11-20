@@ -125,6 +125,10 @@ data class SyncStateEntity(
     val lastAttemptAt: Long?,
     val itemCount: Int,
     val lastError: String?,
+    /** Catégories reçues lors du dernier import. */
+    @ColumnInfo(defaultValue = "0") val categoryCount: Int = 0,
+    /** Mode d'import et anomalies (liste complète / par catégorie, catégories en échec…), affiché dans Paramètres. */
+    val detail: String? = null,
 )
 
 /** Projection légère pour les grilles et rangées. */
@@ -137,6 +141,8 @@ data class CatalogCard(
     val genre: String?,
     /** Affiche TMDB si la correspondance est confirmée. */
     val tmdbPoster: String? = null,
+    val tmdbBackdrop: String? = null,
+    val tmdbLogo: String? = null,
     val variantKey: String? = null,
     val lang: String? = null,
     val quality: Int? = null,

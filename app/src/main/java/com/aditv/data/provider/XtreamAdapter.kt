@@ -84,15 +84,24 @@ class XtreamAdapter(
         return out
     }
 
-    override suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {
+    override suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) =
+        streamList(type, null, batchSize, onBatch)
+
+    override suspend fun streamItemsInCategory(type: MediaType, categoryProviderId: String, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) =
+        streamList(type, categoryProviderId, batchSize, onBatch)
+
+    private suspend fun streamList(type: MediaType, categoryId: String?, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {
         val action = when (type) {
             MediaType.LIVE -> "get_live_streams"
             MediaType.MOVIE -> "get_vod_streams"
             MediaType.SERIES -> "get_series"
         }
+        val url = apiUrl(action).let { u -> if (categoryId != null) u.newBuilder().addQueryParameter("category_id", categoryId).build() else u }
         val batch = ArrayList<RawItem>(batchSize)
-        streamArray(apiUrl(action)) { el ->
-            val item = (el as? JsonObject)?.let { parseItem(type, it) } ?: return@streamArray
+        streamArray(url) { el ->
+            val parsed = (el as? JsonObject)?.let { parseItem(type, it) } ?: return@streamArray
+            // Liste par catégorie : rattache à la catégorie demandée si l'élément ne la précise pas.
+            val item = if (categoryId != null && parsed.categoryProviderId == null) parsed.copy(categoryProviderId = categoryId) else parsed
             batch += item
             if (batch.size >= batchSize) { onBatch(batch.toList()); batch.clear() }
         }

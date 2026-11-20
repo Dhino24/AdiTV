@@ -124,6 +124,44 @@ class CatalogSyncTest {
         assertEquals(1, adapter.calls)
     }
 
+    /** Serveur qui refuse la liste complète (vide ou erreur) mais sert chaque catégorie. */
+    private class PerCategoryAdapter(val fullFails: Boolean, val failingCategory: String? = null) : ProviderAdapter {
+        override val kind = ProviderKind.DEMO
+        override suspend fun authenticate() = AccountStatus(null, null, null, null, null, null, "fake")
+        override suspend fun categories(type: MediaType) = listOf(RawCategory("c1", "Action", 0), RawCategory("c2", "Drame", 1))
+        override suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {
+            if (fullFails && type == MediaType.MOVIE) throw ProviderError.Timeout(java.net.SocketTimeoutException())
+        }
+        override suspend fun streamItemsInCategory(type: MediaType, categoryProviderId: String, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {
+            if (type != MediaType.MOVIE) return
+            if (categoryProviderId == failingCategory) throw ProviderError.HttpStatus(500)
+            onBatch(listOf(RawItem("$categoryProviderId-1", MediaType.MOVIE, "FR| Film $categoryProviderId", null, null, null, null, null, null, null, null, null, null, null, null)))
+        }
+        override suspend fun seriesEpisodes(seriesProviderId: String) = emptyList<com.aditv.data.provider.RawEpisode>()
+        override fun streamUrl(target: com.aditv.data.provider.StreamTarget): String? = null
+        override fun xmltvUrl(): String? = null
+        override suspend fun shortEpg(streamProviderId: String) = emptyList<com.aditv.data.provider.RawShortProgramme>()
+    }
+
+    @Test fun emptyFullListFallsBackToCategories() = runTest {
+        val dao = FakeDao()
+        val done = sync(dao).run("acc", PerCategoryAdapter(fullFails = false))
+        assertEquals(2, done.counts[MediaType.MOVIE])
+        assertEquals("acc|MOVIE|cat:c1", dao.items.getValue("acc|MOVIE|c1-1").categoryId)
+        val st = dao.states.getValue("acc|MOVIE")
+        assertEquals(2, st.categoryCount); assertTrue(st.detail!!.startsWith("par catégorie"))
+    }
+
+    @Test fun failingFullListFallsBackAndPartialFailureMarksNothingMissing() = runTest {
+        val dao = FakeDao()
+        sync(dao).run("acc", PerCategoryAdapter(fullFails = true))
+        assertEquals(2, dao.items.size)
+        // Deuxième import : la catégorie c2 échoue → son film ne doit pas être masqué.
+        sync(dao).run("acc", PerCategoryAdapter(fullFails = true, failingCategory = "c2"))
+        assertTrue(dao.items.getValue("acc|MOVIE|c2-1").available)
+        assertTrue(dao.states.getValue("acc|MOVIE").detail!!.contains("1 en échec"))
+    }
+
     @Test fun idsAreScopedByAccount() = runTest {
         val dao = FakeDao(); val adapter = FakeAdapter(listOf("1"))
         sync(dao).run("a", adapter); sync(dao).run("b", adapter)

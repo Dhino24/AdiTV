@@ -86,6 +86,10 @@ data class TmdbMetadataEntity(
     val fetchedAt: Long,
     /** Clé YouTube de la bande-annonce choisie (fr, sinon en), si TMDB en référence une. */
     val trailerKey: String? = null,
+    /** Logo-titre (image) TMDB : français d'abord, sinon anglais. */
+    val logoPath: String? = null,
+    /** Faux pour les fiches mises en cache avant l'ajout des logos : rechargées en arrière-plan. */
+    @androidx.room.ColumnInfo(defaultValue = "0") val hasLogoInfo: Boolean = false,
 )
 
 /** Élément « Reprendre » : contenu, titre à afficher, progression. */

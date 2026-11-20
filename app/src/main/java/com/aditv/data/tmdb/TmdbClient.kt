@@ -44,8 +44,8 @@ class TmdbClient(
     }
 
     suspend fun details(mediaType: String, id: Int): TmdbDetails {
-        val append = if (mediaType == "movie") "credits,recommendations,similar,videos" else "aggregate_credits,recommendations,similar,videos"
-        val o = get("$mediaType/$id", mapOf("language" to "fr-FR", "append_to_response" to append, "include_video_language" to "fr,en,null")) ?: throw TmdbError.NotFound()
+        val append = if (mediaType == "movie") "credits,recommendations,similar,videos,images" else "aggregate_credits,recommendations,similar,videos,images"
+        val o = get("$mediaType/$id", mapOf("language" to "fr-FR", "append_to_response" to append, "include_video_language" to "fr,en,null", "include_image_language" to "fr,en,null")) ?: throw TmdbError.NotFound()
         var overview = o.text("overview")
         // Repli : résumé anglais si aucun résumé français.
         val overviewLang = if (overview != null) "fr-FR" else {
@@ -79,8 +79,15 @@ class TmdbClient(
             seasonCount = o.integer("number_of_seasons"),
             relatedIds = related,
             trailerKey = pickTrailer(o.obj("videos")?.arr("results").orEmpty().mapNotNull { it as? JsonObject }),
+            logoPath = pickLogo(o.obj("images")?.arr("logos").orEmpty().mapNotNull { it as? JsonObject }),
         )
     }
+
+    /** Logo-titre : français, puis anglais, puis sans langue ; le mieux noté. */
+    internal fun pickLogo(logos: List<JsonObject>): String? = logos
+        .filter { it.text("file_path") != null }
+        .sortedWith(compareBy({ when (it.text("iso_639_1")) { "fr" -> 0; "en" -> 1; null -> 2; else -> 3 } }, { -(it.dbl("vote_average") ?: 0.0) }))
+        .firstOrNull()?.text("file_path")
 
     /** Bande-annonce YouTube : française d'abord, officielle de préférence, sinon anglaise. */
     internal fun pickTrailer(videos: List<JsonObject>): String? = videos

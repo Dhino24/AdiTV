@@ -30,6 +30,7 @@ data class TmdbDetails(
     val seasonCount: Int?,
     val relatedIds: List<Int>,
     val trailerKey: String? = null,
+    val logoPath: String? = null,
 )
 
 sealed class TmdbError(message: String, cause: Throwable? = null) : Exception(message, cause) {

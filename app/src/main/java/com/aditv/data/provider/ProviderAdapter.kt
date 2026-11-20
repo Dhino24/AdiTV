@@ -12,6 +12,12 @@ interface ProviderAdapter {
     /** Diffuse les éléments par lots pour éviter de charger tout le catalogue en mémoire. */
     suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit)
 
+    /**
+     * Éléments d'une seule catégorie. Beaucoup de gros serveurs refusent la liste complète des films/séries
+     * (réponse vide ou trop lente) mais la servent catégorie par catégorie.
+     */
+    suspend fun streamItemsInCategory(type: MediaType, categoryProviderId: String, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {}
+
     /** Saisons/épisodes d'une série, chargés à la demande. */
     suspend fun seriesEpisodes(seriesProviderId: String): List<RawEpisode>
 

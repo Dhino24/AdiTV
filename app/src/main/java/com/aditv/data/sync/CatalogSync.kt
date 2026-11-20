@@ -46,25 +46,56 @@ class CatalogSync(private val dao: CatalogDao, private val clock: () -> Long = S
                     dao.upsertCategories(cats, cats.map(CatalogMapping::toCategoryUpdate))
 
                     var n = 0
-                    adapter.streamItems(type, BATCH) { batch ->
+                    val store: suspend (List<com.aditv.data.provider.RawItem>) -> Unit = { batch ->
                         val now = clock()
                         val entities = batch.map { CatalogMapping.toEntity(accountId, it, syncId, now, it.categoryProviderId?.let(catNames::get)) }
                         dao.upsertItems(entities, entities.map(CatalogMapping::toUpdate))
                         n += batch.size
                         _progress.value = SyncProgress.Running(type, "Éléments", n)
                     }
+                    // 1. Liste complète.
+                    val fullError = try { adapter.streamItems(type, BATCH, store); null }
+                    catch (e: ProviderError) {
+                        if (e is ProviderError.InvalidCredentials || e is ProviderError.AccountInactive || e is ProviderError.CleartextNotAllowed || rawCats.isEmpty()) throw e
+                        e
+                    }
+                    var complete = true
+                    var detail = "liste complète"
+                    // 2. Repli catégorie par catégorie si la liste complète est vide ou refusée.
+                    if (n == 0 && rawCats.isNotEmpty()) {
+                        var failed = 0
+                        var lastFailure: ProviderError? = null
+                        rawCats.forEachIndexed { i, cat ->
+                            _progress.value = SyncProgress.Running(type, "Catégorie ${i + 1}/${rawCats.size}", n)
+                            try {
+                                adapter.streamItemsInCategory(type, cat.providerId, BATCH) { batch ->
+                                    store(batch.map { if (it.categoryProviderId == null) it.copy(categoryProviderId = cat.providerId) else it })
+                                }
+                            }
+                            catch (e: ProviderError) {
+                                if (e is ProviderError.InvalidCredentials || e is ProviderError.AccountInactive) throw e
+                                failed++; lastFailure = e
+                            }
+                        }
+                        if (failed == rawCats.size) throw lastFailure ?: fullError ?: ProviderError.UnexpectedResponse("aucune catégorie lisible")
+                        complete = failed == 0
+                        detail = "par catégorie (${rawCats.size} catégories" + (if (failed > 0) ", $failed en échec" else "") + ")" +
+                            (fullError?.let { " · liste complète : ${it.message}" } ?: " · liste complète vide")
+                    } else if (fullError != null) throw fullError
                     // Uniquement après un import complet : sinon on marquerait à tort des titres absents.
-                    dao.markMissingItems(accountId, type.name, syncId)
-                    dao.markMissingCategories(accountId, type.name, syncId)
+                    if (complete) {
+                        dao.markMissingItems(accountId, type.name, syncId)
+                        dao.markMissingCategories(accountId, type.name, syncId)
+                    }
                     counts[type] = n
-                    dao.upsertSyncState(SyncStateEntity(accountId, type.name, clock(), clock(), n, null))
+                    dao.upsertSyncState(SyncStateEntity(accountId, type.name, clock(), clock(), n, null, rawCats.size, detail))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     val msg = (e as? ProviderError)?.message ?: "Erreur inattendue (${e.javaClass.simpleName})"
                     AppLog.w("Synchronisation ${type.name} échouée", e)
                     errors[type] = msg
-                    dao.upsertSyncState(SyncStateEntity(accountId, type.name, prev?.lastSuccessAt, clock(), prev?.itemCount ?: 0, msg))
+                    dao.upsertSyncState(SyncStateEntity(accountId, type.name, prev?.lastSuccessAt, clock(), prev?.itemCount ?: 0, msg, prev?.categoryCount ?: 0, prev?.detail))
                     // Une erreur d'accès ne doit pas être répétée sur les types suivants.
                     if (e is ProviderError.InvalidCredentials || e is ProviderError.AccountInactive) break
                 }

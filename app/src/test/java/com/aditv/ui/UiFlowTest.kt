@@ -60,7 +60,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
     private fun waitMenuClosed() = try {
         rule.waitUntil(5_000) {
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
-            rule.onAllNodesWithText("Ma liste").fetchSemanticsNodes().isEmpty()
+            rule.onAllNodesWithText("Rechercher").fetchSemanticsNodes().isEmpty()
         }
     } catch (e: Throwable) { shot("echec_menu_ouvert"); throw AssertionError("Menu resté ouvert. Focus : " + focusedDump(), e) }
 
@@ -98,7 +98,6 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
 
     @Test fun demoJourneyWithRemote() {
         waitText("Connectez votre abonnement")
-        shot("01_connexion")
         // Focus initial sur le premier champ, visible sans toucher l'écran.
         rule.waitUntil(5_000) {
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
@@ -111,37 +110,38 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitText("Renseignez l'identifiant")
 
         press("Essayer le mode démo")
-        waitText("Ajouts récents · Films")
+        waitText("Nouveaux films")
         waitText("Catalogue du")
+        // Focus initial sur l'action principale du carrousel.
+        assertFocused("Lire")
         shot("02_accueil")
 
-        // Focus initial sur l'action principale du hero.
-        assertFocused("Voir la fiche")
-
-        // ← ouvre le menu sur la rubrique active (Accueil), pas sur l'icône la plus proche.
+        // ← sans voisin : le menu flottant s'ouvre sur la rubrique active (Accueil).
         key(Key.DirectionLeft)
-        waitText("Paramètres")
+        waitText("Rechercher")
         assertFocused("Accueil")
         shot("03_menu_ouvert")
 
-        // Descendre jusqu'à Films sans valider puis → : retour exact sur l'élément de contenu quitté.
-        key(Key.DirectionDown, 4)
+        // Descendre jusqu'à Films sans valider puis → : le menu se ferme, retour exact sur l'élément quitté.
+        key(Key.DirectionDown, 3)
         assertFocused("Films")
         key(Key.DirectionRight)
-        assertFocused("Voir la fiche")
-        // Depuis une affiche, ← rouvre le menu sur la rubrique active (Accueil), pas sur Films.
+        waitMenuClosed()
+        assertFocused("Lire")
+        // Depuis une vignette en début de rangée, ← rouvre le menu sur la rubrique active.
         key(Key.DirectionDown)
         key(Key.DirectionLeft)
+        waitText("Rechercher")
         assertFocused("Accueil")
 
         // Ouvrir Films.
-        key(Key.DirectionDown, 4)
+        key(Key.DirectionDown, 3)
         key(Key.DirectionCenter)
         waitText("Thrillers")
+        waitMenuClosed()
         // « Tous les films » est la première entrée : visible même sans catégories exploitables.
         assertFocused("Tous les films")
         waitText("Les Grands Fleuves") // le plus récent en premier
-        // ↓ : catégorie Thrillers (sélection au focus).
         key(Key.DirectionDown)
         assertFocused("Thrillers")
         waitText("Fjord noir")
@@ -150,51 +150,55 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         // Catégorie → grille → fiche.
         key(Key.DirectionRight)
         key(Key.DirectionCenter)
-        waitText("fournisseur : «")
+        waitText("Lecture indisponible (démo)")
         waitMenuClosed()
-        // Démo : la lecture est annoncée indisponible, sans faux lecteur.
         assertFocused("Lecture indisponible (démo)")
         waitText("Ajoutez votre clé TMDB")
         shot("05_fiche")
 
-        // → puis OK : ajout à Ma liste.
+        // → puis OK : ajout à Ma liste (bouton rond, libellé affiché au focus).
         key(Key.DirectionRight)
-        assertFocused("+ Ma liste")
+        assertFocused("+")
+        waitText("Ma liste")
         key(Key.DirectionCenter)
-        waitText("✓ Dans ma liste")
+        waitText("Dans ma liste")
 
         // Retour système : la fiche se ferme, retour à la grille Films.
         back()
         rule.waitUntil(5_000) {
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
-            rule.onAllNodesWithText("fournisseur : «", substring = true).fetchSemanticsNodes().isEmpty()
+            rule.onAllNodesWithText("Lecture indisponible (démo)").fetchSemanticsNodes().isEmpty()
         }
         waitText("Comédies")
 
         // ← depuis la grille : catégories, puis menu (sur Films, rubrique active).
         key(Key.DirectionLeft, 2)
+        waitText("Rechercher")
         assertFocused("Films")
-        // Ma liste (2 crans plus bas que Films) contient le film ajouté.
         key(Key.DirectionDown, 2)
         assertFocused("Ma liste")
         key(Key.DirectionCenter)
         waitText("Les Ombres de Dakar")
+        waitMenuClosed()
         shot("06_ma_liste")
         key(Key.DirectionLeft)
+        waitText("Rechercher")
         assertFocused("Ma liste")
 
-        // Direct : une seule carte par chaîne, la meilleure version (« Sport Plus » SD / FHD / 4K → 4K).
+        // Direct : une seule carte par chaîne, la meilleure version.
         key(Key.DirectionUp, 4)
         assertFocused("Direct")
         key(Key.DirectionCenter)
         waitText("Information")
         waitText("Info 24 (démo)")
+        waitMenuClosed()
         assertEquals("variantes regroupées", 1, rule.onAllNodesWithText("Info 24 (démo)", substring = true).fetchSemanticsNodes().size)
         waitText("2 versions")
         shot("07_direct")
 
         // Guide TV : programmes fictifs de la démo, panneau de détail, Retour.
         key(Key.DirectionLeft, 2)
+        waitText("Rechercher")
         assertFocused("Direct")
         key(Key.DirectionDown)
         assertFocused("Guide TV")
@@ -212,14 +216,14 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
             rule.onAllNodesWithText("Fiche de la chaîne").fetchSemanticsNodes().isEmpty()
         }
 
-        // Vers les paramètres : ← (chaîne) ← (menu sur Guide TV) puis ↓ ×4.
+        // Vers les réglages : ← (chaîne) ← (menu sur Guide TV) puis ↓ ×4.
         key(Key.DirectionLeft, 2)
+        waitText("Rechercher")
         assertFocused("Guide TV")
         key(Key.DirectionDown, 4)
-        assertFocused("Paramètres")
+        assertFocused("Réglages")
         key(Key.DirectionCenter)
         waitText("Compte fournisseur")
-        // Le focus est entré dans le contenu : le menu est replié.
         waitMenuClosed()
         waitText("éléments")
         shot("10_parametres")

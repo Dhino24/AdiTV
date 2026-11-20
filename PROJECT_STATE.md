@@ -8,6 +8,17 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 ## Phase actuelle : 3 — terminée côté code (0.3.0), à valider sur la Stick
 0.2.0 installée par Adama (installation OK).
 
+### 0.4.0 (20/11/2026) — retours d'Adama : « films toujours vides », « interface comme Apple TV »
+- **Films/séries vides (2e cause probable)** : beaucoup de gros serveurs refusent la liste complète des films/séries (réponse vide ou trop lente) mais la servent par catégorie. Import en repli **catégorie par catégorie** (les titres sont rattachés à la catégorie interrogée) ; une catégorie en échec ne masque rien. Réglages → Catalogue local affiche désormais, par type : éléments, catégories, **mode d'import** et anomalies. Resynchronisation unique au démarrage. Testé sur serveur simulé — **à confirmer sur l'abonnement d'Adama**.
+- **Interface inspirée d'Apple TV, identité ADITV** (pas de marque ni logo Apple) :
+  - menu latéral **flottant en verre fumé**, masqué par défaut : ← au bord gauche ou Retour sur un écran principal l'ouvre ; logo + heure en tête ; retient la rubrique ; → ou Retour le referme et rend le focus ; le focus n'en sort pas par ↑/↓ ;
+  - accueil : **visuel plein écran en carrousel** (défilement auto, indicateur de pages), logo-titre TMDB ou titre, ligne d'infos, pilule « Lire / Reprendre » + boutons ronds (Ma liste, Fiche, Suivant) libellés au focus ; rangées « Continuer à regarder », chaînes favorites, Ma liste, nouveaux films/séries en **vignettes paysage** avec élévation au focus ;
+  - **fiche plein écran** : fond TMDB, logo-titre, pilule + boutons ronds (Ma liste, bande-annonce, correspondance ; favori et guide pour une chaîne), versions, épisodes en vignettes, suggestions, informations ;
+  - logos-titres et fonds TMDB récupérés (`images`), fiches déjà en cache rechargées en arrière-plan ;
+  - « Paramètres » renommé « Réglages ».
+  - Sans clé TMDB, les visuels restent ceux du fournisseur (affiches) sur fonds colorés : **la clé TMDB est fortement recommandée** pour l'effet Apple TV.
+- Base v4 (diagnostic d'import, logos) : migration 1→4 testée. **63 tests**, parcours télécommande complet réécrit pour le nouveau menu (API 25 et 35).
+
 ### Correctif 0.3.1 (retour d'Adama : « films et séries vides »)
 - Panneaux Xtream récents : `category_id` vide, seulement `category_ids` → titres importés mais rattachés à aucune catégorie. Lecture de `category_ids` en repli (testé).
 - Entrée « Tous les films / Toutes les séries / Toutes les chaînes » en tête de chaque écran : tout reste accessible même sans catégorie exploitable.
@@ -47,7 +58,9 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 ## À faire par Adama
 - [x] 0.2.0 installée.
 - [x] 0.3.0 installée : films et séries vides signalés → 0.3.1.
-- [ ] Installer `ADITV-0.3.1-debug.apk`, attendre la resynchronisation, vérifier Films / Séries et relever Paramètres → Catalogue local.
+- [x] 0.3.1 testée : films toujours vides.
+- [ ] Installer `ADITV-0.4.0-debug.apk`, attendre la resynchronisation, vérifier Films / Séries ; si vide : photo de Réglages → Catalogue local (mode d'import et erreurs affichés).
+- [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.
 - [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.
 
