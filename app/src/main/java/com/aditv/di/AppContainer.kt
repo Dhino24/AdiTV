@@ -39,6 +39,9 @@ const val CATALOG_PARSE_VERSION = 4
 val LIVE_TYPES = listOf(com.aditv.data.provider.MediaType.LIVE)
 val VOD_TYPES = listOf(com.aditv.data.provider.MediaType.MOVIE, com.aditv.data.provider.MediaType.SERIES)
 
+/** Inactivité à la télécommande avant de mettre à jour le guide TV. */
+const val EPG_IDLE_MS = 90_000L
+
 /** Injection manuelle : pas de framework DI pour un seul module. */
 class AppContainer(context: Context) {
     /** Une erreur imprévue dans une tâche de fond (synchro, guide, TMDB, sport) est notée, jamais fatale. */
@@ -97,7 +100,12 @@ class AppContainer(context: Context) {
 
     /** Guide : jamais pendant une lecture (Fire TV Stick 1re génération : parsing coûteux). */
     suspend fun refreshEpg(force: Boolean = false) {
-        val s = accounts.session.value as? Session.Active ?: return
+        var s = accounts.session.value as? Session.Active ?: return
+        // Guide (le plus lourd) : attend que l'on ne navigue plus depuis 90 s, ou qu'ADITV soit en arrière-plan.
+        if (!force && !s.isDemo) {
+            while (com.aditv.AditvApp.inForeground && !com.aditv.core.UserActivity.idleFor(EPG_IDLE_MS)) kotlinx.coroutines.delay(15_000)
+            s = accounts.session.value as? Session.Active ?: return
+        }
         if (playback.activeSessions.value > 0 && !force) return
         epg.ensureProviderSource(s.account.id, if (s.isDemo) "Guide démo (fictif)" else "Guide du fournisseur")
         val last = epg.lastRefresh(s.account.id)

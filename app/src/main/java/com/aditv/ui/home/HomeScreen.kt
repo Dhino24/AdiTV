@@ -102,6 +102,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import com.aditv.core.throttleLatest
 import kotlinx.coroutines.launch
 
 data class HomeRow(val title: String, val subtitle: String?, val type: MediaType, val cards: List<Pair<CatalogCard, Int>>, val liveList: String? = null)
@@ -146,11 +147,13 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         dao.recentlyAdded(accountId, MediaType.MOVIE.name, 80),
         dao.recentlyAdded(accountId, MediaType.SERIES.name, 80),
         dao.firstItems(accountId, MediaType.LIVE.name, 80),
-        dao.allCards(accountId, MediaType.MOVIE.name),
+        // 200 premiers films seulement (repli quand le fournisseur ne date pas ses ajouts) : jamais tout le catalogue.
+        dao.firstItems(accountId, MediaType.MOVIE.name, 200),
         c.db.library().watchlist(accountId),
-    ) { recentMovies, recentSeries, channels, anyMovies, myList -> listOf(recentMovies, recentSeries, channels, anyMovies.take(200), myList) }
+    ) { recentMovies, recentSeries, channels, anyMovies, myList -> listOf(recentMovies, recentSeries, channels, anyMovies, myList) }
+        .throttleLatest(3_000)
 
-    private val catalogRows = combine(rawRows, c.db.live().favorites(accountId), c.prefs.variantPrefs) { lists, favorites, prefs ->
+    private val catalogRows = combine(rawRows, c.db.live().favorites(accountId).throttleLatest(3_000), c.prefs.variantPrefs) { lists, favorites, prefs ->
         val (recentMovies, recentSeries, channels, anyMovies, myList) = lists.map { it.collapsed(prefs).take(24) }
         val rows = buildList {
             // « Ajoutés récemment » = date d'ajout déclarée par le fournisseur, pas des sorties récentes.
@@ -167,7 +170,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
     }
 
     val state: StateFlow<HomeState> = combine(
-        catalogRows, c.db.library().resumeRows(accountId, 20), dao.observeSyncStates(accountId),
+        catalogRows, c.db.library().resumeRows(accountId, 20), dao.observeSyncStates(accountId).throttleLatest(3_000),
     ) { rowsAndHero, resume, syncStates -> Triple(rowsAndHero, resume, syncStates) }
         .mapLatest { (rowsAndHero, resume, syncStates) ->
             val (rows, heroCards, myList) = rowsAndHero
@@ -223,7 +226,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
     }
 
     // ---------- sport et Top 10 ----------
-    val sportChannels: StateFlow<List<CatalogCard>> = dao.observeSyncStates(accountId)
+    val sportChannels: StateFlow<List<CatalogCard>> = dao.observeSyncStates(accountId).throttleLatest(3_000)
         .mapLatest { c.sport.frenchSportChannels(accountId) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val matches: StateFlow<List<com.aditv.data.sport.UpcomingMatch>> = c.sport.matches

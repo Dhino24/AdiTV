@@ -71,6 +71,8 @@ import com.aditv.data.variants.variantBadge
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.map
+import com.aditv.core.throttleLatest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BrowseViewModel(c: AppContainer, private val accountId: String, private val type: MediaType) : ViewModel() {
@@ -87,20 +89,45 @@ class BrowseViewModel(c: AppContainer, private val accountId: String, private va
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val selected = MutableStateFlow<String?>(null)
-    /** Une carte par contenu : la meilleure version selon la langue et la qualité préférées. */
-    /** null pendant le chargement d'une catégorie (squelettes à l'écran). */
-    val cards: StateFlow<List<Pair<CatalogCard, Int>>?> = selected
-        .flatMapLatest { id ->
-            val source = if (id == FAVORITES) c.db.live().favorites(accountId)
-            else if (id == ALL) dao.allCards(accountId, type.name)
-            else if (id == null) flowOf(emptyList()) else dao.cardsInCategory(accountId, type.name, id)
-            source.combine(c.prefs.variantPrefs) { list, prefs -> list.collapsed(prefs) as List<Pair<CatalogCard, Int>>? }.onStart { emit(null) }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val sort = MutableStateFlow(Sort.PROVIDER)
     enum class Sort(val label: String) { PROVIDER("Ordre du fournisseur"), AZ("A → Z"), YEAR("Plus récents") }
+    /** Nombre de titres chargés : la grille en demande d'autres en approchant de la fin (jamais tout le catalogue). */
+    val window = MutableStateFlow(PAGE)
 
-    companion object { const val FAVORITES = "★favoris"; const val ALL = "★tout" }
+    /** Une carte par contenu : la meilleure version selon la langue et la qualité préférées. null pendant le chargement. */
+    val cards: StateFlow<List<Pair<CatalogCard, Int>>?> = combine(selected, sort) { id, s -> id to s }
+        .flatMapLatest { (id, s) ->
+            window.value = PAGE; grownFrom = -1
+            val source = when (id) {
+                null -> flowOf(emptyList())
+                FAVORITES -> c.db.live().favorites(accountId)
+                else -> window.flatMapLatest { n ->
+                    dao.cardsWindow(accountId, type.name, id.takeIf { it != ALL }, s.ordinal, n).map { rows -> rawCount = rows.size; rows }
+                }
+            }
+            source.throttleLatest(2_500)
+                .combine(c.prefs.variantPrefs) { list, prefs -> list.collapsed(prefs).distinctBy { it.first.id } as List<Pair<CatalogCard, Int>>? }
+                .onStart { emit(null) }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Total (versions regroupées) pour l'en-tête, sans charger les titres. */
+    val total: StateFlow<Int?> = selected.flatMapLatest { id ->
+        when (id) { null, FAVORITES -> flowOf(null); else -> dao.countCards(accountId, type.name, id.takeIf { it != ALL }).throttleLatest(2_500) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Appelé quand la grille approche du dernier titre chargé. */
+    fun loadMore() {
+        val w = window.value
+        // Tout est déjà là (moins de lignes que demandé), ou ce morceau a déjà été demandé.
+        if (rawCount < w || grownFrom == w) return
+        grownFrom = w
+        window.value = w + PAGE
+    }
+    @Volatile private var rawCount = 0
+    @Volatile private var grownFrom = -1
+
+    companion object { const val FAVORITES = "★favoris"; const val ALL = "★tout"; const val PAGE = 240 }
 }
 
 @Composable
@@ -126,16 +153,20 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
     }
     com.aditv.ui.common.InitialFocus(firstChip, key = categories?.isNotEmpty() == true, enabled = categories?.isNotEmpty() == true)
 
-    val cards = remember(rawCards, sort) {
-        // Doublons d'identifiant (fournisseur) retirés une fois : une clé en double fait planter la grille.
-        rawCards?.distinctBy { it.first.id }?.let { l ->
-            when (sort) {
+    // Tri fait par la base (chargement par morceaux) ; seuls les favoris, peu nombreux, sont triés ici.
+    val cards = remember(rawCards, sort, selected) {
+        rawCards?.let { l ->
+            if (selected != BrowseViewModel.FAVORITES) l else when (sort) {
                 BrowseViewModel.Sort.PROVIDER -> l
                 BrowseViewModel.Sort.AZ -> l.sortedBy { it.first.title.lowercase() }
                 BrowseViewModel.Sort.YEAR -> l.sortedByDescending { it.first.year ?: 0 }
             }
         }
     }
+    val total by vm.total.collectAsStateWithLifecycle()
+    // Approche de la fin de ce qui est chargé : morceau suivant.
+    val nearEnd by remember { derivedStateOf { (gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) } }
+    LaunchedEffect(nearEnd, rawCards?.size) { rawCards?.size?.let { n -> if (n > 0 && nearEnd >= n - 60) vm.loadMore() } }
     val wide = remember(cards) { type != MediaType.LIVE && cards != null && cards.count { it.first.tmdbBackdrop != null } * 2 >= cards.size && cards.isNotEmpty() }
     val columns = when { type == MediaType.LIVE -> 6; wide -> 4; else -> 6 }
     val title = when (type) { MediaType.LIVE -> "Chaînes"; MediaType.MOVIE -> "Films"; MediaType.SERIES -> "Séries" }
@@ -160,7 +191,7 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
                     when {
                         importing != null -> "Import en cours : ${importing.stage} · ${importing.count} reçus"
                         cards == null -> "Chargement…"
-                        else -> "${cards.size} ${word}${if (cards.size > 1) "s" else ""}" + (selectedName?.let { " · $it" } ?: "") + " · meilleure version selon vos préférences"
+                        else -> (total ?: cards.size).let { n -> "$n ${word}${if (n > 1) "s" else ""}" } + (selectedName?.let { " · $it" } ?: "") + " · meilleure version selon vos préférences"
                     },
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 10.sp), color = Aditv.TextTertiary,
                 )

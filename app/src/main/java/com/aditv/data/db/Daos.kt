@@ -105,6 +105,33 @@ interface CatalogDao {
     )
     fun allCards(accountId: String, type: String): Flow<List<CatalogCard>>
 
+    /**
+     * Grille Films / Séries / Chaînes chargée par morceaux : seulement les [limit] premiers titres dans l'ordre demandé
+     * (0 = fournisseur, 1 = A → Z, 2 = plus récents). [categoryId] null = tout le type (ordre : ajouts récents).
+     */
+    @Query(
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.type = :type AND ci.available = 1 AND (:categoryId IS NULL OR ci.categoryId = :categoryId)
+           ORDER BY
+             CASE WHEN :sort = 1 THEN COALESCE(tm.title, ci.title) END COLLATE NOCASE,
+             CASE WHEN :sort = 2 THEN ci.year END DESC,
+             CASE WHEN :categoryId IS NULL THEN ci.addedAt IS NULL END,
+             CASE WHEN :categoryId IS NULL THEN ci.addedAt END DESC,
+             ci.position IS NULL, ci.position, ci.title
+           LIMIT :limit"""
+    )
+    fun cardsWindow(accountId: String, type: String, categoryId: String?, sort: Int, limit: Int): Flow<List<CatalogCard>>
+
+    /** Nombre de contenus (versions regroupées) pour l'en-tête de la grille. */
+    @Query(
+        """SELECT COUNT(DISTINCT COALESCE(ci.variantKey, ci.id)) FROM catalog_items ci
+           WHERE ci.accountId = :accountId AND ci.type = :type AND ci.available = 1 AND (:categoryId IS NULL OR ci.categoryId = :categoryId)"""
+    )
+    fun countCards(accountId: String, type: String, categoryId: String?): Flow<Int>
+
     @Query("SELECT * FROM catalog_items WHERE id = :id") fun observeItem(id: String): Flow<CatalogItemEntity?>
 
     // ---------- variantes ----------
