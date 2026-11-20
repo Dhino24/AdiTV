@@ -159,5 +159,9 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
 
-## Prochaine étape
+## Prochaine étape : version Fire TV Cube (3e génération), arrivée dimanche
+Adama passe au Fire TV Cube. À recevoir : version de Fire OS (Paramètres → Ma Fire TV → À propos), nombre de connexions de l'abonnement (multiplex), modèle de TV et matériel son.
+Plan proposé : 1) APK arm64 (Stick conservée en secours) ; 2) multiplex 2 flux (écran partagé ou incrustation) ; 3) décodage matériel élargi, HDR, Dolby en sortie ; 4) réglages moins bridés (images, Turbo, tâches de fond), garde-fous conservés ; 5) accueil instantané (dernier accueil affiché puis mis à jour) ; 6) conseil Ethernet. Migration : export des préférences sur la Stick, saisie des accès par QR code sur le Cube.
+
+## Étape précédente
 Recette sur la Stick (`docs/RECETTE.md`), puis corrections selon les retours d'Adama. Version finale signée quand Adama aura créé sa clé (`docs/BUILD_ET_INSTALLATION.md`).
