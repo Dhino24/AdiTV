@@ -49,4 +49,12 @@ class AppPrefs(private val context: Context) {
     /** Flux adaptatifs (HLS multi-débits) : forcer le débit le plus élevé au lieu de l'adaptation au réseau. */
     val forceHighestBitrate: Flow<Boolean> = context.dataStore.data.map { it[forceHighest] ?: true }
     suspend fun setForceHighestBitrate(v: Boolean) = context.dataStore.edit { it[forceHighest] = v }
+
+    // ---------- ouverture : image et son désactivables séparément ----------
+    private val introImage = booleanPreferencesKey("intro_image")
+    private val introSound = booleanPreferencesKey("intro_sound")
+    val introImageEnabled: Flow<Boolean> = context.dataStore.data.map { it[introImage] ?: true }
+    val introSoundEnabled: Flow<Boolean> = context.dataStore.data.map { it[introSound] ?: true }
+    suspend fun setIntroImage(v: Boolean) = context.dataStore.edit { it[introImage] = v }
+    suspend fun setIntroSound(v: Boolean) = context.dataStore.edit { it[introSound] = v }
 }

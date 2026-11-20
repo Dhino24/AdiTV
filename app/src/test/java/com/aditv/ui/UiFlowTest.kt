@@ -57,13 +57,6 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         }
     } catch (e: Throwable) { shot("echec_attente"); throw AssertionError("Texte attendu absent : « $text »", e) }
 
-    private fun waitMenuClosed() = try {
-        rule.waitUntil(5_000) {
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
-            rule.onAllNodesWithText("Rechercher").fetchSemanticsNodes().isEmpty()
-        }
-    } catch (e: Throwable) { shot("echec_menu_ouvert"); throw AssertionError("Menu resté ouvert. Focus : " + focusedDump(), e) }
-
     /** Touche Retour de la télécommande : passe par le gestionnaire Retour de l'activité, comme sur l'appareil. */
     private fun back() {
         rule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
@@ -79,6 +72,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
 
     /** Une Fire TV démarre hors mode tactile : on reproduit cet état avant de relancer l'activité. */
     @Before fun remoteMode() {
+        com.aditv.ui.intro.IntroGate.enabled = false
         InstrumentationRegistry.getInstrumentation().setInTouchMode(false)
         rule.activityRule.scenario.recreate()
     }
@@ -96,12 +90,17 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         if (focused.isEmpty()) throw AssertionError("« $text » n'a pas le focus") else Unit
     } catch (e: AssertionError) { shot("echec_focus_" + text.take(12)); throw AssertionError("Focus actuel : " + focusedDump(), e) }
 
+    private fun waitGone(text: String) = rule.waitUntil(5_000) {
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
+        rule.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty()
+    }
+
     @Test fun demoJourneyWithRemote() {
         waitText("Connectez votre abonnement")
         // Focus initial sur le premier champ, visible sans toucher l'écran.
         rule.waitUntil(5_000) {
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
-            rule.onAllNodes(androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().any { n -> n.boundsInRoot.top in 250f..300f }
+            rule.onAllNodes(androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().any { n -> n.boundsInRoot.top in 150f..400f }
         }
         shot("01_connexion")
 
@@ -110,124 +109,144 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitText("Renseignez l'identifiant")
 
         press("Essayer le mode démo")
-        waitText("Nouveaux films")
-        waitText("Catalogue du")
+        waitText("Votre soirée commence ici")
         // Focus initial sur l'action principale du carrousel.
-        assertFocused("Lire")
+        assertFocused("Lecture")
         shot("02_accueil")
 
-        // ← sans voisin : le menu flottant s'ouvre sur la rubrique active (Accueil).
-        key(Key.DirectionLeft)
-        waitText("Rechercher")
+        // ↑ : la barre de navigation, sur la rubrique active ; ↓ : retour exact sur l'élément quitté.
+        key(Key.DirectionUp)
         assertFocused("Accueil")
-        shot("03_menu_ouvert")
-
-        // Descendre jusqu'à Films sans valider puis → : le menu se ferme, retour exact sur l'élément quitté.
-        key(Key.DirectionDown, 3)
-        assertFocused("Films")
-        key(Key.DirectionRight)
-        waitMenuClosed()
-        assertFocused("Lire")
-        // Depuis une vignette en début de rangée, ← rouvre le menu sur la rubrique active.
+        shot("03_menu")
         key(Key.DirectionDown)
-        key(Key.DirectionLeft)
-        waitText("Rechercher")
+        assertFocused("Lecture")
+        // Rangées : ↓ descend dans les vignettes, Retour remonte sur la barre (rubrique active).
+        key(Key.DirectionDown, 2)
+        shot("03b_accueil_rangees")
+        back()
         assertFocused("Accueil")
 
-        // Ouvrir Films.
-        key(Key.DirectionDown, 3)
+        // Films : puces de catégories, grille alignée.
+        key(Key.DirectionRight, 2)
+        assertFocused("Films")
         key(Key.DirectionCenter)
-        waitText("Thrillers")
-        waitMenuClosed()
-        // « Tous les films » est la première entrée : visible même sans catégories exploitables.
+        waitText("Tous les films")
         assertFocused("Tous les films")
         waitText("Les Grands Fleuves") // le plus récent en premier
-        key(Key.DirectionDown)
+        key(Key.DirectionRight)
         assertFocused("Thrillers")
+        key(Key.DirectionCenter)
         waitText("Fjord noir")
         shot("04_films")
 
-        // Catégorie → grille → fiche.
-        key(Key.DirectionRight)
+        // Grille → fiche.
+        key(Key.DirectionDown)
         key(Key.DirectionCenter)
         waitText("Lecture indisponible (démo)")
-        waitMenuClosed()
         assertFocused("Lecture indisponible (démo)")
         waitText("Ajoutez votre clé TMDB")
         shot("05_fiche")
 
         // → puis OK : ajout à Ma liste (bouton rond, libellé affiché au focus).
         key(Key.DirectionRight)
-        assertFocused("+")
-        waitText("Ma liste")
+        waitText("Ajouter à Ma liste")
         key(Key.DirectionCenter)
-        waitText("Dans ma liste")
+        waitText("Dans Ma liste")
 
-        // Retour système : la fiche se ferme, retour à la grille Films.
+        // Retour système : la fiche se ferme, retour sur la grille Films.
         back()
-        rule.waitUntil(5_000) {
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
-            rule.onAllNodesWithText("Lecture indisponible (démo)").fetchSemanticsNodes().isEmpty()
-        }
-        waitText("Comédies")
+        waitGone("Lecture indisponible (démo)")
+        waitText("Fjord noir")
 
-        // ← depuis la grille : catégories, puis menu (sur Films, rubrique active).
-        key(Key.DirectionLeft, 2)
-        waitText("Rechercher")
+        // ↑ ↑ : puces puis barre (sur Films) ; → → Ma liste.
+        key(Key.DirectionUp, 2)
         assertFocused("Films")
-        key(Key.DirectionDown, 2)
+        key(Key.DirectionRight, 2)
         assertFocused("Ma liste")
         key(Key.DirectionCenter)
-        waitText("Les Ombres de Dakar")
-        waitMenuClosed()
+        waitText("Chaînes favorites")
         shot("06_ma_liste")
-        key(Key.DirectionLeft)
-        waitText("Rechercher")
-        assertFocused("Ma liste")
 
-        // Direct : une seule carte par chaîne, la meilleure version.
-        key(Key.DirectionUp, 4)
+        // Direct : aperçu + guide (programmes fictifs de la démo), panneau de détail, Retour.
+        key(Key.DirectionUp)
+        key(Key.DirectionLeft, 3)
         assertFocused("Direct")
-        key(Key.DirectionCenter)
-        waitText("Information")
-        waitText("Info 24 (démo)")
-        waitMenuClosed()
-        assertEquals("variantes regroupées", 1, rule.onAllNodesWithText("Info 24 (démo)", substring = true).fetchSemanticsNodes().size)
-        waitText("2 versions")
-        shot("07_direct")
-
-        // Guide TV : programmes fictifs de la démo, panneau de détail, Retour.
-        key(Key.DirectionLeft, 2)
-        waitText("Rechercher")
-        assertFocused("Direct")
-        key(Key.DirectionDown)
-        assertFocused("Guide TV")
         key(Key.DirectionCenter)
         waitText("fictif n°")
         waitText("Couverture")
-        waitMenuClosed()
-        shot("08_guide")
+        shot("07_direct")
         key(Key.DirectionCenter)
         waitText("Fiche de la chaîne")
-        shot("09_programme")
+        shot("08_programme")
         back()
-        rule.waitUntil(5_000) {
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
-            rule.onAllNodesWithText("Fiche de la chaîne").fetchSemanticsNodes().isEmpty()
-        }
+        waitGone("Fiche de la chaîne")
 
-        // Vers les réglages : ← (chaîne) ← (menu sur Guide TV) puis ↓ ×4.
-        key(Key.DirectionLeft, 2)
-        waitText("Rechercher")
-        assertFocused("Guide TV")
-        key(Key.DirectionDown, 4)
-        assertFocused("Réglages")
+        // Recherche : clavier à l'écran ; une seule carte par chaîne (variantes regroupées).
+        back()
+        assertFocused("Direct")
+        key(Key.DirectionRight, 4)
         key(Key.DirectionCenter)
-        waitText("Compte fournisseur")
-        waitMenuClosed()
+        waitText("Saisissez au moins 2 caractères")
+        listOf("i", "n", "f", "o").forEach { press(it) }
+        waitText("Info 24 (démo)")
+        assertEquals("variantes regroupées", 1, rule.onAllNodesWithText("Info 24 (démo)", substring = true).fetchSemanticsNodes().size)
+        shot("09_recherche")
+
+        // Réglages : ↑ vers la barre, → (icône réglages).
+        key(Key.DirectionUp, 2)
+        key(Key.DirectionRight)
+        key(Key.DirectionCenter)
+        waitText("COMPTE FOURNISSEUR")
         waitText("éléments")
-        shot("10_parametres")
+        shot("10_reglages")
+
+        // Retour : barre → Accueil → barre → « Quitter ADITV ? » ; Retour referme la question.
+        back(); back()
+        waitText("Votre soirée commence ici")
+        back(); back()
+        waitText("Quitter ADITV ?")
+        shot("11_quitter")
+        back()
+        waitGone("Quitter ADITV ?")
     }
+
+    /** Ouverture : logo animé au démarrage à froid, puis l'application (sans attendre le réseau). */
+    @Test fun introThenApp() {
+        com.aditv.ui.intro.IntroGate.played = false
+        com.aditv.ui.intro.IntroGate.enabled = true
+        rule.mainClock.autoAdvance = false
+        rule.activityRule.scenario.recreate()
+        // Horloge de composition pilotée : capture à mi-animation (nom en cours de dévoilement, reflet).
+        repeat(26) { rule.mainClock.advanceTimeBy(50); shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50)) }
+        if (screenshots) {
+            val bmp = rule.onRoot().captureToImage().asAndroidBitmap()
+            File(outDir, "00_ouverture.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        rule.mainClock.autoAdvance = true
+        waitText("Connectez votre abonnement")
+        rule.waitUntil(5_000) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50)); com.aditv.ui.intro.IntroGate.played }
+        com.aditv.ui.intro.IntroGate.enabled = false
+    }
+
+    /** Fiche série (saisons, épisodes) depuis l'onglet Séries. */
+    @Test fun seriesDetailWithEpisodes() {
+        waitText("Connectez votre abonnement")
+        press("Essayer le mode démo")
+        waitText("Votre soirée commence ici")
+        key(Key.DirectionUp)
+        key(Key.DirectionRight, 3)
+        assertFocused("Séries")
+        key(Key.DirectionCenter)
+        waitText("Toutes les séries")
+        key(Key.DirectionDown)
+        key(Key.DirectionCenter)
+        waitText("SÉRIE")
+        waitText("Saison 1")
+        shot("12_fiche_serie")
+        key(Key.DirectionDown)
+        shot("13_episodes")
+    }
+
 }
 
 /** Android 15 avec rendu natif : génère les captures de design/captures-app/. */

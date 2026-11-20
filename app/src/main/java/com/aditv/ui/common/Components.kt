@@ -55,11 +55,12 @@ fun AditvButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(48.dp),
-        shape = ButtonDefaults.shape(RoundedCornerShape(12.dp)),
-        scale = ButtonDefaults.scale(focusedScale = 1.04f),
+        modifier = modifier.height(30.dp),
+        shape = ButtonDefaults.shape(RoundedCornerShape(50)),
+        scale = ButtonDefaults.scale(focusedScale = 1.06f),
+        glow = ButtonDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Aditv.Accent.copy(alpha = 0.3f), 10.dp)),
         colors = ButtonDefaults.colors(
-            containerColor = Aditv.Text.copy(alpha = 0.12f),
+            containerColor = Aditv.Text.copy(alpha = 0.13f),
             contentColor = Aditv.Text,
             focusedContainerColor = Aditv.Text,
             focusedContentColor = Aditv.OnLight,
@@ -67,14 +68,15 @@ fun AditvButton(
             disabledContentColor = Aditv.TextSecondary.copy(alpha = 0.6f),
         ),
         border = ButtonDefaults.border(
-            focusedBorder = Border(BorderStroke(2.dp, Aditv.Accent), shape = RoundedCornerShape(12.dp), inset = (-3).dp),
+            border = Border(BorderStroke(0.5.dp, Aditv.Text.copy(alpha = 0.14f)), shape = RoundedCornerShape(50)),
+            focusedBorder = Border(BorderStroke(2.dp, Aditv.Accent.copy(alpha = 0.6f)), shape = RoundedCornerShape(50), inset = (-2).dp),
         ),
-        contentPadding = PaddingValues(horizontal = 22.dp),
+        contentPadding = PaddingValues(horizontal = 15.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
         if (secondaryText != null) {
-            Spacer(Modifier.width(8.dp))
-            Text(secondaryText, style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.width(6.dp))
+            Text(secondaryText, style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium))
         }
     }
 }

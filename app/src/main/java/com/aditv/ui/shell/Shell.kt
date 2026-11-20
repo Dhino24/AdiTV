@@ -3,18 +3,13 @@ package com.aditv.ui.shell
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,24 +17,28 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -47,22 +46,24 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
@@ -70,36 +71,40 @@ import androidx.tv.material3.Text
 import com.aditv.R
 import com.aditv.data.Session
 import com.aditv.data.provider.MediaType
+import com.aditv.ui.LocalContainer
 import com.aditv.ui.browse.BrowseScreen
-import com.aditv.ui.common.NotYetAvailable
-import com.aditv.ui.design.Glass
+import com.aditv.ui.design.PillButton
 import com.aditv.ui.home.HomeScreen
 import com.aditv.ui.search.SearchScreen
 import com.aditv.ui.settings.SettingsScreen
 import com.aditv.ui.theme.Aditv
+import com.aditv.ui.theme.Outfit
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private data class Dest(val route: String, val label: String, val icon: Int)
+private data class Tab(val route: String, val label: String)
 
-private val destinations = listOf(
-    Dest("search", "Rechercher", R.drawable.ic_search),
-    Dest("home", "Accueil", R.drawable.ic_home),
-    Dest("live", "Direct", R.drawable.ic_live),
-    Dest("guide", "Guide TV", R.drawable.ic_guide),
-    Dest("movies", "Films", R.drawable.ic_movies),
-    Dest("series", "Séries", R.drawable.ic_series),
-    Dest("mylist", "Ma liste", R.drawable.ic_list),
-    Dest("settings", "Réglages", R.drawable.ic_settings),
+private val tabs = listOf(
+    Tab("home", "Accueil"),
+    Tab("live", "Direct"),
+    Tab("movies", "Films"),
+    Tab("series", "Séries"),
+    Tab("mylist", "Ma liste"),
 )
+private val topRoutes = tabs.map { it.route } + listOf("search", "settings")
+
+/** Barre de navigation : les écrans qui défilent la masquent ; elle réapparaît dès qu'elle reçoit le focus. */
+@Stable
+class NavChrome { var scrolled by mutableStateOf(false) }
+val LocalNavChrome = staticCompositionLocalOf { NavChrome() }
 
 /**
- * Coque de navigation. Le menu latéral est un panneau flottant en verre fumé, masqué par défaut :
- * le contenu occupe tout l'écran. Il s'ouvre avec ← au bord gauche du contenu, ou Retour sur un écran
- * principal ; il retient la rubrique active ; → ou Retour le referme et rend le focus là où il était.
+ * Coque de navigation (design validé du prototype) : barre haute compacte — logo, rubriques en pilules,
+ * heure, recherche, réglages. ↑ depuis le haut d'un écran y monte sur la rubrique active ; ↓ redescend sur
+ * l'élément quitté. Retour : contenu → barre → Accueil → « Quitter ADITV ? ».
  */
 @Composable
 fun Shell(session: Session.Active) {
@@ -107,28 +112,20 @@ fun Shell(session: Session.Active) {
     val entry by nav.currentBackStackEntryAsState()
     val currentRoute = entry?.destination?.route
     var selected by remember { mutableStateOf("home") }
-    if (currentRoute != null && destinations.any { it.route == currentRoute }) selected = currentRoute
-    val requesters = remember { destinations.associate { it.route to FocusRequester() } }
+    if (currentRoute != null && currentRoute in topRoutes) selected = currentRoute
+    val requesters = remember { topRoutes.associateWith { FocusRequester() } }
+    val entries = remember { topRoutes.associateWith { FocusRequester() } }
+    var navFocused by remember { mutableStateOf(false) }
+    var exitAsked by remember { mutableStateOf(false) }
+    val chrome = remember { NavChrome() }
     val contentRequester = remember { FocusRequester() }
-    val entries = remember { destinations.associate { it.route to FocusRequester() } }
-    var menuOpen by remember { mutableStateOf(false) }
-    var menuHasFocus by remember { mutableStateOf(false) }
-    var contentFocused by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
     val accountId = session.account.id
     val scope = rememberCoroutineScope()
-    val topLevel = currentRoute != null && destinations.any { it.route == currentRoute }
-    val fullScreen = currentRoute?.startsWith("play/") == true
-
-    fun closeMenu() { menuOpen = false; runCatching { contentRequester.requestFocus() } }
-    fun openMenu() { if (!fullScreen) menuOpen = true }
-
-    LaunchedEffect(menuOpen) {
-        if (menuOpen) repeat(30) { withFrameNanos { }; if (runCatching { requesters.getValue(selected).requestFocus() }.getOrDefault(false)) return@LaunchedEffect }
-    }
+    val topLevel = currentRoute != null && currentRoute in topRoutes
+    val activity = LocalActivity.current
 
     fun go(route: String) {
-        menuOpen = false
+        chrome.scrolled = false
         nav.navigate(route) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
             launchSingleTop = true
@@ -139,151 +136,192 @@ fun Shell(session: Session.Active) {
             var stable = 0
             repeat(120) {
                 withFrameNanos { }
-                if (!menuHasFocus && stable > 0) { if (++stable >= 12) return@launch }
+                if (!navFocused && stable > 0) { if (++stable >= 12) return@launch }
                 else if (runCatching { entries.getValue(route).requestFocus() }.getOrDefault(false)) stable = 1
             }
         }
     }
 
-    // Écran principal : Retour ouvre le menu (puis, dans le menu, double Retour pour quitter).
-    BackHandler(enabled = topLevel && !menuOpen && !fullScreen) { openMenu() }
-    ExitOnDoubleBack(enabled = menuOpen)
-    BackHandler(enabled = false) {}
 
     val openItem: (String) -> Unit = { nav.navigate("item/" + Uri.encode(it)) }
     val play: (String, Boolean) -> Unit = { id, fromStart -> nav.navigate("play/" + Uri.encode(id) + "?start=" + fromStart) }
     // Direct : la liste d'origine (favoris, catégorie, toutes) sert au zapping ↑/↓ dans le lecteur.
     val playLive: (String, String?) -> Unit = { id, list -> nav.navigate("play/" + Uri.encode(id) + "?start=false&list=" + Uri.encode(list ?: "all")) }
 
-    Box(Modifier.fillMaxSize().background(Aditv.Bg)) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .focusRequester(contentRequester)
-                .focusRestorer()
-                .onFocusChanged { contentFocused = it.hasFocus },
-        ) {
-            // Bord gauche invisible : ← depuis le premier élément d'une rangée y arrive et ouvre le menu.
-            if (!fullScreen && !menuOpen) Box(
-                Modifier.align(Alignment.CenterStart).fillMaxHeight().width(2.dp)
-                    .onFocusChanged { if (it.isFocused) openMenu() }
-                    // Jamais cible du focus initial : seulement atteinte par ← depuis le contenu.
-                    .focusProperties { canFocus = contentFocused }
-                    .focusable(),
-            )
-            // Transitions courtes (cible 120–300 ms) : opacité seulement, pas de recalcul de mise en page.
-            NavHost(
-                nav, startDestination = "home",
-                enterTransition = { fadeIn(tween(180)) }, exitTransition = { fadeOut(tween(120)) },
-                popEnterTransition = { fadeIn(tween(180)) }, popExitTransition = { fadeOut(tween(120)) },
-            ) {
-                composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive) } }
-                composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }
-                composable("live") { Entry(entries, "live") { BrowseScreen(accountId, MediaType.LIVE, onOpen = openItem, onPlayLive = { id, cat -> playLive(id, when (cat) { com.aditv.ui.browse.BrowseViewModel.FAVORITES -> "fav"; com.aditv.ui.browse.BrowseViewModel.ALL, null -> "all"; else -> "cat:$cat" }) }) } }
-                composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onPlayLive = { id, cat -> playLive(id, when (cat) { com.aditv.ui.browse.BrowseViewModel.FAVORITES -> "fav"; com.aditv.ui.browse.BrowseViewModel.ALL, null -> "all"; else -> "cat:$cat" }) }) } }
-                composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onPlayLive = { id, cat -> playLive(id, when (cat) { com.aditv.ui.browse.BrowseViewModel.FAVORITES -> "fav"; com.aditv.ui.browse.BrowseViewModel.ALL, null -> "all"; else -> "cat:$cat" }) }) } }
-                composable("guide") { Entry(entries, "guide") { com.aditv.ui.guide.GuideScreen(session, onPlayLive = playLive, onPlay = play, onOpen = openItem) } }
-                composable("epgmap/{id}") { e -> com.aditv.ui.guide.EpgMapScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
-                composable("mylist") { Entry(entries, "mylist") { com.aditv.ui.library.MyListScreen(accountId, onOpen = openItem) } }
-                composable("settings") { Entry(entries, "settings") { SettingsScreen(session) } }
-                composable("item/{id}") { e ->
-                    com.aditv.ui.detail.DetailScreen(
-                        session, Uri.decode(e.arguments?.getString("id").orEmpty()),
-                        onPlay = { pid, fs -> if (pid.contains("|LIVE|")) playLive(pid, "all") else play(pid, fs) },
-                        onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
-                        onMapGuide = { nav.navigate("epgmap/" + Uri.encode(it)) },
-                    )
-                }
-                composable("match/{id}") { e -> com.aditv.ui.match.MatchScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
-                composable(
-                    "play/{id}?start={start}&list={list}",
-                    arguments = listOf(
-                        androidx.navigation.navArgument("start") { type = androidx.navigation.NavType.BoolType; defaultValue = false },
-                        androidx.navigation.navArgument("list") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
-                    ),
-                ) { e ->
-                    com.aditv.ui.player.PlayerScreen(
-                        session, Uri.decode(e.arguments?.getString("id").orEmpty()), e.arguments?.getBoolean("start") ?: false,
-                        liveList = e.arguments?.getString("list")?.let(Uri::decode),
-                        onExit = { nav.popBackStack() },
-                    )
+    CompositionLocalProvider(LocalNavChrome provides chrome) {
+        Box(Modifier.fillMaxSize().background(Aditv.Bg)) {
+            Box(Modifier.fillMaxSize().focusRequester(contentRequester).focusRestorer()) {
+                // Transitions courtes : opacité seulement, pas de recalcul de mise en page.
+                NavHost(
+                    nav, startDestination = "home",
+                    enterTransition = { fadeIn(tween(180)) }, exitTransition = { fadeOut(tween(120)) },
+                    popEnterTransition = { fadeIn(tween(180)) }, popExitTransition = { fadeOut(tween(120)) },
+                ) {
+                    composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive) } }
+                    composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }
+                    composable("live") { Entry(entries, "live") { com.aditv.ui.guide.GuideScreen(session, onPlayLive = playLive, onPlay = play, onOpen = openItem) } }
+                    composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onPlayLive = playLive) } }
+                    composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onPlayLive = playLive) } }
+                    composable("channels") { BrowseScreen(accountId, MediaType.LIVE, onOpen = openItem, onPlayLive = playLive) }
+                    composable("epgmap/{id}") { e -> com.aditv.ui.guide.EpgMapScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
+                    composable("mylist") { Entry(entries, "mylist") { com.aditv.ui.library.MyListScreen(accountId, onOpen = openItem, onPlayLive = playLive, onBrowse = { go(it) }) } }
+                    composable("settings") { Entry(entries, "settings") { SettingsScreen(session) } }
+                    composable("item/{id}") { e ->
+                        com.aditv.ui.detail.DetailScreen(
+                            session, Uri.decode(e.arguments?.getString("id").orEmpty()),
+                            onPlay = { pid, fs -> if (pid.contains("|LIVE|")) playLive(pid, "all") else play(pid, fs) },
+                            onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
+                            onMapGuide = { nav.navigate("epgmap/" + Uri.encode(it)) },
+                        )
+                    }
+                    composable("match/{id}") { e -> com.aditv.ui.match.MatchScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
+                    composable(
+                        "play/{id}?start={start}&list={list}",
+                        arguments = listOf(
+                            androidx.navigation.navArgument("start") { type = androidx.navigation.NavType.BoolType; defaultValue = false },
+                            androidx.navigation.navArgument("list") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
+                        ),
+                    ) { e ->
+                        com.aditv.ui.player.PlayerScreen(
+                            session, Uri.decode(e.arguments?.getString("id").orEmpty()), e.arguments?.getBoolean("start") ?: false,
+                            liveList = e.arguments?.getString("list")?.let(Uri::decode),
+                            onExit = { nav.popBackStack() },
+                        )
+                    }
                 }
             }
-        }
 
-        // Voile + panneau du menu
-        AnimatedVisibility(menuOpen, enter = fadeIn(tween(160)), exit = fadeOut(tween(120))) {
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Black.copy(alpha = 0.15f)))))
-        }
-        AnimatedVisibility(
-            menuOpen,
-            enter = fadeIn(tween(160)) + slideInHorizontally(tween(180)) { -it / 4 },
-            exit = fadeOut(tween(120)) + slideOutHorizontally(tween(120)) { -it / 4 },
-        ) {
-            SideMenu(
+            if (topLevel) TopNav(
                 isDemo = session.isDemo, selected = selected, requesters = requesters,
-                onPick = { go(it) }, onClose = { closeMenu() },
-                modifier = Modifier.onFocusChanged { menuHasFocus = it.hasFocus },
+                hidden = chrome.scrolled && !navFocused,
+                onPick = { go(it) },
+                // ↓ depuis la barre : retour exact sur l'élément du contenu quitté.
+                onDown = { runCatching { contentRequester.requestFocus() }.getOrDefault(false) },
+                modifier = Modifier.onFocusChanged { navFocused = it.hasFocus },
             )
+
+            // Retour sur un écran principal : contenu → barre (rubrique active) → Accueil → confirmation de sortie.
+            // Déclaré après le NavHost pour passer avant son propre retour arrière.
+            BackHandler(enabled = topLevel && !exitAsked) {
+                when {
+                    !navFocused -> runCatching { requesters.getValue(selected).requestFocus() }
+                    selected != "home" -> go("home")
+                    else -> exitAsked = true
+                }
+            }
+
+            if (exitAsked) ExitDialog(onStay = { exitAsked = false; runCatching { requesters.getValue(selected).requestFocus() } }, onQuit = { activity?.finish() })
         }
     }
 }
 
 @Composable
-private fun SideMenu(
+private fun TopNav(
     isDemo: Boolean,
     selected: String,
     requesters: Map<String, FocusRequester>,
+    hidden: Boolean,
     onPick: (String) -> Unit,
-    onClose: () -> Unit,
+    onDown: () -> Boolean,
     modifier: Modifier,
 ) {
+    val c = LocalContainer.current
+    val alpha by animateFloatAsState(if (hidden) 0f else 1f, tween(220), label = "nav")
     val clock by produceState(SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date())) {
         while (true) { delay(15_000); value = SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date()) }
     }
-    Column(
-        modifier
-            .padding(start = 20.dp, top = 20.dp)
-            .width(250.dp)
-            .background(Glass.Panel, RoundedCornerShape(28.dp))
-            .border(BorderStroke(1.dp, Glass.Border), RoundedCornerShape(28.dp))
-            .padding(horizontal = 12.dp, vertical = 16.dp)
-            .onPreviewKeyEvent { ev ->
-                if (ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionRight) { onClose(); true } else false
-            }
-            // Le menu retient sa sélection ; le focus n'en sort que par → ou Retour.
-            .focusProperties {
-                onEnter = { requesters[selected]?.requestFocus() }
-                onExit = { cancelFocusChange() }
-            }
-            .focusGroup(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    val running by c.sync.running.collectAsStateWithLifecycle()
+    Box(
+        modifier.fillMaxWidth().height(60.dp)
+            .graphicsLayer { this.alpha = alpha; translationY = -12.dp.toPx() * (1f - alpha) }
+            .background(Brush.verticalGradient(listOf(Aditv.Bg.copy(alpha = 0.78f), Color.Transparent)))
+            // La barre retient sa rubrique : y entrer ramène sur la rubrique active.
+            .focusProperties { onEnter = { requesters[selected]?.requestFocus() } }
+            .onPreviewKeyEvent { ev -> ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown && onDown() }
+            .focusGroup()
+            .padding(horizontal = 48.dp),
     ) {
-        Row(Modifier.padding(start = 8.dp, end = 8.dp, bottom = 10.dp).height(36.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.logo_a), contentDescription = "ADITV", modifier = Modifier.size(28.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(if (isDemo) "ADITV · Démo" else "ADITV", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Aditv.Text)
-            Spacer(Modifier.weight(1f))
-            Text(clock, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+        Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
+            Image(painterResource(R.drawable.logo_full), contentDescription = "ADITV", modifier = Modifier.height(19.dp))
+            if (isDemo) { Spacer(Modifier.width(8.dp)); Text("DÉMO", fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Aditv.OnLight, modifier = Modifier.background(Aditv.Accent, RoundedCornerShape(50)).padding(horizontal = 5.dp, vertical = 1.5.dp)) }
         }
-        destinations.forEach { d ->
-            val isSel = d.route == selected
-            Surface(
-                onClick = { onPick(d.route) },
-                modifier = Modifier.height(44.dp).focusRequester(requesters.getValue(d.route)),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
-                colors = ClickableSurfaceDefaults.colors(
-                    containerColor = if (isSel) Color.White.copy(alpha = 0.14f) else Color.Transparent,
-                    contentColor = Aditv.Text,
-                    focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
-                ),
-            ) {
-                Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(painterResource(d.icon), contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(14.dp))
-                    Text(d.label, style = MaterialTheme.typography.titleMedium)
+        Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+            tabs.forEach { t -> NavPill(t.label, t.route == selected, { onPick(t.route) }, Modifier.focusRequester(requesters.getValue(t.route))) }
+        }
+        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            running.values.firstOrNull()?.let { r ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(5.dp).background(Aditv.Accent, CircleShape))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Mise à jour · ${com.aditv.ui.home.typeLabel(r.type.name)} ${r.count}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, maxLines = 1)
                 }
+            }
+            Text(clock, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
+            NavIcon(R.drawable.ic_search, "Rechercher", selected == "search", { onPick("search") }, Modifier.focusRequester(requesters.getValue("search")))
+            NavIcon(R.drawable.ic_settings, "Réglages", selected == "settings", { onPick("settings") }, Modifier.focusRequester(requesters.getValue("settings")))
+        }
+    }
+}
+
+private val NavHalo = Glow(elevationColor = Aditv.Accent.copy(alpha = 0.25f), elevation = 8.dp)
+
+@Composable
+private fun NavPill(label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(26.dp),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (isSelected) Color.White.copy(alpha = 0.14f) else Color.Transparent,
+            contentColor = if (isSelected) Aditv.Text else Aditv.TextSecondary,
+            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+        ),
+    ) {
+        Box(Modifier.fillMaxHeight().padding(horizontal = 13.dp), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp), maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun NavIcon(icon: Int, label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(27.dp),
+        shape = ClickableSurfaceDefaults.shape(CircleShape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (isSelected) Color.White.copy(alpha = 0.14f) else Color.Transparent,
+            contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+        ),
+    ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(15.dp)) } }
+}
+
+/** « Quitter ADITV ? » : Rester (par défaut) ou Quitter. Retour ferme la question. */
+@Composable
+private fun ExitDialog(onStay: () -> Unit, onQuit: () -> Unit) {
+    val stay = remember { FocusRequester() }
+    com.aditv.ui.common.InitialFocus(stay)
+    BackHandler { onStay() }
+    Box(Modifier.fillMaxSize().background(Color(0x9E030508)), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.widthIn(max = 410.dp).background(Color(0xEB10151C), RoundedCornerShape(14.dp)).padding(horizontal = 30.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.size(42.dp).background(Aditv.Accent.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.ic_power), contentDescription = null, tint = Aditv.Accent, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("Quitter ADITV ?", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Aditv.Text)
+            Spacer(Modifier.height(7.dp))
+            Text("Vous retrouverez votre position dans chaque rubrique au prochain lancement.", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
+            Spacer(Modifier.height(19.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                PillButton("Rester", onStay, Modifier.focusRequester(stay), icon = null)
+                PillButton("Quitter", onQuit, icon = R.drawable.ic_power, primary = false)
             }
         }
     }
@@ -293,20 +331,3 @@ private fun SideMenu(
 private fun Entry(entries: Map<String, FocusRequester>, route: String, content: @Composable () -> Unit) =
     CompositionLocalProvider(com.aditv.ui.LocalScreenEntry provides entries.getValue(route), content = content)
 
-/** À la racine, Retour ne ferme l'application qu'après un second appui (2 s). */
-@Composable
-private fun ExitOnDoubleBack(enabled: Boolean) {
-    val activity = LocalActivity.current
-    var armed by remember { mutableStateOf(false) }
-    BackHandler(enabled) { if (armed) activity?.finish() else armed = true }
-    LaunchedEffect(armed) { if (armed) { delay(2_000); armed = false } }
-    if (armed && enabled) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            Text(
-                "Appuyez de nouveau sur Retour pour quitter ADITV",
-                style = MaterialTheme.typography.bodyLarge, color = Aditv.Text,
-                modifier = Modifier.padding(bottom = 32.dp).background(Aditv.Surface2, RoundedCornerShape(12.dp)).padding(horizontal = 20.dp, vertical = 12.dp),
-            )
-        }
-    }
-}

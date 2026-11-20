@@ -1,5 +1,5 @@
 # PROJECT_STATE — ADITV
-_Mis à jour : 19/11/2026_
+_Mis à jour : 20/11/2026_
 
 ## Appareil cible (confirmé)
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
@@ -7,6 +7,21 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 
 ## Phase actuelle : 3 — terminée côté code (0.3.0), à valider sur la Stick
 0.2.0 installée par Adama (installation OK).
+
+### 0.5.0 (20/11/2026) — design validé par Adama appliqué à l'appli
+Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies données :
+- **Charte** : anthracite profond, blanc, turquoise discret ; polices **Outfit** (titres) et **Inter** (texte) embarquées (OFL) ; icônes vectorielles ; focus évident (boutons blancs, liseré blanc + halo turquoise sur les cartes, léger agrandissement) ; cartes **cinémascope** alignées, affiches quand il n'y a pas de visuel TMDB (jamais d'image étirée).
+- **Navigation** : barre haute compacte (Accueil, Direct, Films, Séries, Ma liste · heure · recherche · réglages), masquée au défilement ; ↑ y monte sur la rubrique active, ↓ revient sur l'élément quitté ; Retour : contenu → barre → Accueil → « Quitter ADITV ? ». L'ancien menu latéral est retiré.
+- **Accueil** immersif (surtitre, grand titre, infos + badges VF/qualité, Reprendre / Plus d'infos / Ma liste, barre de reprise, pages ; ←/→ en bout de boutons change de page ; défilement automatique désactivé si animations réduites), rangées Reprendre la lecture, Votre soirée commence ici, En direct maintenant, Ma liste, Séries à suivre.
+- **Fiches** film/série/chaîne : grand titre, infos, résumé, boutons, versions annoncées (panneau « Versions »), saisons en puces + épisodes (vu, durée, progression), distribution, « Vous aimerez aussi », « À propos ».
+- **Films / Séries** : puces de catégories, tri (fournisseur, A → Z, récents), grille alignée, squelettes de chargement, états vides et import en cours.
+- **Direct** = guide TV : aperçu de la chaîne/du programme, filtres, grille horaire restylée, repère « maintenant », panneau programme.
+- **Lecteur** : titre, barre de lecture focalisable (←/→ = 10 s), boutons ronds, « Audio et sous-titres » (un seul panneau), Version, **Statistiques réelles** lues dans Media3 (image, codec, HDR, débit déclaré, bande passante estimée, réserve, images perdues, interruptions, audio), chacune marquée mesuré / estimé / déclaré / N/D ; bandeau de zapping.
+- **Recherche** : clavier à l'écran (lettres, chiffres), résultats Films / Séries / Chaînes, état « aucun résultat ».
+- **Ma liste** : filtres Tout / Films / Séries / Chaînes favorites, état vide avec raccourcis.
+- **Ouverture animée** (2,4 s, logo + reflet + son), au démarrage à froid seulement, n'attend jamais le réseau, toute touche la passe ; image et son désactivables (Réglages → Ouverture) ; animations réduites : version courte.
+- Non affichés car pas encore livrés (aucun faux bouton) : **Turbo** (phase 5) et **rappels de matchs** (phase 3 bis).
+- 69 tests (parcours télécommande réécrit pour la nouvelle barre, en API 25 et 35 ; ouverture ; fiche série). Captures : `design/captures-app/`.
 
 ### 0.4.1 (20/11/2026) — retour d'Adama : « seules les chaînes sont synchronisées, jamais films et séries »
 - **Cause identifiée** : import séquentiel chaînes → films → séries ; sur un gros bouquet, l'import des chaînes (long sur la Stick 1re gén.) était interrompu (appli quittée / veille) et reprenait par les chaînes au démarrage suivant → films/séries jamais atteints (« jamais synchronisé », aucune erreur).
@@ -69,7 +84,8 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 - [x] 0.3.0 installée : films et séries vides signalés → 0.3.1.
 - [x] 0.3.1 testée : films toujours vides.
 - [x] 0.4.0 : seules les chaînes synchronisées.
-- [ ] Installer `ADITV-0.4.1-debug.apk`, laisser ADITV ouvert, vérifier Réglages → Catalogue local (Films / Séries « en cours » puis nombre d'éléments) et l'écran Films.
+- [ ] Installer `ADITV-0.5.0-debug.apk` (nouveau design) ; laisser ADITV ouvert au premier import, vérifier Réglages → Catalogue local (Films / Séries) et l'écran Films.
+- [ ] Juger le design sur le téléviseur : lisibilité des textes à distance, fluidité du focus sur la Stick 1re génération.
 - [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.
 - [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.

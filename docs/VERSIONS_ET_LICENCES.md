@@ -14,6 +14,7 @@ Versions figées dans `gradle/libs.versions.toml`. Aucune dépendance Google Pla
 | OkHttp | 5.5.1 | Apache 2.0 |
 | Media3 (ExoPlayer, HLS, OkHttp, UI) | 1.11.1 | Apache 2.0 |
 | Coil 3 | 3.6.3 | Apache 2.0 |
+| Polices Outfit (Medium, SemiBold) et Inter (Regular, Medium, SemiBold) | Google Fonts, 2026 | SIL Open Font License 1.1 (textes dans `app/src/main/assets/licences/`) |
 | Désucrage des API Java (java.time sur Android 7.1) | desugar_jdk_libs 2.1.5 | GPL 2 + exception de liaison (Classpath) |
 | Tests : JUnit 4, MockWebServer, Robolectric, room-testing | 4.13.2 / 5.5.1 / 4.18.1 / 2.8.5 | EPL 1.0 / Apache 2.0 / MIT / Apache 2.0 |
 

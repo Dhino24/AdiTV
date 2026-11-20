@@ -57,13 +57,34 @@ import androidx.tv.material3.Text
 import com.aditv.data.Session
 import com.aditv.playback.TrackOption
 import com.aditv.ui.LocalContainer
-import com.aditv.ui.common.AditvButton
+import com.aditv.R
+import com.aditv.ui.design.Kicker
+import com.aditv.ui.design.PillButton
+import com.aditv.ui.design.RoundButton
+import com.aditv.ui.design.SheetHeader
+import com.aditv.ui.design.SheetOption
+import com.aditv.ui.design.SideSheet
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Icon
 import com.aditv.ui.common.InitialFocus
 import com.aditv.ui.theme.Aditv
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private enum class Panel { NONE, AUDIO, TEXT, VERSION }
+private enum class Panel { NONE, AUDIO, VERSION }
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -81,6 +102,26 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     var duration by remember { mutableLongStateOf(0L) }
     var playing by remember { mutableStateOf(false) }
     var buffering by remember { mutableStateOf(true) }
+    var scrubFocused by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }
+    var osd by remember { mutableIntStateOf(0) }
+    var stalls by remember { mutableIntStateOf(0) }
+    LaunchedEffect(osd, position) { if (osd != 0) { delay(900); osd = 0 } }
+    val clock by produceState(java.text.SimpleDateFormat("HH:mm", Locale.FRANCE).format(java.util.Date())) {
+        while (true) { delay(15_000); value = java.text.SimpleDateFormat("HH:mm", Locale.FRANCE).format(java.util.Date()) }
+    }
+    // Interruptions mesurées : passage en chargement après un premier démarrage.
+    DisposableEffect(player) {
+        var started = false
+        val l = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY) started = true
+                else if (state == Player.STATE_BUFFERING && started) stalls++
+            }
+        }
+        player?.addListener(l)
+        onDispose { player?.removeListener(l) }
+    }
     val rootFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
 
@@ -117,12 +158,13 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             delay(5_000); controlsVisible = false; runCatching { rootFocus.requestFocus() }
         }
     }
-    LaunchedEffect(controlsVisible) { if (controlsVisible && vm.error == null) { delay(50); runCatching { playFocus.requestFocus() } } }
+    LaunchedEffect(controlsVisible, panel) { if (controlsVisible && vm.error == null && panel == Panel.NONE) { delay(50); runCatching { playFocus.requestFocus() } } }
     InitialFocus(rootFocus)
 
     BackHandler {
         when {
             panel != Panel.NONE -> panel = Panel.NONE
+            statsOpen && !controlsVisible -> statsOpen = false
             vm.nextUp != null -> vm.cancelNext()
             controlsVisible && vm.error == null && playing -> { controlsVisible = false; runCatching { rootFocus.requestFocus() } }
             else -> exit()
@@ -153,8 +195,8 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                         if (!controlsVisible && panel == Panel.NONE) {
                             when (ev.key) {
                                 // En VOD, ←/→ déplacent la lecture ; en direct, aucun seek inexistant.
-                                Key.DirectionLeft -> { seekBy(-10_000); touch(); true }
-                                Key.DirectionRight -> { seekBy(10_000); touch(); true }
+                                Key.DirectionLeft -> { seekBy(-10_000); osd = -1; true }
+                                Key.DirectionRight -> { seekBy(10_000); osd = 1; true }
                                 // En direct, ↑/↓ changent de chaîne dans la liste d'origine (favoris, catégorie…).
                                 Key.DirectionUp -> { if (vm.isLive) { vm.zap(-1); bannerUntil = System.currentTimeMillis() } else touch(); true }
                                 Key.DirectionDown -> { if (vm.isLive) { vm.zap(1); bannerUntil = System.currentTimeMillis() } else touch(); true }
@@ -163,7 +205,11 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                                 Key.DirectionCenter, Key.Enter -> { touch(); true }
                                 else -> false
                             }
-                        } else { lastInteraction = System.currentTimeMillis(); false }
+                        } else {
+                            lastInteraction = System.currentTimeMillis()
+                            // Barre de lecture focalisée : ←/→ = −/+ 10 s.
+                            if (scrubFocused && (ev.key == Key.DirectionLeft || ev.key == Key.DirectionRight)) { seekBy(if (ev.key == Key.DirectionLeft) -10_000 else 10_000); true } else false
+                        }
                     }
                 }
             }
@@ -185,156 +231,232 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             )
         }
 
-        if (buffering && vm.error == null) {
-            Text("Chargement…", style = MaterialTheme.typography.titleLarge, color = Aditv.Text, modifier = Modifier.align(Alignment.Center))
+        if (buffering && vm.error == null) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spinner()
+            Spacer(Modifier.height(12.dp))
+            Text(if (vm.isLive) "Connexion à la chaîne…" else "Chargement…", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
         }
 
-        if (!controlsVisible && vm.error == null && vm.isLive && bannerUntil > 0) {
-            Column(Modifier.align(Alignment.BottomStart).padding(40.dp).widthIn(max = 760.dp).background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(14.dp)).padding(20.dp)) {
-                Text(vm.title, style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
-                vm.channelPosition?.let { Text("Chaîne $it · ↑/↓ pour changer", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
-                NowNext(vm.nowNext)
-            }
+        // Saut ±10 s commandes masquées : retour visuel discret au centre.
+        if (osd != 0 && !controlsVisible) Row(
+            Modifier.align(Alignment.Center).background(Color(0xB30A0C10), RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(if (osd < 0) R.drawable.ic_back10 else R.drawable.ic_fwd10), contentDescription = null, tint = Aditv.Text, modifier = Modifier.size(17.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(fmt(position), style = MaterialTheme.typography.headlineSmall.copy(fontSize = 15.sp), color = Aditv.Text)
         }
+
+        if (!controlsVisible && vm.error == null && vm.isLive && bannerUntil > 0) ZapBanner(vm, Modifier.align(Alignment.BottomCenter))
 
         if (controlsVisible || vm.error != null) {
-            Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent))).padding(horizontal = 40.dp, vertical = 28.dp)) {
-                Text(vm.title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (vm.isLive) {
-                        Text("● DIRECT", style = MaterialTheme.typography.labelMedium, color = Color(0xFFFF5A6A))
-                        Spacer(Modifier.width(10.dp))
-                    } else vm.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary); Spacer(Modifier.width(10.dp)) }
-                    vm.channelPosition?.let { Text("Chaîne $it", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary); Spacer(Modifier.width(10.dp)) }
-                    Text("Moteur : Media3", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
-                }
+            Box(Modifier.fillMaxWidth().height(150.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent))))
+            Column(Modifier.padding(start = 48.dp, top = 36.dp).widthIn(max = 620.dp)) {
+                if (vm.isLive) Row(verticalAlignment = Alignment.CenterVertically) {
+                    LivePill()
+                    vm.channelPosition?.let { Spacer(Modifier.width(8.dp)); Text("Chaîne $it", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+                } else Kicker("En lecture")
+                Spacer(Modifier.height(6.dp))
+                Text(vm.title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (!vm.isLive) vm.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 4.dp)) }
                 if (vm.isLive) NowNext(vm.nowNext)
+            }
+            Row(Modifier.align(Alignment.TopEnd).padding(end = 48.dp, top = 38.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Moteur : Media3", style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
+                Spacer(Modifier.width(10.dp))
+                Text(clock, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
             }
         }
 
         if (controlsVisible && vm.error == null && player != null) {
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
-                    .padding(horizontal = 40.dp, vertical = 28.dp),
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.88f))))
+                    .padding(start = 48.dp, end = 48.dp, top = 60.dp, bottom = 32.dp),
             ) {
                 if (!vm.isLive && duration > 0) {
-                    SeekBar(position, buffered, duration)
-                    Spacer(Modifier.height(8.dp))
+                    SeekBar(position, buffered, duration, Modifier.onFocusChanged { scrubFocused = it.isFocused })
+                    Spacer(Modifier.height(4.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(fmt(position), style = MaterialTheme.typography.bodyMedium, color = Aditv.Text)
-                        Text("− " + fmt((duration - position).coerceAtLeast(0)), style = MaterialTheme.typography.bodyMedium, color = Aditv.Text)
+                        Text(fmt(position), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
+                        Text("− " + fmt((duration - position).coerceAtLeast(0)), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AditvButton(if (playing) "Pause" else "Lecture", { player.let { if (it.isPlaying) it.pause() else it.play() }; touch() }, Modifier.focusRequester(playFocus))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(64.dp)) {
+                    RoundButton(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Lecture",
+                        { player.let { if (it.isPlaying) it.pause() else it.play() }; touch() }, Modifier.focusRequester(playFocus), size = 42.dp)
                     if (!vm.isLive) {
-                        AditvButton("− 10 s", { seekBy(-10_000); touch() })
-                        AditvButton("+ 10 s", { seekBy(10_000); touch() })
+                        RoundButton(R.drawable.ic_back10, "Reculer de 10 s", { seekBy(-10_000); touch() }, overlay = "10")
+                        RoundButton(R.drawable.ic_fwd10, "Avancer de 10 s", { seekBy(10_000); touch() }, overlay = "10")
+                    } else {
+                        RoundButton(R.drawable.ic_up, "Chaîne précédente", { vm.zap(-1); touch() })
+                        RoundButton(R.drawable.ic_down, "Chaîne suivante", { vm.zap(1); touch() })
+                        RoundButton(if (vm.isFavorite) R.drawable.ic_star else R.drawable.ic_star_outline, if (vm.isFavorite) "Chaîne favorite" else "Ajouter aux favoris", { vm.toggleFavorite(); touch() }, active = vm.isFavorite)
                     }
                     Spacer(Modifier.weight(1f))
-                    if (vm.isLive) AditvButton(if (vm.isFavorite) "★ Favori" else "☆ Favori", { vm.toggleFavorite(); touch() })
-                    if (vm.versions.size > 1) AditvButton("Version", { panel = Panel.VERSION })
-                    AditvButton("Audio", { panel = Panel.AUDIO })
-                    AditvButton("Sous-titres", { panel = Panel.TEXT })
+                    PillButton("Audio et sous-titres", { panel = Panel.AUDIO }, icon = R.drawable.ic_subs, primary = false, small = true)
+                    if (vm.versions.size > 1) PillButton(vm.versions.firstOrNull { it.selected }?.label ?: "Version", { panel = Panel.VERSION }, icon = R.drawable.ic_layers, primary = false, small = true)
+                    PillButton("Statistiques", { statsOpen = !statsOpen; touch() }, icon = R.drawable.ic_chart, primary = false, small = true)
                 }
                 Text(
-                    if (vm.isLive) "Commandes masquées : ↑/↓ = chaîne précédente / suivante · OK = afficher"
-                    else "Commandes masquées : ←/→ = −/+ 10 s · OK = afficher",
-                    style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 10.dp),
+                    if (vm.isLive) "Commandes masquées : ↑/↓ chaîne précédente / suivante · OK afficher"
+                    else "Commandes masquées : ←/→ −/+ 10 s · OK afficher",
+                    style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary,
                 )
             }
         }
 
+        if (statsOpen && player != null && vm.error == null) StatsPanel(player, stalls, Modifier.align(Alignment.TopEnd).padding(top = 76.dp, end = 20.dp))
+
         if (panel == Panel.VERSION) {
+            Box(Modifier.fillMaxSize().background(Color(0x80030508)))
             VersionPanel(vm.versions, onPick = { vm.switchVersion(it); panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         } else if (panel != Panel.NONE && player != null) {
-            TrackPanel(player, panel == Panel.AUDIO, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+            Box(Modifier.fillMaxSize().background(Color(0x80030508)))
+            TrackPanel(player, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         }
 
         vm.error?.let { msg ->
-            Column(
-                Modifier.align(Alignment.Center).widthIn(max = 640.dp).background(Aditv.Surface1, RoundedCornerShape(16.dp)).padding(28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Lecture impossible", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
-                Text(msg, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
-                val first = remember { FocusRequester() }
-                InitialFocus(first, key = msg)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (vm.canRetry) AditvButton("Réessayer", { vm.retry() }, Modifier.focusRequester(first))
-                    AditvButton("Retour", { exit() }, if (vm.canRetry) Modifier else Modifier.focusRequester(first))
+            Box(Modifier.fillMaxSize().background(Color(0x9E030508)), contentAlignment = Alignment.Center) {
+                Column(
+                    Modifier.widthIn(max = 450.dp).background(Color(0xEB10151C), RoundedCornerShape(14.dp)).padding(horizontal = 28.dp, vertical = 26.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(Modifier.size(42.dp).background(Aditv.Live.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(painterResource(R.drawable.ic_warn), contentDescription = null, tint = Aditv.Error, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("Lecture impossible", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
+                    Spacer(Modifier.height(7.dp))
+                    Text(msg, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(18.dp))
+                    val first = remember { FocusRequester() }
+                    InitialFocus(first, key = msg)
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        if (vm.canRetry) PillButton("Réessayer", { vm.retry() }, Modifier.focusRequester(first), icon = R.drawable.ic_retry)
+                        if (vm.versions.size > 1) PillButton("Changer de version", { panel = Panel.VERSION }, icon = R.drawable.ic_layers, primary = false)
+                        PillButton("Retour", { exit() }, if (vm.canRetry) Modifier else Modifier.focusRequester(first), icon = null, primary = !vm.canRetry)
+                    }
                 }
             }
         }
 
         vm.nextUp?.let { n ->
             Column(
-                Modifier.align(Alignment.BottomEnd).padding(40.dp).widthIn(max = 520.dp).background(Aditv.Surface1, RoundedCornerShape(16.dp)).padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                Modifier.align(Alignment.BottomEnd).padding(32.dp).widthIn(max = 300.dp).background(Color(0xEB10151C), RoundedCornerShape(12.dp)).padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                Text("Épisode suivant dans ${n.secondsLeft} s", style = MaterialTheme.typography.labelLarge, color = Aditv.Accent)
-                Text("S${n.episode.season} É${n.episode.number ?: "?"} · ${n.episode.title}", style = MaterialTheme.typography.titleLarge, color = Aditv.Text)
+                Kicker("Épisode suivant dans ${n.secondsLeft} s")
+                Text("S${n.episode.season} É${n.episode.number ?: "?"} · ${n.episode.title}", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val f = remember { FocusRequester() }
                 InitialFocus(f, key = n.episode.id)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AditvButton("Lire maintenant", { vm.playNext() }, Modifier.focusRequester(f))
-                    AditvButton("Annuler", { vm.cancelNext(); controlsVisible = true })
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    PillButton("Lire maintenant", { vm.playNext() }, Modifier.focusRequester(f))
+                    PillButton("Annuler", { vm.cancelNext(); controlsVisible = true }, icon = null, primary = false)
                 }
             }
         }
     }
 }
 
+/** Barre de lecture focalisable : au focus elle s'épaissit, affiche un curseur ; ←/→ déplacent la lecture de 10 s. */
 @Composable
-private fun SeekBar(position: Long, buffered: Long, duration: Long) {
-    Box(Modifier.fillMaxWidth().height(6.dp).background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(3.dp))) {
-        Box(Modifier.fillMaxHeight().fillMaxWidth((buffered.toFloat() / duration).coerceIn(0f, 1f)).background(Color.White.copy(alpha = 0.4f), RoundedCornerShape(3.dp)))
-        Box(Modifier.fillMaxHeight().fillMaxWidth((position.toFloat() / duration).coerceIn(0f, 1f)).background(Aditv.Accent, RoundedCornerShape(3.dp)))
+private fun SeekBar(position: Long, buffered: Long, duration: Long, modifier: Modifier) {
+    var focused by remember { mutableStateOf(false) }
+    val f = (position.toFloat() / duration).coerceIn(0f, 1f)
+    Box(
+        modifier.fillMaxWidth().height(20.dp).onFocusChanged { focused = it.isFocused }.focusable(),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(Modifier.fillMaxWidth().height(if (focused) 5.dp else 3.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.22f))) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth((buffered.toFloat() / duration).coerceIn(0f, 1f)).background(Color.White.copy(alpha = 0.34f)))
+            Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(Aditv.Accent))
+        }
+        if (focused) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+            Box(Modifier.offset(x = maxWidth * f - 6.dp).size(12.dp).background(Color.White, CircleShape))
+        }
     }
 }
 
-/** Pistes réellement présentes dans le flux, telles que le lecteur les expose. */
+@Composable
+private fun LivePill() {
+    Row(Modifier.background(Aditv.Live, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 2.5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(4.dp).background(Color.White, CircleShape))
+        Spacer(Modifier.width(4.dp))
+        Text("EN DIRECT", fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Color.White)
+    }
+}
+
+/** Indicateur de chargement (fixe si les animations sont réduites). */
+@Composable
+private fun Spinner() {
+    val reduced = com.aditv.ui.design.LocalReducedMotion.current
+    val angle = if (reduced) 0f else androidx.compose.animation.core.rememberInfiniteTransition(label = "spin").animateFloat(
+        0f, 360f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing)), label = "a",
+    ).value
+    androidx.compose.foundation.Canvas(Modifier.size(32.dp).graphicsLayer { rotationZ = angle }) {
+        val w = 2.dp.toPx()
+        drawArc(Color.White.copy(alpha = 0.14f), 0f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+        drawArc(Aditv.Accent, -90f, if (reduced) 180f else 90f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+    }
+}
+
+/** Bandeau de zapping (commandes masquées, ↑/↓ en direct). */
+@Composable
+private fun ZapBanner(vm: PlayerViewModel, modifier: Modifier) {
+    Row(
+        modifier.padding(horizontal = 48.dp, vertical = 32.dp).fillMaxWidth().height(95.dp)
+            .background(Color(0xC70C1016), RoundedCornerShape(11.dp)).padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LivePill()
+                vm.channelPosition?.let { Spacer(Modifier.width(8.dp)); Text("Chaîne $it", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(vm.title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            NowNext(vm.nowNext, compact = true)
+        }
+        Text("↑ ↓ changer de chaîne\nOK afficher les commandes", style = MaterialTheme.typography.bodySmall.copy(lineHeight = 14.sp), color = Aditv.TextTertiary, textAlign = TextAlign.End)
+    }
+}
+
+/** Pistes audio et sous-titres réellement présentes dans le flux, dans un seul panneau. */
 @OptIn(UnstableApi::class)
 @Composable
-private fun TrackPanel(player: Player, audio: Boolean, onClose: () -> Unit, modifier: Modifier) {
-    val type = if (audio) C.TRACK_TYPE_AUDIO else C.TRACK_TYPE_TEXT
-    val options = remember(player.currentTracks, audio) { trackOptions(player, type) }
-    val textDisabled = !audio && player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+private fun TrackPanel(player: Player, onClose: () -> Unit, modifier: Modifier) {
+    val audio = remember(player.currentTracks) { trackOptions(player, C.TRACK_TYPE_AUDIO) }
+    val text = remember(player.currentTracks) { trackOptions(player, C.TRACK_TYPE_TEXT) }
+    val textDisabled = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
     val first = remember { FocusRequester() }
     InitialFocus(first)
-    Column(modifier.fillMaxHeight().width(420.dp).background(Aditv.Surface1.copy(alpha = 0.96f)).padding(24.dp)) {
-        Text(if (audio) "Audio" else "Sous-titres", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
-        Spacer(Modifier.height(12.dp))
-        if (options.isEmpty()) Text(if (audio) "Aucune piste audio exposée par le flux." else "Aucun sous-titre dans ce flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (!audio) item {
-                TrackRow("Désactivés", textDisabled || options.none { it.selected }, Modifier.focusRequester(first)) {
+    fun select(type: Int, o: TrackOption) {
+        val group = player.currentTracks.groups[o.groupIndex].mediaTrackGroup
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(type, false)
+            .setOverrideForType(TrackSelectionOverride(group, o.trackIndex)).build()
+        onClose()
+    }
+    SideSheet("Audio et sous-titres", "Pistes exposées par le flux, telles que le lecteur les lit.", modifier) {
+        LazyColumn {
+            item { SheetHeader("Audio") }
+            if (audio.isEmpty()) item { Text("Aucune piste audio exposée par le flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary) }
+            items(audio, key = { "a${it.groupIndex}-${it.trackIndex}" }) { o ->
+                SheetOption(o.label, { select(C.TRACK_TYPE_AUDIO, o) }, if (o == audio.first()) Modifier.focusRequester(first) else Modifier, checked = o.selected)
+            }
+            item { SheetHeader("Sous-titres") }
+            item {
+                SheetOption("Désactivés", {
                     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build(); onClose()
-                }
+                }, if (audio.isEmpty()) Modifier.focusRequester(first) else Modifier, checked = textDisabled || text.none { it.selected })
             }
-            items(options, key = { "${it.groupIndex}-${it.trackIndex}" }) { o ->
-                val isFirst = audio && o == options.first()
-                TrackRow(o.label, o.selected && !textDisabled, if (isFirst) Modifier.focusRequester(first) else Modifier) {
-                    val group = player.currentTracks.groups[o.groupIndex].mediaTrackGroup
-                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-                        .setTrackTypeDisabled(type, false)
-                        .setOverrideForType(TrackSelectionOverride(group, o.trackIndex)).build()
-                    onClose()
-                }
-            }
+            if (text.isEmpty()) item { Text("Aucun sous-titre dans ce flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary, modifier = Modifier.padding(start = 11.dp, top = 4.dp)) }
+            items(text, key = { "t${it.groupIndex}-${it.trackIndex}" }) { o -> SheetOption(o.label, { select(C.TRACK_TYPE_TEXT, o) }, checked = o.selected && !textDisabled) }
         }
     }
 }
-
-@Composable
-private fun TrackRow(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) = ListItem(
-    selected = selected, onClick = onClick, modifier = modifier,
-    headlineContent = { Text(label) },
-    trailingContent = { if (selected) Text("✓") },
-    colors = ListItemDefaults.colors(focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight, selectedContainerColor = Aditv.Surface2),
-)
 
 @OptIn(UnstableApi::class)
 private fun trackOptions(player: Player, type: Int): List<TrackOption> = buildList {
@@ -362,19 +484,23 @@ private fun fmt(ms: Long): String {
 }
 
 @Composable
-private fun NowNext(list: List<com.aditv.data.epg.Programme>) {
-    if (list.isEmpty()) { Text("Guide indisponible pour cette chaîne", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary); return }
+private fun NowNext(list: List<com.aditv.data.epg.Programme>, compact: Boolean = false) {
+    if (list.isEmpty()) { Text("Guide indisponible pour cette chaîne", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary, modifier = Modifier.padding(top = 4.dp)); return }
     val now = System.currentTimeMillis()
     val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.FRANCE)
-    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        list.forEachIndexed { i, p ->
-            val label = if (p.isLive(now)) "Maintenant" else if (i == 0) "À ${fmt.format(java.util.Date(p.startUtc))}" else "Ensuite · ${fmt.format(java.util.Date(p.startUtc))}"
+    Column(Modifier.padding(top = if (compact) 4.dp else 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        list.take(if (compact) 2 else 3).forEachIndexed { i, p ->
+            val live = p.isLive(now)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, style = MaterialTheme.typography.labelMedium, color = if (p.isLive(now)) Aditv.Accent else Aditv.TextSecondary, modifier = Modifier.width(150.dp))
-                Text(p.title, style = MaterialTheme.typography.bodyLarge, color = Aditv.Text, maxLines = 1)
-            }
-            if (p.isLive(now)) Box(Modifier.width(560.dp).height(3.dp).background(Color.White.copy(alpha = 0.25f))) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth(((now - p.startUtc).toFloat() / (p.endUtc - p.startUtc)).coerceIn(0f, 1f)).background(Aditv.Accent))
+                Text(if (live) "MAINTENANT" else if (i == 0) "À ${fmt.format(java.util.Date(p.startUtc))}" else "ENSUITE · ${fmt.format(java.util.Date(p.startUtc))}",
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp), color = if (live) Aditv.Accent else Aditv.TextTertiary, modifier = Modifier.width(100.dp))
+                Text(p.title, style = MaterialTheme.typography.bodyLarge, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (live) {
+                    Spacer(Modifier.width(10.dp))
+                    Box(Modifier.width(110.dp).height(2.5.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.22f))) {
+                        Box(Modifier.fillMaxHeight().fillMaxWidth(((now - p.startUtc).toFloat() / (p.endUtc - p.startUtc)).coerceIn(0f, 1f)).background(Aditv.Accent))
+                    }
+                }
             }
         }
     }
@@ -384,14 +510,73 @@ private fun NowNext(list: List<com.aditv.data.epg.Programme>) {
 private fun VersionPanel(options: List<VersionOption>, onPick: (String) -> Unit, modifier: Modifier) {
     val first = remember { FocusRequester() }
     InitialFocus(first)
-    Column(modifier.fillMaxHeight().width(420.dp).background(Aditv.Surface1.copy(alpha = 0.96f)).padding(24.dp)) {
-        Text("Version", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
-        Text("Langue et qualité annoncées par le fournisseur ; la meilleure selon vos préférences est en tête.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
-        Spacer(Modifier.height(12.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    SideSheet("Versions", "Langue et qualité annoncées par le fournisseur ; la meilleure selon vos préférences est en tête. La position est conservée.", modifier) {
+        LazyColumn {
+            item { SheetHeader("Changer en gardant la position") }
             items(options, key = { it.itemId }) { o ->
-                TrackRow(o.label, o.selected, if (o == options.first()) Modifier.focusRequester(first) else Modifier) { onPick(o.itemId) }
+                SheetOption(o.label, { onPick(o.itemId) }, if (o == options.first()) Modifier.focusRequester(first) else Modifier, checked = o.selected, detail = if (o == options.first()) "préférée" else null)
             }
         }
+    }
+}
+
+private enum class Nature(val label: String, val fg: Color, val bg: Color) {
+    MEASURED("Mesuré", Color(0xFF7FF0F0), Color(0x2400D7D7)),
+    ESTIMATED("Estimé", Color(0xFFF6D58A), Color(0x1FF6D58A)),
+    DECLARED("Déclaré", Color(0xFFC7CFDB), Color(0x1AC7CFDB)),
+    NA("N/D", Color(0xFF7D8896), Color(0x0DFFFFFF)),
+}
+
+/**
+ * Statistiques de lecture lues dans Media3 chaque seconde. Chaque valeur porte sa nature :
+ * mesurée (lecteur), estimée (débit réseau), déclarée (flux) ou non disponible.
+ */
+@OptIn(UnstableApi::class)
+@Composable
+private fun StatsPanel(player: androidx.media3.exoplayer.ExoPlayer, stalls: Int, modifier: Modifier) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val tick by produceState(0) { while (true) { delay(1_000); value++ } }
+    @Suppress("UNUSED_EXPRESSION") tick
+    val vf = player.videoFormat
+    val af = player.audioFormat
+    val size = player.videoSize
+    val counters = player.videoDecoderCounters?.also { it.ensureUpdated() }
+    val bandwidth = androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.getSingletonInstance(ctx).bitrateEstimate
+    val reserve = ((player.bufferedPosition - player.currentPosition).coerceAtLeast(0) / 1000)
+    fun mbps(b: Int) = "%.1f".format(b / 1_000_000f).replace('.', ',') + " Mb/s"
+    val hdr = when (vf?.colorInfo?.colorTransfer) { C.COLOR_TRANSFER_ST2084 -> "HDR10 (PQ)"; C.COLOR_TRANSFER_HLG -> "HLG"; null -> null; else -> "SDR" }
+    val rows = listOf(
+        Triple("Moteur", "Media3", Nature.DECLARED),
+        Triple("Image décodée", if (size.width > 0) "${size.width} × ${size.height}" else "N/D", if (size.width > 0) Nature.MEASURED else Nature.NA),
+        Triple("Codec vidéo", vf?.codecs ?: vf?.sampleMimeType?.substringAfter('/') ?: "N/D", if (vf != null) Nature.DECLARED else Nature.NA),
+        Triple("Images / s", vf?.frameRate?.takeIf { it > 0 }?.let { "%.0f".format(it) } ?: "N/D", if ((vf?.frameRate ?: 0f) > 0) Nature.DECLARED else Nature.NA),
+        Triple("HDR", hdr ?: "N/D", if (hdr != null) Nature.DECLARED else Nature.NA),
+        Triple("Débit vidéo", vf?.bitrate?.takeIf { it > 0 }?.let(::mbps) ?: "N/D", if ((vf?.bitrate ?: 0) > 0) Nature.DECLARED else Nature.NA),
+        Triple("Bande passante", if (bandwidth > 0) "≈ " + mbps(bandwidth.toInt().coerceAtMost(Int.MAX_VALUE)) else "N/D", if (bandwidth > 0) Nature.ESTIMATED else Nature.NA),
+        Triple("Réserve", "$reserve s", Nature.MEASURED),
+        Triple("Images perdues", counters?.droppedBufferCount?.toString() ?: "N/D", if (counters != null) Nature.MEASURED else Nature.NA),
+        Triple("Interruptions", stalls.toString(), Nature.MEASURED),
+        Triple("Audio", af?.let { listOfNotNull(it.sampleMimeType?.substringAfter('/')?.uppercase(), it.channelCount.takeIf { c -> c > 0 }?.let { c -> if (c >= 6) "5.1" else if (c == 2) "stéréo" else "$c can." }).joinToString(" · ") } ?: "N/D", if (af != null) Nature.DECLARED else Nature.NA),
+        Triple("Sortie HDMI", "N/D", Nature.NA),
+    )
+    Column(modifier.width(290.dp).background(Color(0xD60C1016), RoundedCornerShape(11.dp)).padding(horizontal = 15.dp, vertical = 14.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("Statistiques de lecture", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 13.sp), color = Aditv.Text, modifier = Modifier.weight(1f))
+            Text("chaque seconde", style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.5.sp), color = Aditv.TextTertiary)
+        }
+        Spacer(Modifier.height(6.dp))
+        rows.forEach { (k, v, n) ->
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color.White.copy(alpha = 0.07f)))
+            Row(Modifier.padding(vertical = 4.5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(k, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 8.5.sp), color = Aditv.TextSecondary, modifier = Modifier.weight(1f))
+                Text(v, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 9.sp, fontWeight = FontWeight.SemiBold), color = Aditv.Text, maxLines = 1)
+                Spacer(Modifier.width(7.dp))
+                Box(Modifier.width(42.dp), contentAlignment = Alignment.CenterEnd) {
+                    Text(n.label.uppercase(), fontSize = 5.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = n.fg, modifier = Modifier.background(n.bg, RoundedCornerShape(3.dp)).padding(horizontal = 4.dp, vertical = 2.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("Valeurs lues dans le lecteur Media3 ; « déclaré » = annoncé par le flux, non vérifié.", style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.sp, lineHeight = 10.sp), color = Aditv.TextTertiary)
     }
 }

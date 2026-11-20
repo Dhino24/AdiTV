@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,8 +53,8 @@ fun SettingsScreen(session: Session.Active) {
     var confirmSignOut by remember { mutableStateOf(false) }
     LaunchedEffect(confirmSignOut) { if (confirmSignOut) { delay(5_000); confirmSignOut = false } }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 40.dp, top = 32.dp, end = 40.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        Text("Réglages", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 48.dp, top = 74.dp, end = 48.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Réglages", style = MaterialTheme.typography.displaySmall, color = Aditv.Text)
 
         Section("Compte fournisseur") {
             Fact("Type", if (session.isDemo) "Démo (contenu fictif, sans lecture)" else "API compatible Xtream (vérifiée à la connexion)")
@@ -119,11 +121,22 @@ fun SettingsScreen(session: Session.Active) {
             TmdbSection()
         }
 
+        Section("Ouverture") {
+            val introImage by c.prefs.introImageEnabled.collectAsStateWithLifecycle(true)
+            val introSound by c.prefs.introSoundEnabled.collectAsStateWithLifecycle(true)
+            Text("Logo animé de 2,4 s au démarrage à froid ; n'attend jamais le réseau, toute touche le passe. Animations réduites du système : version courte.",
+                style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                AditvButton("Ouverture animée", { scope.launch { c.prefs.setIntroImage(!introImage) } }, secondaryText = if (introImage) "Activée" else "Désactivée")
+                AditvButton("Son de l'ouverture", { scope.launch { c.prefs.setIntroSound(!introSound) } }, secondaryText = if (introSound) "Activé" else "Désactivé")
+            }
+        }
+
         Section("Application") {
             Fact("Version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (build de test)" else "")
             Fact("Confidentialité", "Aucune télémétrie. Accès chiffrés (Android Keystore), exclus des sauvegardes et des journaux.")
             Fact("Lecture", "Moteur Media3 (LibVLC et choix Auto : phase 4)")
-            Fact("À venir", "LibVLC et diagnostic (phase 4) · Turbo, intro (phase 5)")
+            Fact("À venir", "LibVLC et diagnostic comparatif (phase 4) · Turbo (phase 5)")
         }
     }
 }
@@ -131,18 +144,18 @@ fun SettingsScreen(session: Session.Active) {
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(
-        Modifier.widthIn(max = 900.dp).background(Aditv.Surface1, RoundedCornerShape(16.dp)).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.035f), RoundedCornerShape(9.dp)).padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = Aditv.Text)
-        Spacer(Modifier.height(4.dp))
+        com.aditv.ui.design.Kicker(title, color = Aditv.Text)
+        Spacer(Modifier.height(3.dp))
         content()
     }
 }
 
 @Composable
 private fun Fact(k: String, v: String, color: androidx.compose.ui.graphics.Color = Aditv.Text) = Row {
-    Text(k, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, modifier = Modifier.width(180.dp))
+    Text(k, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, modifier = Modifier.width(150.dp))
     Text(v, style = MaterialTheme.typography.bodyMedium, color = color)
 }
 

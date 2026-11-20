@@ -64,12 +64,32 @@ import com.aditv.ui.common.RemoteImage
 import com.aditv.ui.common.StatusDot
 import com.aditv.ui.common.tmdbImage
 import com.aditv.ui.design.ChannelTile
-import com.aditv.ui.design.LandscapeCard
+import com.aditv.ui.design.ComposedArt
+import com.aditv.ui.design.SideBackdrop
+import com.aditv.ui.design.DisplayTitle
+import com.aditv.ui.design.Kicker
+import com.aditv.ui.design.LocalReducedMotion
+import com.aditv.ui.design.MetaLine
 import com.aditv.ui.design.PageDots
 import com.aditv.ui.design.PillButton
-import com.aditv.ui.design.RoundIconButton
+import com.aditv.ui.design.PosterTile
+import com.aditv.ui.design.ResumeBar
+import com.aditv.ui.design.RoundButton
 import com.aditv.ui.design.RowTitle
-import com.aditv.ui.design.TitleArt
+import com.aditv.ui.design.SkeletonCard
+import com.aditv.ui.design.StateBox
+import com.aditv.ui.design.VariantBadges
+import com.aditv.ui.design.WideCard
+import com.aditv.ui.shell.LocalNavChrome
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.unit.sp
 import com.aditv.ui.formatMillisDateTime
 import com.aditv.ui.theme.Aditv
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -97,6 +117,11 @@ data class HeroItem(
     val overview: String?,
     val resumeLabel: String?,
     val kicker: String,
+    val metaParts: List<String> = emptyList(),
+    val lang: String? = null,
+    val quality: Int? = null,
+    val progress: Float? = null,
+    val remaining: String? = null,
 )
 
 data class HomeState(
@@ -125,13 +150,13 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
     private val catalogRows = combine(rawRows, c.db.live().favorites(accountId), c.prefs.variantPrefs) { lists, favorites, prefs ->
         val (recentMovies, recentSeries, channels, anyMovies, myList) = lists.map { it.collapsed(prefs).take(24) }
         val rows = buildList {
-            if (favorites.isNotEmpty()) add(HomeRow("Chaînes favorites", "↑/↓ dans le lecteur pour zapper", MediaType.LIVE, favorites.collapsed(prefs), liveList = "fav"))
-            if (myList.isNotEmpty()) add(HomeRow("Ma liste", null, MediaType.MOVIE, myList))
-            // « Ajouts récents » = date d'ajout déclarée par le fournisseur, pas des sorties récentes.
-            if (recentMovies.isNotEmpty()) add(HomeRow("Nouveaux films", "ajoutés par le fournisseur", MediaType.MOVIE, recentMovies))
+            // « Ajoutés récemment » = date d'ajout déclarée par le fournisseur, pas des sorties récentes.
+            if (recentMovies.isNotEmpty()) add(HomeRow("Votre soirée commence ici", "films ajoutés récemment par le fournisseur", MediaType.MOVIE, recentMovies))
             else if (anyMovies.isNotEmpty()) add(HomeRow("Films", null, MediaType.MOVIE, anyMovies))
-            if (recentSeries.isNotEmpty()) add(HomeRow("Nouvelles séries", "ajoutées par le fournisseur", MediaType.SERIES, recentSeries))
-            if (favorites.isEmpty() && channels.isNotEmpty()) add(HomeRow("Chaînes", null, MediaType.LIVE, channels, liveList = "all"))
+            if (favorites.isNotEmpty()) add(HomeRow("En direct maintenant", "vos chaînes favorites · ↑/↓ dans le lecteur pour zapper", MediaType.LIVE, favorites.collapsed(prefs), liveList = "fav"))
+            else if (channels.isNotEmpty()) add(HomeRow("En direct maintenant", null, MediaType.LIVE, channels, liveList = "all"))
+            if (myList.isNotEmpty()) add(HomeRow("Ma liste", null, MediaType.MOVIE, myList))
+            if (recentSeries.isNotEmpty()) add(HomeRow("Séries à suivre", "ajoutées récemment par le fournisseur", MediaType.SERIES, recentSeries))
         }
         // Carrousel : d'abord les titres avec un visuel paysage TMDB, puis les autres.
         val candidates = (recentMovies + recentSeries + anyMovies).map { it.first }.distinctBy { it.id }
@@ -170,7 +195,13 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         return HeroItem(
             itemId = card.id, playId = card.id, fromStart = false, title = m?.title ?: card.title,
             logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(m?.backdropPath, "w1280"), poster = tmdbImage(card.tmdbPoster, "w500") ?: card.imageUrl,
-            meta = metaLine, overview = m?.overview, resumeLabel = null, kicker = "NOUVEAU DANS VOTRE ABONNEMENT",
+            meta = metaLine, overview = m?.overview, resumeLabel = null, kicker = "Nouveau dans votre abonnement",
+            metaParts = listOfNotNull(
+                (m?.releaseDate?.take(4) ?: card.year?.toString()),
+                (if (card.type == "SERIES") "Série · " else "") + (m?.genres?.split(", ")?.firstOrNull() ?: card.genre ?: if (card.type == "SERIES") "" else "Film").trimEnd(' ', '·'),
+                m?.runtimeMin?.takeIf { it > 0 }?.let { if (it >= 60) "${it / 60} h ${"%02d".format(it % 60)}" else "$it min" },
+            ).filter { it.isNotBlank() },
+            lang = card.lang, quality = card.quality,
         )
     }
 
@@ -181,7 +212,10 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         return HeroItem(
             itemId = r.itemId, playId = r.contentId, fromStart = false, title = m?.title ?: r.title,
             logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(r.tmdbBackdrop, "w1280"), poster = tmdbImage(r.tmdbPoster, "w500") ?: r.imageUrl,
-            meta = listOfNotNull(r.episodeLabel, "reste $left min").joinToString(" · "), overview = m?.overview, resumeLabel = "Reprendre", kicker = "CONTINUER",
+            meta = listOfNotNull(r.episodeLabel, "reste $left min").joinToString(" · "), overview = m?.overview, resumeLabel = "Reprendre", kicker = "Reprendre la lecture",
+            metaParts = listOfNotNull(m?.releaseDate?.take(4), m?.genres?.split(", ")?.firstOrNull(), r.episodeLabel),
+            progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
+            remaining = listOfNotNull(r.episodeLabel, if (left >= 60) "${left / 60} h ${"%02d".format(left % 60)} restantes" else "$left min restantes").joinToString(" · "),
         )
     }
 
@@ -198,25 +232,31 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
     val progress by vm.progress.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val atTop by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 40 } }
-    var heroIndex by remember { mutableIntStateOf(0) }
+    val chrome = LocalNavChrome.current
+    LaunchedEffect(atTop) { chrome.scrolled = !atTop }
+    var heroIndex by rememberSaveable { mutableIntStateOf(0) }
     var heroFocused by remember { mutableStateOf(false) }
+    val reduced = LocalReducedMotion.current
     val primary = remember { FocusRequester() }
     val entry = LocalScreenEntry.current
     val hero = state.hero.getOrNull(heroIndex.coerceAtMost((state.hero.size - 1).coerceAtLeast(0)))
 
     InitialFocus(primary, key = state.hero.isNotEmpty(), enabled = state.hero.isNotEmpty())
-    // Défilement automatique du carrousel tant que l'on est en haut de l'accueil.
-    LaunchedEffect(heroIndex, atTop, state.hero.size) {
-        if (state.hero.size > 1 && atTop) { delay(9_000); heroIndex = (heroIndex + 1) % state.hero.size }
+    // Le carrousel se montre toujours en entier quand ses boutons ont le focus.
+    LaunchedEffect(heroFocused) { if (heroFocused && listState.firstVisibleItemScrollOffset > 0) listState.animateScrollToItem(0) }
+    // Carrousel : défilement automatique en haut de l'accueil, jamais pendant qu'on manipule ses boutons.
+    LaunchedEffect(heroIndex, atTop, heroFocused, state.hero.size, reduced) {
+        if (state.hero.size > 1 && atTop && !heroFocused && !reduced) { delay(9_000); heroIndex = (heroIndex + 1) % state.hero.size }
     }
 
     Box(Modifier.fillMaxSize()) {
-        // Fond plein écran du carrousel, assombri dès que l'on descend dans les rangées.
         HeroBackground(hero, dim = !atTop)
-        if (state.loaded && state.hero.isEmpty() && state.rows.isEmpty()) {
+        if (state.loaded && state.hero.isEmpty() && state.rows.isEmpty() && state.resume.isEmpty()) {
             EmptyCatalog(progress, state.syncErrors)
+        } else if (!state.loaded) {
+            HomeSkeleton()
         } else {
-            LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(26.dp)) {
+            LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 30.dp)) {
                 item(key = "hero") {
                     if (hero != null) HeroBlock(
                         hero, heroIndex, state.hero.size, inList = hero.itemId in state.watchlist,
@@ -224,89 +264,103 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                         onPlay = { onPlay(hero.playId, hero.fromStart) },
                         onToggleList = { vm.toggleList(hero.itemId, hero.itemId in state.watchlist) },
                         onInfo = { onOpen(hero.itemId) },
-                        onNext = { heroIndex = (heroIndex + 1) % state.hero.size },
+                        onPage = { d -> if (state.hero.size > 1) heroIndex = (heroIndex + d + state.hero.size) % state.hero.size },
                         modifier = Modifier.onFocusChanged { heroFocused = it.hasFocus },
-                    ) else Spacer(Modifier.height(120.dp))
+                    ) else Spacer(Modifier.height(80.dp))
                 }
                 if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay) }
                 items(state.rows, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive) }
+                if (state.syncErrors.isNotEmpty()) item(key = "sync") {
+                    Row(Modifier.padding(start = 48.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        StatusDot(Aditv.Warn); Spacer(Modifier.width(6.dp))
+                        Text("Synchronisation incomplète : voir Réglages → Catalogue local", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+                    }
+                }
             }
         }
-        TopBar(isDemo, progress, state.lastSyncAt, state.syncErrors.isNotEmpty(), visible = atTop)
     }
 }
 
 @Composable
 private fun HeroBackground(hero: HeroItem?, dim: Boolean) {
-    Box(Modifier.fillMaxSize()) {
+    val dimAlpha by animateFloatAsState(if (dim) 0.55f else 0f, tween(400), label = "dim")
+    Box(Modifier.fillMaxWidth().height(465.dp)) {
         when {
             hero?.backdrop != null -> RemoteImage(hero.backdrop, hero.title, Modifier.fillMaxSize(), fallbackTitle = false)
-            hero?.poster != null -> RemoteImage(hero.poster, hero.title, Modifier.fillMaxHeight().fillMaxWidth(0.45f).align(Alignment.TopEnd), ContentScale.Crop, fallbackTitle = false)
-            hero != null -> com.aditv.ui.common.GeneratedArt(hero.title, Modifier.fillMaxHeight().fillMaxWidth(0.6f).align(Alignment.TopEnd), showTitle = false)
+            hero?.poster != null -> SideBackdrop(0.5f) { RemoteImage(hero.poster, hero.title, Modifier.fillMaxSize(), ContentScale.Crop, fallbackTitle = false) }
+            hero != null -> SideBackdrop(0.6f) { ComposedArt(hero.title, null, Modifier.fillMaxSize(), showTitle = false) }
         }
-        // Lisibilité : voile à gauche et en bas ; plus sombre hors du haut de page.
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg.copy(alpha = 0.92f), 0.45f to Aditv.Bg.copy(alpha = 0.55f), 0.8f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 0.75f to Aditv.Bg.copy(alpha = 0.85f), 1f to Aditv.Bg)))
-        if (dim) Box(Modifier.fillMaxSize().background(Aditv.Bg.copy(alpha = 0.78f)))
+        // Lisibilité : voile à gauche (texte) et fondu vers l'anthracite en bas.
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg, 0.22f to Aditv.Bg.copy(alpha = 0.86f), 0.48f to Aditv.Bg.copy(alpha = 0.35f), 0.7f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.48f to Color.Transparent, 0.78f to Aditv.Bg.copy(alpha = 0.75f), 1f to Aditv.Bg)))
+        Box(Modifier.fillMaxSize().background(Aditv.Bg.copy(alpha = dimAlpha)))
     }
 }
 
 @Composable
 private fun HeroBlock(
     hero: HeroItem, index: Int, count: Int, inList: Boolean, primaryModifier: Modifier,
-    onPlay: () -> Unit, onToggleList: () -> Unit, onInfo: () -> Unit, onNext: () -> Unit, modifier: Modifier,
+    onPlay: () -> Unit, onToggleList: () -> Unit, onInfo: () -> Unit, onPage: (Int) -> Unit, modifier: Modifier,
 ) {
-    Box(modifier.fillMaxWidth().height(430.dp)) {
-        Column(Modifier.align(Alignment.BottomStart).padding(start = 48.dp, bottom = 8.dp).width(520.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(hero.kicker, style = MaterialTheme.typography.labelSmall, color = Aditv.Accent)
-            TitleArt(hero.title, hero.logo)
-            Text(hero.meta, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            hero.overview?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis) }
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top, modifier = Modifier.height(78.dp)) {
-                PillButton(hero.resumeLabel ?: "Lire", onPlay, primaryModifier)
-                RoundIconButton(if (inList) "✓" else "+", if (inList) "Dans ma liste" else "Ma liste", onToggleList, active = inList)
-                RoundIconButton("i", "Fiche", onInfo)
-                if (count > 1) RoundIconButton("›", "Suivant", onNext)
+    var firstFocused by remember { mutableStateOf(false) }
+    var lastFocused by remember { mutableStateOf(false) }
+    Box(modifier.fillMaxWidth().height(370.dp)) {
+        Column(Modifier.padding(start = 48.dp, top = 88.dp).width(440.dp)) {
+            Kicker(hero.kicker)
+            Spacer(Modifier.height(8.dp))
+            DisplayTitle(hero.title, hero.logo)
+            Spacer(Modifier.height(9.dp))
+            MetaLine(hero.metaParts.ifEmpty { listOf(hero.meta) }) { VariantBadges(hero.lang, hero.quality) }
+            hero.overview?.let {
+                Spacer(Modifier.height(7.dp))
+                Text(it, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp, lineHeight = 17.sp), color = Aditv.Text.copy(alpha = 0.92f), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(400.dp))
             }
+            Spacer(Modifier.height(16.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically,
+                // ← sur le premier bouton / → sur le dernier : page précédente / suivante du carrousel.
+                modifier = Modifier.onPreviewKeyEvent { ev ->
+                    if (ev.type != KeyEventType.KeyDown || count < 2) false
+                    else if (ev.key == Key.DirectionLeft && firstFocused) { onPage(-1); true }
+                    else if (ev.key == Key.DirectionRight && lastFocused) { onPage(1); true }
+                    else false
+                },
+            ) {
+                PillButton(hero.resumeLabel ?: "Lecture", onPlay, primaryModifier.onFocusChanged { firstFocused = it.isFocused })
+                PillButton("Plus d'infos", onInfo, icon = R.drawable.ic_info, primary = false)
+                RoundButton(if (inList) R.drawable.ic_check else R.drawable.ic_plus, if (inList) "Dans Ma liste" else "Ajouter à Ma liste", onToggleList,
+                    Modifier.onFocusChanged { lastFocused = it.isFocused }, active = inList)
+            }
+            Spacer(Modifier.height(20.dp))
+            if (hero.progress != null) ResumeBar(hero.progress, hero.remaining) else Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(12.dp))
             PageDots(count, index)
         }
     }
 }
 
-@Composable
-private fun TopBar(isDemo: Boolean, progress: SyncProgress, lastSyncAt: Long?, hasError: Boolean, visible: Boolean) {
-    if (!visible) return
-    Row(Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-        Image(painterResource(R.drawable.logo_full), contentDescription = "ADITV", modifier = Modifier.height(26.dp))
-        if (isDemo) { Spacer(Modifier.width(10.dp)); Text("DÉMO · CONTENU FICTIF", style = MaterialTheme.typography.labelSmall, color = Aditv.Accent) }
-        Spacer(Modifier.width(16.dp))
-        Text("‹ Menu", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
-        Spacer(Modifier.weight(1f))
-        Row(Modifier.background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            when {
-                progress is SyncProgress.Running -> { StatusDot(Aditv.Accent); Spacer(Modifier.width(8.dp)); Text("Mise à jour · ${typeLabel(progress.type.name)} ${progress.count}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
-                hasError -> { StatusDot(Aditv.Warn); Spacer(Modifier.width(8.dp)); Text("Synchronisation incomplète · voir Réglages", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
-                lastSyncAt != null -> { StatusDot(Aditv.Ok); Spacer(Modifier.width(8.dp)); Text("Catalogue du ${formatMillisDateTime(lastSyncAt)}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
-            }
-        }
-    }
-}
+/** Carte ou affiche selon les visuels réellement disponibles dans la rangée (jamais d'image étirée). */
+private fun preferWide(cards: List<CatalogCard>) = cards.count { it.tmdbBackdrop != null } * 2 >= cards.size
 
 @Composable
 private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit, onPlayLive: (String, String?) -> Unit) {
     val nowPlaying = if (row.type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(accountId, row.cards.map { it.first }) else emptyMap()
-    Column {
-        RowTitle(row.title, row.subtitle, Modifier.padding(start = 48.dp, bottom = 12.dp))
-        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+    val wide = remember(row.cards) { preferWide(row.cards.map { it.first }) }
+    Column(Modifier.padding(top = 10.dp)) {
+        RowTitle(row.title, row.subtitle, Modifier.padding(start = 48.dp, bottom = 3.dp))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(row.cards, key = { it.first.id }) { (card, versions) ->
                 val badge = variantBadge(card.lang, card.quality)
-                if (card.type == "LIVE") ChannelTile(card.title, card.imageUrl, nowPlaying[card.id] ?: listOfNotNull(badge, if (versions > 1) "$versions versions" else null).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, row.liveList) })
-                else LandscapeCard(
-                    card.title, tmdbImage(card.tmdbBackdrop, "w780"), tmdbImage(card.tmdbLogo, "w300"),
-                    tmdbImage(card.tmdbPoster, "w342") ?: card.imageUrl,
-                    listOfNotNull(card.year?.toString(), badge).joinToString(" · ").ifEmpty { null }, { onOpen(card.id) },
-                )
+                val extra = if (versions > 1) "$versions versions" else null
+                when {
+                    card.type == "LIVE" -> ChannelTile(card.title, card.imageUrl, nowPlaying[card.id] ?: listOfNotNull(badge, extra).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, row.liveList) })
+                    wide -> WideCard(
+                        card.title, listOfNotNull(card.genre?.substringBefore(',')?.trim(), card.year?.toString(), badge).joinToString(" · ").ifEmpty { null },
+                        tmdbImage(card.tmdbBackdrop, "w780"), tmdbImage(card.tmdbPoster, "w342") ?: card.imageUrl, { onOpen(card.id) },
+                        logoUrl = tmdbImage(card.tmdbLogo, "w300"),
+                    )
+                    else -> PosterTile(card.title, listOfNotNull(card.year?.toString(), badge).joinToString(" · ").ifEmpty { null }, tmdbImage(card.tmdbPoster, "w342") ?: card.imageUrl, { onOpen(card.id) })
+                }
             }
         }
     }
@@ -314,13 +368,16 @@ private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit
 
 @Composable
 private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Unit) {
-    Column {
-        RowTitle("Continuer à regarder", modifier = Modifier.padding(start = 48.dp, bottom = 12.dp))
-        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+    Column(Modifier.padding(top = 4.dp)) {
+        RowTitle("Reprendre la lecture", modifier = Modifier.padding(start = 48.dp, bottom = 3.dp))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(rows, key = { it.contentId }) { r ->
-                LandscapeCard(
-                    r.title, tmdbImage(r.tmdbBackdrop, "w780") ?: r.imageUrl?.takeIf { r.kind == "EPISODE" }, null,
-                    tmdbImage(r.tmdbPoster, "w342") ?: r.imageUrl, r.episodeLabel, { onPlay(r.contentId, false) },
+                val left = (r.durationMs - r.positionMs).coerceAtLeast(0) / 60_000
+                val leftLabel = if (left >= 60) "${left / 60} h ${"%02d".format(left % 60)} restantes" else "$left min restantes"
+                WideCard(
+                    r.title, listOfNotNull(r.episodeLabel, leftLabel).joinToString(" · "),
+                    tmdbImage(r.tmdbBackdrop, "w780") ?: r.imageUrl?.takeIf { r.kind == "EPISODE" },
+                    tmdbImage(r.tmdbPoster, "w342") ?: r.imageUrl, { onPlay(r.contentId, false) },
                     progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
                 )
             }
@@ -329,22 +386,30 @@ private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Un
 }
 
 @Composable
+private fun HomeSkeleton() {
+    Column(Modifier.fillMaxSize().padding(start = 48.dp, top = 300.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { repeat(4) { SkeletonCard(207.dp) } }
+    }
+}
+
+@Composable
 private fun EmptyCatalog(progress: SyncProgress, errors: List<String>) {
-    Column(Modifier.fillMaxSize().padding(48.dp), verticalArrangement = Arrangement.Center) {
+    Box(Modifier.fillMaxSize().padding(top = 60.dp), contentAlignment = Alignment.Center) {
         when (progress) {
-            is SyncProgress.Running -> {
-                Text("Import du catalogue en cours", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
-                Spacer(Modifier.height(10.dp))
-                Text("${typeLabel(progress.type.name)} · ${progress.stage} · ${progress.count} reçus", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
-                Text("Le catalogue s'affiche au fur et à mesure ; vous pouvez déjà naviguer.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
-            }
-            else -> {
-                Text("Catalogue vide", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
-                Spacer(Modifier.height(10.dp))
-                Text(if (errors.isEmpty()) "Aucun élément reçu pour le moment. Lancez une synchronisation depuis Réglages." else "La dernière synchronisation a échoué :",
+            is SyncProgress.Running -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { repeat(4) { SkeletonCard(150.dp) } }
+                Spacer(Modifier.height(22.dp))
+                Text("Import du catalogue en cours", style = MaterialTheme.typography.headlineSmall, color = Aditv.Text)
+                Spacer(Modifier.height(6.dp))
+                Text("${typeLabel(progress.type.name)} · ${progress.stage} · ${progress.count} reçus. Le catalogue s'affiche au fur et à mesure.",
                     style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
-                errors.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Error) }
             }
+            else -> StateBox(
+                if (errors.isEmpty()) R.drawable.ic_film else R.drawable.ic_cloud_off,
+                if (errors.isEmpty()) "Catalogue vide" else "La synchronisation a échoué",
+                if (errors.isEmpty()) "Aucun élément reçu pour le moment. Lancez une synchronisation depuis Réglages." else errors.joinToString("\n"),
+                error = errors.isNotEmpty(),
+            )
         }
     }
 }
