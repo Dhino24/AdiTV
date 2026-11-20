@@ -19,6 +19,9 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
             if (BuildConfig.DEBUG) androidx.media3.common.util.Log.LOG_LEVEL_WARNING else androidx.media3.common.util.Log.LOG_LEVEL_OFF
         )
         container = AppContainer(this)
+        com.aditv.core.CrashReporter.extraState = {
+            container.sync.running.value.values.joinToString(" · ") { "Synchro ${it.type.name} : ${it.stage}, ${it.count} reçus" }.ifEmpty { "Aucune synchro en cours" }
+        }
         container.appScope.launch {
             container.accounts.restore()
             // Rappels reprogrammés, matchs des équipes suivies et tendances TMDB, sans attendre la synchronisation.

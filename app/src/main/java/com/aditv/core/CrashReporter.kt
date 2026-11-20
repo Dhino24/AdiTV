@@ -31,6 +31,8 @@ object CrashReporter {
     private val time = SimpleDateFormat("dd/MM HH:mm:ss", Locale.FRANCE)
     @Volatile private var installed = false
     @Volatile private var handlerSet = false
+    /** Réserve libérée au moment d'une erreur fatale : de quoi écrire le rapport même en manque de mémoire. */
+    @Volatile private var reserve: ByteArray? = ByteArray(1 shl 20)
 
     private val url = Regex("""(?i)\b(?:https?|rtmp|rtsp|udp)://\S+""")
     fun clean(s: String): String = Redactor.redact(url.replace(s, "<adresse masquée>"))
@@ -43,24 +45,34 @@ object CrashReporter {
         val marker = File(dir, "foreground.marker")
         if (marker.exists()) {
             val last = runCatching { File(dir, "heartbeat.txt").readText() }.getOrDefault("(aucun relevé)")
+            val fatal = File(dir, "fatal.txt").takeIf { it.exists() }?.readText()
+            val blocked = File(dir, "watchdog.txt").takeIf { it.exists() }?.readText()
             write(
-                "Fermeture inattendue sans erreur Java",
-                "ADITV était à l'écran et s'est fermée sans erreur Java : plantage natif (VLC, décodeur vidéo) " +
-                    "ou mémoire reprise par Fire OS.\n\nDernier état connu :\n$last",
+                if (fatal != null) "Erreur fatale (rapport incomplet) : ${fatal.substringAfter(' ').substringAfter(' ')}" else "Fermeture inattendue sans erreur Java",
+                (fatal?.let { "Erreur Java au moment de la fermeture, rapport complet impossible (manque de mémoire probable) : $it\n\n" }
+                    ?: "ADITV était à l'écran et s'est fermée sans erreur Java : plantage natif (VLC, décodeur vidéo), " +
+                        "blocage de l'interface ou mémoire reprise par Fire OS.\n\n") +
+                    (blocked?.let { "Interface bloquée avant la fermeture :\n$it\n\n" } ?: "") +
+                    "Dernier état connu :\n$last\n\nJournal système d'ADITV :\n${systemLog()}",
             )
-            marker.delete()
+            marker.delete(); File(dir, "fatal.txt").delete()
         }
+        File(dir, "watchdog.txt").delete()
         if (!handlerSet) { handlerSet = true; setHandler() }
         val main = Handler(Looper.getMainLooper())
         main.postDelayed(object : Runnable {
-            override fun run() { heartbeat(); main.postDelayed(this, 20_000) }
-        }, 5_000)
+            override fun run() { heartbeat(); main.postDelayed(this, 10_000) }
+        }, 3_000)
+        startWatchdog()
     }
 
     private fun setHandler() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            runCatching { record(thread, error); File(dir, "foreground.marker").delete() }
+            reserve = null
+            // Ligne minimale d'abord (survit à un manque de mémoire), puis le rapport complet.
+            runCatching { File(dir, "fatal.txt").writeText("${time.format(Date())} ${error.javaClass.name} (fil « ${thread.name} »)") }
+            runCatching { record(thread, error); File(dir, "fatal.txt").delete(); File(dir, "foreground.marker").delete() }
             previous?.uncaughtException(thread, error)
         }
     }
@@ -90,7 +102,45 @@ object CrashReporter {
         AppLog.w("Erreur rattrapée ($where)", error)
     }
 
-    private fun heartbeat() = runCatching { File(dir, "heartbeat.txt").writeText(snapshot()) }
+    private fun heartbeat() = runCatching { File(dir, "heartbeat.txt").writeText("Relevé du ${time.format(Date())}\n" + snapshot()) }
+
+    @Volatile private var watchdog: Thread? = null
+    @Volatile private var mainTick = 0L
+
+    /** Interface bloquée plus de 5 s (Fire OS ferme alors l'appli) : pile du fil principal notée tout de suite. */
+    private fun startWatchdog() {
+        if (watchdog != null) return
+        val main = Handler(Looper.getMainLooper())
+        watchdog = Thread({
+            var reported = false
+            while (true) {
+                val sent = System.currentTimeMillis()
+                main.post { mainTick = System.currentTimeMillis() }
+                try { Thread.sleep(5_000) } catch (_: InterruptedException) { return@Thread }
+                if (mainTick < sent) {
+                    if (!reported) {
+                        reported = true
+                        val stack = Looper.getMainLooper().thread.stackTrace.take(40).joinToString("\n") { "  at $it" }
+                        runCatching { File(dir, "watchdog.txt").writeText("${time.format(Date())} — interface bloquée depuis plus de 5 s\n$stack") }
+                        event("Interface bloquée plus de 5 s")
+                    }
+                } else if (reported) {
+                    reported = false
+                    runCatching { File(dir, "watchdog.txt").delete() }
+                    event("Interface débloquée")
+                }
+            }
+        }, "aditv-watchdog").apply { isDaemon = true; start() }
+    }
+
+    /** Lignes du journal Android émises par ADITV (plantage natif, mémoire) : lisibles par l'appli elle-même. */
+    private fun systemLog(): String = runCatching {
+        val p = ProcessBuilder("logcat", "-d", "-v", "time", "-t", "2000").redirectErrorStream(true).start()
+        val keep = Regex("(?i)fatal|signal|sigsegv|sigabrt|tombstone|outofmemory|out of memory|lowmemory|anr|libc|libvlc|vlc|mediacodec|omx|art\\s|aditv|crash|abort|died|killing")
+        val lines = p.inputStream.bufferedReader().readLines().filter { keep.containsMatchIn(it) }.takeLast(60)
+        p.destroy()
+        lines.joinToString("\n").ifEmpty { "(aucune ligne utile)" }
+    }.getOrDefault("(journal illisible)")
 
     private fun memory(): String {
         val rt = Runtime.getRuntime()
@@ -101,9 +151,13 @@ object CrashReporter {
             (if (mi.lowMemory) " (mémoire basse signalée)" else "")
     }
 
+    /** État de l'appli ajouté aux relevés (synchronisation en cours…), fourni par l'application. */
+    @Volatile var extraState: () -> String? = { null }
+
     private fun snapshot(): String = buildString {
         appendLine("ADITV ${BuildConfig.VERSION_NAME} · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         appendLine(runCatching { memory() }.getOrDefault("Mémoire : N/D"))
+        runCatching { extraState() }.getOrNull()?.let { appendLine(it) }
         appendLine("Derniers événements :")
         synchronized(events) { events.forEach { appendLine("  $it") } }
     }

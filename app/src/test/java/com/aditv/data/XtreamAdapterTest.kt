@@ -97,6 +97,25 @@ class XtreamAdapterTest {
         assertTrue(adapter.categories(MediaType.LIVE).isEmpty())
     }
 
+    /** Liste de films renvoyée en objet indexé : lue entrée par entrée (accolades et guillemets dans les titres). */
+    @Test fun streamsObjectKeyedVodWithoutLoadingItAll() = runTest {
+        val body = buildString {
+            append("{")
+            for (i in 1..3000) {
+                if (i > 1) append(",\n")
+                append("\"$i\": {\"num\": $i, \"name\": \"Film {$i} \\\"cité\\\" [x]\", \"stream_id\": $i, \"rating\": 7.5, \"tmdb\": null, \"category_ids\": [1, 2], \"adult\": false}")
+            }
+            append("}")
+        }
+        enqueue(body)
+        val items = mutableListOf<RawItem>()
+        adapter.streamItems(MediaType.MOVIE, batchSize = 500) { items += it }
+        assertEquals(3000, items.size)
+        assertEquals("1", items.first().providerId)
+        assertTrue(items.last().rawTitle.contains("\"cité\""))
+        assertEquals("1", items.first().categoryProviderId)
+    }
+
     @Test fun refusesCrossHostRedirect() = runTest {
         server.enqueue(MockResponse.Builder().code(302).addHeader("Location", "http://other.invalid/player_api.php").build())
         try { adapter.authenticate(); fail() } catch (e: ProviderError.RedirectRefused) {}

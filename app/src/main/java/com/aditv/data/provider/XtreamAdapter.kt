@@ -233,12 +233,18 @@ class XtreamAdapter(
                             onElement(el)
                         }
                     } catch (e: SerializationException) { throw ProviderError.UnexpectedResponse("liste JSON interrompue ou invalide") }
-                    '{' -> {
-                        val obj = try { json.decodeFromString(JsonElement.serializer(), input.bufferedReader().readText()) as JsonObject }
-                        catch (e: Exception) { throw ProviderError.UnexpectedResponse("objet JSON invalide") }
-                        if (obj["user_info"] != null) throw ProviderError.InvalidCredentials()
-                        for (v in obj.values) { ensureActive(); onElement(v) }
-                    }
+                    // Objet indexé par identifiant ({"123": {...}, ...}) : lu entrée par entrée, jamais en entier
+                    // (des dizaines de Mo d'un bloc faisaient fermer ADITV sur la Stick).
+                    '{' -> try {
+                        val reader = java.io.BufferedReader(java.io.InputStreamReader(input, Charsets.UTF_8), 64 * 1024)
+                        StreamingJson.forEachEntry(reader) { name, valueJson ->
+                            ensureActive()
+                            if (name == "user_info") throw ProviderError.InvalidCredentials()
+                            onElement(json.decodeFromString(JsonElement.serializer(), valueJson))
+                        }
+                    } catch (e: ProviderError) { throw e }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { throw ProviderError.UnexpectedResponse("objet JSON invalide") }
                     null -> Unit // réponse vide = aucune entrée
                     else -> throw ProviderError.UnexpectedResponse("ce n'est pas du JSON")
                 }

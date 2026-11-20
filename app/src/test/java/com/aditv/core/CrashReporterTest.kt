@@ -47,4 +47,15 @@ class CrashReporterTest {
         assertEquals(0, CrashReporter.reports().size)
         assertFalse(File(ctx.filesDir, "crash/foreground.marker").exists())
     }
+
+    @Test fun fatalErrorWithoutFullReportIsStillShown() {
+        CrashReporter.install(ctx); CrashReporter.clear()
+        File(ctx.filesDir, "crash/fatal.txt").writeText("20/11 23:48:10 java.lang.OutOfMemoryError (fil « DefaultDispatcher-worker-2 »)")
+        CrashReporter.foreground(true)
+        CrashReporter.install(ctx)
+        val r = CrashReporter.reports().single()
+        assertTrue(r.title, r.title.contains("OutOfMemoryError"))
+        assertTrue(r.text.contains("Journal système"))
+        assertFalse(File(ctx.filesDir, "crash/fatal.txt").exists())
+    }
 }

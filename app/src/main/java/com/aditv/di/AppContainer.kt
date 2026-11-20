@@ -76,26 +76,34 @@ class AppContainer(context: Context) {
     fun syncNow(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
         kotlinx.coroutines.coroutineScope {
-            launch { sync.run(s.account.id, s.adapter, LIVE_TYPES) }
-            launch { sync.run(s.account.id, s.adapter, VOD_TYPES) }
+            launch { tracked("Synchro chaînes") { sync.run(s.account.id, s.adapter, LIVE_TYPES) } }
+            launch { tracked("Synchro films et séries") { sync.run(s.account.id, s.adapter, VOD_TYPES) } }
         }
         afterSync()
     }
 
     fun syncLiveNow(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
-        sync.run(s.account.id, s.adapter, LIVE_TYPES); afterSync()
+        tracked("Synchro chaînes") { sync.run(s.account.id, s.adapter, LIVE_TYPES) }; afterSync()
     }
 
     fun syncVodNow(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
-        sync.run(s.account.id, s.adapter, VOD_TYPES); afterSync()
+        tracked("Synchro films et séries") { sync.run(s.account.id, s.adapter, VOD_TYPES) }; afterSync()
     }
 
     private suspend fun afterSync() {
         backfillVariants()
         refreshEpg()
         enrichInBackground()
+    }
+
+    /** Tâche de fond notée (début, fin, durée) : le rapport de plantage dit ce qui tournait. */
+    private suspend fun <T> tracked(label: String, block: suspend () -> T): T {
+        val t0 = System.currentTimeMillis()
+        com.aditv.core.CrashReporter.event("$label : début")
+        return try { block().also { com.aditv.core.CrashReporter.event("$label : fin (${(System.currentTimeMillis() - t0) / 1000} s)") } }
+        catch (e: Throwable) { com.aditv.core.CrashReporter.event("$label : interrompue (${e.javaClass.simpleName})"); throw e }
     }
 
     /** Guide : jamais pendant une lecture (Fire TV Stick 1re génération : parsing coûteux). */
@@ -109,7 +117,7 @@ class AppContainer(context: Context) {
         if (playback.activeSessions.value > 0 && !force) return
         epg.ensureProviderSource(s.account.id, if (s.isDemo) "Guide démo (fictif)" else "Guide du fournisseur")
         val last = epg.lastRefresh(s.account.id)
-        if (force || last == null || System.currentTimeMillis() - last > 11 * 3_600_000L) epg.refresh(s.account.id, s.adapter, s.account.serverTimezone)
+        if (force || last == null || System.currentTimeMillis() - last > 11 * 3_600_000L) tracked("Guide TV") { epg.refresh(s.account.id, s.adapter, s.account.serverTimezone) }
         // Nouveau guide : matchs des équipes suivies et rappels automatiques recalculés.
         refreshSport()
     }
@@ -128,7 +136,7 @@ class AppContainer(context: Context) {
     fun enrichInBackground(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
         if (backgroundPaused) return@launch
-        if (tmdbKey.get() != null && playback.activeSessions.value == 0) { trending.refreshIfStale(); metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
+        if (tmdbKey.get() != null && playback.activeSessions.value == 0) tracked("Enrichissement TMDB") { trending.refreshIfStale(); metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
     }
 
     /** Après la mise à jour 0.3 : calcule les variantes des éléments déjà en cache (par lots, hors interface). */
@@ -160,8 +168,8 @@ class AppContainer(context: Context) {
         val now = System.currentTimeMillis()
         fun stale(types: List<com.aditv.data.provider.MediaType>) = types.any { t -> (states[t.name]?.lastSuccessAt ?: 0L) < now - maxAgeMs }
         kotlinx.coroutines.coroutineScope {
-            if (stale(LIVE_TYPES)) launch { sync.run(s.account.id, s.adapter, LIVE_TYPES) }
-            if (stale(VOD_TYPES)) launch { sync.run(s.account.id, s.adapter, VOD_TYPES) }
+            if (stale(LIVE_TYPES)) launch { tracked("Synchro chaînes") { sync.run(s.account.id, s.adapter, LIVE_TYPES) } }
+            if (stale(VOD_TYPES)) launch { tracked("Synchro films et séries") { sync.run(s.account.id, s.adapter, VOD_TYPES) } }
         }
         refreshEpg()
     }
