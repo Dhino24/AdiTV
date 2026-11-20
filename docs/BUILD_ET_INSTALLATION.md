@@ -12,7 +12,7 @@
 ./gradlew testDebugUnitTest      # tests unitaires + parcours UI Robolectric (captures dans design/captures-app/)
 sha256sum app/build/outputs/apk/debug/app-debug.apk
 ```
-L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.4.0-debug` : il peut cohabiter avec un futur build release.
+L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.4.1-debug` : il peut cohabiter avec un futur build release.
 
 ## Installer sur la Fire TV Stick (une seule fois : activer le débogage)
 1. Sur la Stick 4K 1re génération (Fire OS 6), le menu **Options pour les développeurs** est déjà visible dans **Paramètres → Mon Fire TV**. (Sur les Fire OS plus récents : **À propos**, sélectionner 7 fois le nom de l'appareil.)
@@ -22,7 +22,7 @@ L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.4.0-debug` : il 
 4. Depuis l'ordinateur, sur le même réseau :
    ```bash
    adb connect 192.168.1.42:5555     # remplacer 192.168.1.42 par l'IP de la Stick, sans < > ; accepter l'autorisation sur la TV
-   adb install -r ADITV-0.4.0-debug.apk
+   adb install -r ADITV-0.4.1-debug.apk
    ```
 5. ADITV apparaît dans **Vos applis et chaînes** (bannière ADITV). Après usage, le débogage ADB peut être désactivé.
 

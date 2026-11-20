@@ -46,7 +46,7 @@ fun SettingsScreen(session: Session.Active) {
     val scope = rememberCoroutineScope()
     val a = session.account
     val states by remember(a.id) { c.db.catalog().observeSyncStates(a.id) }.collectAsStateWithLifecycle(emptyList())
-    val progress by c.sync.progress.collectAsStateWithLifecycle()
+    val running by c.sync.running.collectAsStateWithLifecycle()
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var confirmSignOut by remember { mutableStateOf(false) }
     LaunchedEffect(confirmSignOut) { if (confirmSignOut) { delay(5_000); confirmSignOut = false } }
@@ -80,21 +80,31 @@ fun SettingsScreen(session: Session.Active) {
         }
 
         Section("Catalogue local") {
-            when (val p = progress) {
-                is SyncProgress.Running -> Fact("En cours", "${typeLabel(p.type.name)} · ${p.stage} · ${p.count}", Aditv.Accent)
-                else -> Unit
-            }
+            // Deux synchronisations indépendantes : chaînes d'un côté, films et séries de l'autre.
             listOf("LIVE", "MOVIE", "SERIES").forEach { t ->
                 val s = states.firstOrNull { it.type == t }
+                val run = running[com.aditv.data.provider.MediaType.valueOf(t)]
                 Fact(typeLabel(t), when {
+                    run != null -> "en cours · ${run.stage} · ${run.count} reçus"
                     s == null -> "jamais synchronisé"
                     s.lastError != null -> "${s.itemCount} en cache · échec le ${s.lastAttemptAt?.let(::formatMillisDateTime)} : ${s.lastError}"
-                    else -> "${s.itemCount} éléments · ${s.categoryCount} catégories · ${s.lastSuccessAt?.let(::formatMillisDateTime)}"
-                }, if (s?.lastError != null || s?.itemCount == 0) Aditv.Warn else Aditv.Text)
-                s?.detail?.let { d -> Text("   import : $d", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
+                    s.lastSuccessAt == null -> "aucun import terminé"
+                    else -> "${s.itemCount} éléments · ${s.categoryCount} catégories · ${formatMillisDateTime(s.lastSuccessAt)}"
+                }, when {
+                    run != null -> Aditv.Accent
+                    s?.lastError != null || s?.itemCount == 0 || s?.lastSuccessAt == null -> Aditv.Warn
+                    else -> Aditv.Text
+                })
+                if (run == null) s?.detail?.let { d -> Text("   import : $d", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
             }
-            Text("Actualisation automatique toutes les 12 h environ (réseau requis). Les titres retirés par le fournisseur sont masqués, pas supprimés.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
-            AditvButton(if (progress is SyncProgress.Running) "Synchronisation en cours…" else "Synchroniser maintenant", { c.syncNow() }, enabled = progress !is SyncProgress.Running)
+            Text("Actualisation automatique toutes les 12 h environ (réseau requis), et au démarrage si un import n'a jamais abouti. Les titres retirés par le fournisseur sont masqués, pas supprimés. Gardez ADITV ouvert pendant un premier import volumineux.",
+                style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+            val liveRunning = com.aditv.data.provider.MediaType.LIVE in running
+            val vodRunning = com.aditv.data.provider.MediaType.MOVIE in running || com.aditv.data.provider.MediaType.SERIES in running
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AditvButton(if (liveRunning) "Chaînes : en cours…" else "Synchroniser les chaînes", { c.syncLiveNow() }, enabled = !liveRunning)
+                AditvButton(if (vodRunning) "Films et séries : en cours…" else "Synchroniser films et séries", { c.syncVodNow() }, enabled = !vodRunning)
+            }
         }
 
         Section("Lecture : langue et qualité") {

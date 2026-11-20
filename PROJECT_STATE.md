@@ -8,6 +8,15 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 ## Phase actuelle : 3 — terminée côté code (0.3.0), à valider sur la Stick
 0.2.0 installée par Adama (installation OK).
 
+### 0.4.1 (20/11/2026) — retour d'Adama : « seules les chaînes sont synchronisées, jamais films et séries »
+- **Cause identifiée** : import séquentiel chaînes → films → séries ; sur un gros bouquet, l'import des chaînes (long sur la Stick 1re gén.) était interrompu (appli quittée / veille) et reprenait par les chaînes au démarrage suivant → films/séries jamais atteints (« jamais synchronisé », aucune erreur).
+- **Deux synchronisations indépendantes, en parallèle** : chaînes d'un côté, films + séries de l'autre ; un verrou par type ; un type déjà en cours n'est pas relancé.
+- Réglages → Catalogue local : boutons « Synchroniser les chaînes » et « Synchroniser films et séries », avancement par type, « import commencé mais non terminé » si interrompu (plus jamais silencieux).
+- Au démarrage : chaque groupe jamais abouti ou ancien est relancé immédiatement (sans attendre 12 h).
+- Écran Films/Séries vide : affiche l'import en cours et le nombre de titres reçus.
+- **Performance** : la détection VF/qualité recompilait ~20 expressions régulières par titre ; précompilées (import des gros bouquets nettement plus rapide).
+- 65 tests (dont films importés pendant un import de chaînes bloqué, import interrompu signalé).
+
 ### 0.4.0 (20/11/2026) — retours d'Adama : « films toujours vides », « interface comme Apple TV »
 - **Films/séries vides (2e cause probable)** : beaucoup de gros serveurs refusent la liste complète des films/séries (réponse vide ou trop lente) mais la servent par catégorie. Import en repli **catégorie par catégorie** (les titres sont rattachés à la catégorie interrogée) ; une catégorie en échec ne masque rien. Réglages → Catalogue local affiche désormais, par type : éléments, catégories, **mode d'import** et anomalies. Resynchronisation unique au démarrage. Testé sur serveur simulé — **à confirmer sur l'abonnement d'Adama**.
 - **Interface inspirée d'Apple TV, identité ADITV** (pas de marque ni logo Apple) :
@@ -59,7 +68,8 @@ Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le
 - [x] 0.2.0 installée.
 - [x] 0.3.0 installée : films et séries vides signalés → 0.3.1.
 - [x] 0.3.1 testée : films toujours vides.
-- [ ] Installer `ADITV-0.4.0-debug.apk`, attendre la resynchronisation, vérifier Films / Séries ; si vide : photo de Réglages → Catalogue local (mode d'import et erreurs affichés).
+- [x] 0.4.0 : seules les chaînes synchronisées.
+- [ ] Installer `ADITV-0.4.1-debug.apk`, laisser ADITV ouvert, vérifier Réglages → Catalogue local (Films / Séries « en cours » puis nombre d'éléments) et l'écran Films.
 - [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.
 - [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.

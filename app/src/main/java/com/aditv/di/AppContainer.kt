@@ -34,7 +34,10 @@ internal fun imageCacheBytes(context: Context): Long {
     return (free / 20).coerceIn(16L * 1024 * 1024, 64L * 1024 * 1024)
 }
 
-const val CATALOG_PARSE_VERSION = 3
+const val CATALOG_PARSE_VERSION = 4
+
+val LIVE_TYPES = listOf(com.aditv.data.provider.MediaType.LIVE)
+val VOD_TYPES = listOf(com.aditv.data.provider.MediaType.MOVIE, com.aditv.data.provider.MediaType.SERIES)
 
 /** Injection manuelle : pas de framework DI pour un seul module. */
 class AppContainer(context: Context) {
@@ -58,9 +61,27 @@ class AppContainer(context: Context) {
         .crossfade(false)
         .build()
 
+    /** Les deux synchronisations, en parallèle et indépendantes : chaînes d'un côté, films et séries de l'autre. */
     fun syncNow(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
-        if (!sync.isRunning) sync.run(s.account.id, s.adapter)
+        kotlinx.coroutines.coroutineScope {
+            launch { sync.run(s.account.id, s.adapter, LIVE_TYPES) }
+            launch { sync.run(s.account.id, s.adapter, VOD_TYPES) }
+        }
+        afterSync()
+    }
+
+    fun syncLiveNow(): Job = appScope.launch {
+        val s = accounts.session.value as? Session.Active ?: return@launch
+        sync.run(s.account.id, s.adapter, LIVE_TYPES); afterSync()
+    }
+
+    fun syncVodNow(): Job = appScope.launch {
+        val s = accounts.session.value as? Session.Active ?: return@launch
+        sync.run(s.account.id, s.adapter, VOD_TYPES); afterSync()
+    }
+
+    private suspend fun afterSync() {
         backfillVariants()
         refreshEpg()
         enrichInBackground()
@@ -97,18 +118,20 @@ class AppContainer(context: Context) {
      */
     suspend fun resyncIfParserChanged() {
         if (prefs.catalogParseVersion() >= CATALOG_PARSE_VERSION) return
-        val s = accounts.session.value as? Session.Active ?: return
-        if (!sync.isRunning) sync.run(s.account.id, s.adapter)
+        accounts.session.value as? Session.Active ?: return
         prefs.setCatalogParseVersion(CATALOG_PARSE_VERSION)
-        backfillVariants()
+        syncNow()
     }
 
+    /** Chaque groupe (chaînes / films-séries) est relancé s'il n'a jamais réussi ou si son dernier succès est ancien. */
     suspend fun syncIfStale(maxAgeMs: Long) {
         val s = accounts.session.value as? Session.Active ?: return
-        val states = db.catalog().syncStates(s.account.id)
-        val oldest = states.minOfOrNull { it.lastSuccessAt ?: 0L } ?: 0L
-        if (states.size < 3 || System.currentTimeMillis() - oldest > maxAgeMs) {
-            if (!sync.isRunning) sync.run(s.account.id, s.adapter)
+        val states = db.catalog().syncStates(s.account.id).associateBy { it.type }
+        val now = System.currentTimeMillis()
+        fun stale(types: List<com.aditv.data.provider.MediaType>) = types.any { t -> (states[t.name]?.lastSuccessAt ?: 0L) < now - maxAgeMs }
+        kotlinx.coroutines.coroutineScope {
+            if (stale(LIVE_TYPES)) launch { sync.run(s.account.id, s.adapter, LIVE_TYPES) }
+            if (stale(VOD_TYPES)) launch { sync.run(s.account.id, s.adapter, VOD_TYPES) }
         }
         refreshEpg()
     }

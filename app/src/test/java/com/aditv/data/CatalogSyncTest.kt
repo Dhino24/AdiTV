@@ -17,6 +17,7 @@ import com.aditv.data.provider.RawItem
 import com.aditv.data.sync.CatalogSync
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -160,6 +161,50 @@ class CatalogSyncTest {
         sync(dao).run("acc", PerCategoryAdapter(fullFails = true, failingCategory = "c2"))
         assertTrue(dao.items.getValue("acc|MOVIE|c2-1").available)
         assertTrue(dao.states.getValue("acc|MOVIE").detail!!.contains("1 en échec"))
+    }
+
+    /** Chaînes interminables (bouquet énorme) : ne doivent jamais bloquer films et séries. */
+    private class SlowLiveAdapter(val liveGate: kotlinx.coroutines.CompletableDeferred<Unit>) : ProviderAdapter {
+        override val kind = ProviderKind.DEMO
+        override suspend fun authenticate() = AccountStatus(null, null, null, null, null, null, "fake")
+        override suspend fun categories(type: MediaType) = listOf(RawCategory("c", "Cat", 0))
+        override suspend fun streamItems(type: MediaType, batchSize: Int, onBatch: suspend (List<RawItem>) -> Unit) {
+            if (type == MediaType.LIVE) { onBatch(listOf(raw("l1", type))); liveGate.await() }
+            else onBatch(listOf(raw("${type.name.lowercase()}1", type)))
+        }
+        private fun raw(id: String, t: MediaType) = RawItem(id, t, "Titre $id", null, "c", null, null, null, null, null, null, null, null, null, null)
+        override suspend fun seriesEpisodes(seriesProviderId: String) = emptyList<com.aditv.data.provider.RawEpisode>()
+        override fun streamUrl(target: com.aditv.data.provider.StreamTarget): String? = null
+        override fun xmltvUrl(): String? = null
+        override suspend fun shortEpg(streamProviderId: String) = emptyList<com.aditv.data.provider.RawShortProgramme>()
+    }
+
+    @Test fun moviesAndSeriesSyncWhileLiveIsStillRunning() = runTest {
+        val dao = FakeDao(); val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val sync = sync(dao); val adapter = SlowLiveAdapter(gate)
+        val live = launch { sync.run("acc", adapter, listOf(MediaType.LIVE)) }
+        testScheduler.advanceUntilIdle()
+        assertTrue(sync.isRunning(MediaType.LIVE))
+        // Films/séries indépendants : terminés alors que les chaînes tournent encore.
+        val done = sync.run("acc", adapter, listOf(MediaType.MOVIE, MediaType.SERIES))
+        assertEquals(1, done.counts[MediaType.MOVIE]); assertEquals(1, done.counts[MediaType.SERIES])
+        assertTrue(dao.states.getValue("acc|MOVIE").lastSuccessAt != null)
+        // Un second import des chaînes est ignoré tant que le premier tourne.
+        assertTrue(sync.run("acc", adapter, listOf(MediaType.LIVE)).counts.isEmpty())
+        gate.complete(Unit); live.join()
+        assertTrue(!sync.isRunning)
+    }
+
+    @Test fun interruptedImportIsReportedNotSilent() = runTest {
+        val dao = FakeDao(); val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val sync = sync(dao)
+        val live = launch { sync.run("acc", SlowLiveAdapter(gate), listOf(MediaType.LIVE)) }
+        testScheduler.advanceUntilIdle()
+        live.cancel(); live.join()
+        val st = dao.states.getValue("acc|LIVE")
+        assertEquals(CatalogSync.INTERRUPTED, st.detail)
+        assertEquals(null, st.lastSuccessAt)
+        assertTrue("verrou libéré après annulation", !sync.isRunning(MediaType.LIVE))
     }
 
     @Test fun idsAreScopedByAccount() = runTest {

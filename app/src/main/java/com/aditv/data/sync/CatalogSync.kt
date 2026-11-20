@@ -10,7 +10,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 sealed interface SyncProgress {
     data object Idle : SyncProgress
@@ -25,21 +24,45 @@ sealed interface SyncProgress {
  * Un échec sur un type n'efface rien et n'empêche pas les autres types.
  */
 class CatalogSync(private val dao: CatalogDao, private val clock: () -> Long = System::currentTimeMillis) {
-    private val mutex = Mutex()
+    /** Un verrou par type : chaînes et films/séries se synchronisent indépendamment, en parallèle. */
+    private val locks = MediaType.entries.associateWith { Mutex() }
+    private val _running = MutableStateFlow<Map<MediaType, SyncProgress.Running>>(emptyMap())
+    /** Avancement de chaque type en cours d'import. */
+    val running: StateFlow<Map<MediaType, SyncProgress.Running>> = _running
     private val _progress = MutableStateFlow<SyncProgress>(SyncProgress.Idle)
+    /** Vue résumée (un type en cours, ou le dernier résultat). */
     val progress: StateFlow<SyncProgress> = _progress
 
-    val isRunning get() = mutex.isLocked
+    val isRunning get() = locks.values.any { it.isLocked }
+    fun isRunning(type: MediaType) = locks.getValue(type).isLocked
 
-    suspend fun run(accountId: String, adapter: ProviderAdapter, types: List<MediaType> = MediaType.entries): SyncProgress.Done =
-        mutex.withLock {
+    private fun report(p: SyncProgress.Running) {
+        _running.value = _running.value + (p.type to p)
+        _progress.value = p
+    }
+
+    private fun finished(type: MediaType) {
+        _running.value = _running.value - type
+        _running.value.values.firstOrNull()?.let { _progress.value = it }
+    }
+
+    /** Importe les types demandés, dans l'ordre ; un type déjà en cours d'import est ignoré. */
+    suspend fun run(accountId: String, adapter: ProviderAdapter, types: List<MediaType> = MediaType.entries): SyncProgress.Done {
             val counts = mutableMapOf<MediaType, Int>()
             val errors = mutableMapOf<MediaType, String>()
             for (type in types) {
+                val lock = locks.getValue(type)
+                if (!lock.tryLock()) continue
+                var stop = false
+                try {
                 val syncId = clock()
                 val prev = dao.syncStates(accountId).firstOrNull { it.type == type.name }
+                // Trace du début : si l'appli est fermée pendant l'import, Réglages l'indiquera « interrompu ».
+                dao.upsertSyncState(
+                    (prev ?: SyncStateEntity(accountId, type.name, null, null, 0, null)).copy(lastAttemptAt = clock(), detail = INTERRUPTED)
+                )
                 try {
-                    _progress.value = SyncProgress.Running(type, "Catégories", 0)
+                    report(SyncProgress.Running(type, "Catégories", 0))
                     val rawCats = adapter.categories(type)
                     val cats = rawCats.map { CatalogMapping.toCategory(accountId, type, it, syncId) }
                     val catNames = rawCats.associate { it.providerId to it.name }
@@ -51,7 +74,7 @@ class CatalogSync(private val dao: CatalogDao, private val clock: () -> Long = S
                         val entities = batch.map { CatalogMapping.toEntity(accountId, it, syncId, now, it.categoryProviderId?.let(catNames::get)) }
                         dao.upsertItems(entities, entities.map(CatalogMapping::toUpdate))
                         n += batch.size
-                        _progress.value = SyncProgress.Running(type, "Éléments", n)
+                        report(SyncProgress.Running(type, "Éléments", n))
                     }
                     // 1. Liste complète.
                     val fullError = try { adapter.streamItems(type, BATCH, store); null }
@@ -66,7 +89,7 @@ class CatalogSync(private val dao: CatalogDao, private val clock: () -> Long = S
                         var failed = 0
                         var lastFailure: ProviderError? = null
                         rawCats.forEachIndexed { i, cat ->
-                            _progress.value = SyncProgress.Running(type, "Catégorie ${i + 1}/${rawCats.size}", n)
+                            report(SyncProgress.Running(type, "Catégorie ${i + 1}/${rawCats.size}", n))
                             try {
                                 adapter.streamItemsInCategory(type, cat.providerId, BATCH) { batch ->
                                     store(batch.map { if (it.categoryProviderId == null) it.copy(categoryProviderId = cat.providerId) else it })
@@ -97,11 +120,19 @@ class CatalogSync(private val dao: CatalogDao, private val clock: () -> Long = S
                     errors[type] = msg
                     dao.upsertSyncState(SyncStateEntity(accountId, type.name, prev?.lastSuccessAt, clock(), prev?.itemCount ?: 0, msg, prev?.categoryCount ?: 0, prev?.detail))
                     // Une erreur d'accès ne doit pas être répétée sur les types suivants.
-                    if (e is ProviderError.InvalidCredentials || e is ProviderError.AccountInactive) break
+                    if (e is ProviderError.InvalidCredentials || e is ProviderError.AccountInactive) stop = true
                 }
+                } finally {
+                    finished(type); lock.unlock()
+                }
+                if (stop) break
             }
-            SyncProgress.Done(clock(), counts, errors).also { _progress.value = it }
+            return SyncProgress.Done(clock(), counts, errors).also { if (_running.value.isEmpty()) _progress.value = it }
         }
 
-    companion object { const val BATCH = 500 }
+    companion object {
+        const val BATCH = 500
+        /** Détail écrit au début d'un import, remplacé à la fin (succès ou erreur). */
+        const val INTERRUPTED = "import commencé mais non terminé (appli fermée ou Stick en veille pendant l'import ?)"
+    }
 }

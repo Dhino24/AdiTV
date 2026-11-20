@@ -19,26 +19,33 @@ data class VariantInfo(
 object VariantParser {
     private val prefixCode = Regex("^\\s*[|\\[(]?\\s*([A-Za-z]{2,3})(?:-[A-Za-z]{2,4})?\\s*[|\\])▎:]")
     private val dashPrefix = Regex("^\\s*([A-Z]{2,3})\\s+-\\s+")
-    private fun has(text: String, vararg words: String) =
-        words.any { Regex("(?i)(?<![\\p{L}\\d])" + Regex.escape(it) + "(?![\\p{L}\\d])").containsMatchIn(text) }
+    /** Une expression compilée une fois par groupe de mots (des milliers de titres par import). */
+    private fun words(vararg w: String) = Regex("(?i)(?<![\\p{L}\\d])(?:" + w.joinToString("|") { Regex.escape(it) } + ")(?![\\p{L}\\d])")
+    private val Q4 = words("4K", "UHD", "2160p")
+    private val Q3 = words("FHD", "1080p", "FULLHD", "FULL HD")
+    private val Q2 = words("HD", "720p")
+    private val Q1 = words("SD", "480p", "576p", "LQ")
+    private val VOST = words("VOSTFR", "VOST", "SUBFRENCH", "VOST-FR")
+    private val MULTI = words("MULTI")
+    private val VF = words("VFF", "VFQ", "VFI", "VF", "TRUEFRENCH", "FRENCH")
 
     fun countryPrefix(raw: String): String? =
         (prefixCode.find(raw) ?: dashPrefix.find(raw))?.groupValues?.get(1)?.lowercase()
 
     fun quality(raw: String): Int = when {
-        has(raw, "4K", "UHD", "2160p") -> 4
-        has(raw, "FHD", "1080p", "FULLHD", "FULL HD") -> 3
-        has(raw, "HD", "720p") -> 2
-        has(raw, "SD", "480p", "576p", "LQ") -> 1
+        Q4.containsMatchIn(raw) -> 4
+        Q3.containsMatchIn(raw) -> 3
+        Q2.containsMatchIn(raw) -> 2
+        Q1.containsMatchIn(raw) -> 1
         else -> 0
     }
 
     /** Langue annoncée : étiquettes explicites d'abord, puis préfixe pays, puis nom de catégorie. */
     fun language(raw: String, categoryName: String?): String? {
         fun fromText(t: String): String? = when {
-            has(t, "VOSTFR", "VOST", "SUBFRENCH", "VOST-FR") -> "vostfr"
-            has(t, "MULTI", "MULTi") -> "multi"
-            has(t, "VFF", "VFQ", "VFI", "VF", "TRUEFRENCH", "FRENCH") -> "fr"
+            VOST.containsMatchIn(t) -> "vostfr"
+            MULTI.containsMatchIn(t) -> "multi"
+            VF.containsMatchIn(t) -> "fr"
             else -> null
         }
         fromText(raw)?.let { return it }

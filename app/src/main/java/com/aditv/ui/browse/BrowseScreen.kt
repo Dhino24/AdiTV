@@ -95,6 +95,8 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
     val categories by vm.categories.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     val cards by vm.cards.collectAsStateWithLifecycle()
+    val running by c.sync.running.collectAsStateWithLifecycle()
+    val importing = running[type]
     var focusedCategory by remember { mutableStateOf<String?>(null) }
     val firstCategory = remember { FocusRequester() }
     val entry = com.aditv.ui.LocalScreenEntry.current
@@ -122,6 +124,10 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
         }
         when {
             categories == null -> Unit
+            categories!!.isEmpty() && importing != null -> Text(
+                "Import en cours : ${importing.stage} · ${importing.count} reçus.",
+                style = MaterialTheme.typography.bodyLarge, color = Aditv.Accent, modifier = Modifier.padding(start = 40.dp),
+            )
             categories!!.isEmpty() -> Text(
                 "Aucune catégorie reçue pour ce type. Vérifiez la synchronisation dans Réglages.",
                 style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(start = 40.dp),
@@ -153,7 +159,10 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
                 }
                 Box(Modifier.fillMaxSize()) {
                     if (cards.isEmpty() && selected != null) {
-                        Text(if (selected == BrowseViewModel.ALL) "Aucun élément importé pour ce type : voir Réglages → Catalogue local (nombre d'éléments et éventuelle erreur)." else "Catégorie vide chez le fournisseur. Essayez « ${categories?.getOrNull(if (type == MediaType.LIVE && categories!!.firstOrNull()?.id == BrowseViewModel.FAVORITES) 1 else 0)?.name ?: "Tout"} ».", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(24.dp))
+                        if (importing != null) Text(
+                            "Import en cours : ${importing.stage} · ${importing.count} reçus. Les titres apparaissent au fur et à mesure.",
+                            style = MaterialTheme.typography.bodyLarge, color = Aditv.Accent, modifier = Modifier.padding(24.dp),
+                        ) else Text(if (selected == BrowseViewModel.ALL) "Aucun élément importé pour ce type : voir Réglages → Catalogue local (nombre d'éléments et éventuelle erreur)." else "Catégorie vide chez le fournisseur. Essayez « ${categories?.getOrNull(if (type == MediaType.LIVE && categories!!.firstOrNull()?.id == BrowseViewModel.FAVORITES) 1 else 0)?.name ?: "Tout"} ».", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(24.dp))
                     }
                     val nowPlaying = if (type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(accountId, cards.map { it.first }) else emptyMap()
                     LazyVerticalGrid(

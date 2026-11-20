@@ -18,7 +18,11 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
             if (BuildConfig.DEBUG) androidx.media3.common.util.Log.LOG_LEVEL_WARNING else androidx.media3.common.util.Log.LOG_LEVEL_OFF
         )
         container = AppContainer(this)
-        container.appScope.launch { container.accounts.restore(); container.backfillVariants(); container.resyncIfParserChanged() }
+        container.appScope.launch {
+            container.accounts.restore(); container.backfillVariants(); container.resyncIfParserChanged()
+            // Groupe jamais synchronisé ou interrompu : relancé dès l'ouverture, sans attendre 12 h.
+            container.syncIfStale(maxAgeMs = java.util.concurrent.TimeUnit.HOURS.toMillis(11))
+        }
         // WorkManager absent (environnement de test) : l'app reste utilisable, actualisation manuelle.
         runCatching { CatalogSyncWorker.schedule(this) }.onFailure { com.aditv.core.AppLog.w("Planification indisponible", it) }
     }
