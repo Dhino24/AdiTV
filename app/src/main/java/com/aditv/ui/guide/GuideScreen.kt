@@ -191,7 +191,7 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
         Box(Modifier.padding(horizontal = 48.dp).height(150.dp)) { preview?.let { (ch, p) -> LivePreview(ch, p, ch.id in favIds, timeFmt) } }
         Row(Modifier.padding(start = 48.dp, end = 48.dp, top = 6.dp).height(34.dp), verticalAlignment = Alignment.CenterVertically) {
             LazyRow(Modifier.weight(1f).focusRestorer(), horizontalArrangement = Arrangement.spacedBy(5.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp)) {
-                items(vm.filters, key = { it.key }) { f -> FilterChip(f.label, f == vm.filter, { vm.select(f) }) }
+                items(vm.filters.distinctBy { it.key }, key = { it.key }) { f -> FilterChip(f.label, f == vm.filter, { vm.select(f) }) }
             }
             Spacer(Modifier.width(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -230,7 +230,7 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
             }
             else -> Box(Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize().focusRequester(gridFocus).focusRestorer(), verticalArrangement = Arrangement.spacedBy(5.dp), contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 4.dp, bottom = 30.dp)) {
-                    items(rows, key = { it.channel.id }) { row ->
+                    items(rows.distinctBy { it.channel.id }, key = { it.channel.id }) { row ->
                         val isFirst = row === rows.first()
                         val now = System.currentTimeMillis()
                         Row(Modifier.height(ROW_H)) {

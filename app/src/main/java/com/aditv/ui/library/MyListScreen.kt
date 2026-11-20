@@ -109,7 +109,7 @@ fun MyListScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (Strin
                 }
             }
         }
-        if (showTitles) items(titles, key = { it.id }) { card ->
+        if (showTitles) items(titles.distinctBy { it.id }, key = { it.id }) { card ->
             val sub = (if (card.type == "SERIES") "Série" else "Film") + (card.year?.let { " · $it" } ?: "")
             if (wide) WideCard(card.title, sub, tmdbImage(card.tmdbBackdrop, "w780"), card.displayImage(), { onOpen(card.id) }, logoUrl = tmdbImage(card.tmdbLogo, "w300"))
             else PosterTile(card.title, sub, card.displayImage(), { onOpen(card.id) }, width = 134.dp)
@@ -118,7 +118,7 @@ fun MyListScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (Strin
             Column(Modifier.padding(top = if (titles.isEmpty() || !showTitles) 0.dp else 8.dp)) {
                 RowTitle("Chaînes favorites", "↑/↓ dans le lecteur pour zapper entre elles", Modifier.padding(bottom = 3.dp))
                 LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(channels, key = { it.id }) { ch -> ChannelTile(ch.title, ch.imageUrl, nowPlaying[ch.id], { onPlayLive(ch.id, "fav") }, favorite = true) }
+                    items(channels.distinctBy { it.id }, key = { it.id }) { ch -> ChannelTile(ch.title, ch.imageUrl, nowPlaying[ch.id], { onPlayLive(ch.id, "fav") }, favorite = true) }
                 }
             }
         }

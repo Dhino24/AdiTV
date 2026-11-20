@@ -148,6 +148,7 @@ fun SettingsScreen(session: Session.Active) {
             }
         }
 
+        Section("Plantages") { CrashSection() }
         Section("Application") {
             Fact("Version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (build de test)" else "")
             Fact("Confidentialité", "Aucune télémétrie. Accès chiffrés (Android Keystore), exclus des sauvegardes et des journaux.")
@@ -418,4 +419,36 @@ private fun AccessSection(session: Session.Active) {
         AditvButton("Importer", { scope.launch { message = runCatching { c.backup.import(session.account.id) }.getOrElse { "Import impossible : ${it.message}" }; c.refreshSport() } })
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Accent) }
+}
+
+/** Rapports de plantage enregistrés sur la Stick, lisibles sur le téléphone (QR code) pour les transmettre. */
+@Composable
+private fun CrashSection() {
+    var reports by remember { mutableStateOf(com.aditv.core.CrashReporter.reports()) }
+    var shown by remember { mutableStateOf<String?>(null) }
+    shown?.let { text ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { shown = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            com.aditv.ui.common.RemoteEntryPanel(
+                com.aditv.net.RemoteEntryServer.Form.report(text), onReceived = {}, onClose = { shown = null },
+                heading = "Lire le rapport sur mon téléphone",
+            )
+        }
+    }
+    if (reports.isEmpty()) {
+        Fact("État", "Aucun plantage enregistré.")
+        return
+    }
+    Fact("Enregistrés", "${reports.size} (les 5 derniers sont conservés)", Aditv.Warn)
+    reports.take(3).forEach { r -> Text(r.title, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text) }
+    Text(
+        "Ouvrez le rapport sur votre téléphone, copiez-le et envoyez-le pour diagnostic. Aucun accès ni adresse de flux n'y figure.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AditvButton("Voir sur mon téléphone (QR code)", { shown = reports.joinToString("\n\n==========\n\n") { it.text } })
+        AditvButton("Effacer les rapports", { com.aditv.core.CrashReporter.clear(); reports = emptyList() })
+    }
 }

@@ -267,7 +267,7 @@ fun DetailScreen(
                 Column {
                     RowTitle("Vous aimerez aussi", "disponibles dans votre abonnement · similaires selon TMDB", Modifier.padding(start = 48.dp, bottom = 3.dp))
                     LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(related, key = { r -> r.id }) { r ->
+                        items(related.distinctBy { it.id }, key = { r -> r.id }) { r ->
                             WideCard(r.title, listOfNotNull(r.genre?.substringBefore(',')?.trim(), r.year?.toString()).joinToString(" · ").ifEmpty { null },
                                 tmdbImage(r.tmdbBackdrop, "w780"), tmdbImage(r.tmdbPoster, "w342") ?: r.imageUrl, { onOpen(r.id) }, logoUrl = tmdbImage(r.tmdbLogo, "w300"))
                         }
@@ -417,11 +417,11 @@ private fun SeasonsAndEpisodes(
         if (seasons.isNotEmpty()) {
             val list = episodes.filter { e -> e.season == season }
             LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                items(seasons, key = { s -> s }) { s -> FilterChip(if (s == 0) "Spéciaux" else "Saison $s", s == season, { season = s }) }
+                items(seasons.distinct(), key = { s -> s }) { s -> FilterChip(if (s == 0) "Spéciaux" else "Saison $s", s == season, { season = s }) }
                 item { Text("${list.size} épisode${if (list.size > 1) "s" else ""}", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary, modifier = Modifier.padding(start = 9.dp)) }
             }
             LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 12.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(list, key = { e -> e.id }) { e ->
+                items(list.distinctBy { it.id }, key = { e -> e.id }) { e ->
                     val p = progress[e.id]
                     val frac = p?.let { if (it.completed) null else ProgressPolicy.fraction(it.positionMs, it.durationMs) }
                     EpisodeCard(e, e.imageUrl ?: tmdbImage(meta?.backdropPath, "w780"), seen = p?.completed == true, progress = frac) { if (canPlay) onPlay(e.id, p?.completed == true) }

@@ -111,6 +111,7 @@ fun Shell(session: Session.Active) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val currentRoute = entry?.destination?.route
+    androidx.compose.runtime.LaunchedEffect(currentRoute) { currentRoute?.let { com.aditv.core.CrashReporter.event("Écran : " + it.substringBefore('/')) } }
     var selected by remember { mutableStateOf("home") }
     if (currentRoute != null && currentRoute in topRoutes) selected = currentRoute
     val requesters = remember { topRoutes.associateWith { FocusRequester() } }

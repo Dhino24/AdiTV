@@ -54,6 +54,7 @@ class PlaybackController(private val context: Context, private val streamClient:
         engine = e
         turbo.value = policy.turbo
         AppLog.d("Moteur ouvert : ${kind.label}")
+        com.aditv.core.CrashReporter.event("Lecture ${if (req.isLive) "direct" else "à la demande"} · ${kind.label}${if (policy.turbo) " · Turbo" else ""}")
         return e
     }
 

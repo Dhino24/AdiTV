@@ -127,7 +127,8 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
     com.aditv.ui.common.InitialFocus(firstChip, key = categories?.isNotEmpty() == true, enabled = categories?.isNotEmpty() == true)
 
     val cards = remember(rawCards, sort) {
-        rawCards?.let { l ->
+        // Doublons d'identifiant (fournisseur) retirés une fois : une clé en double fait planter la grille.
+        rawCards?.distinctBy { it.first.id }?.let { l ->
             when (sort) {
                 BrowseViewModel.Sort.PROVIDER -> l
                 BrowseViewModel.Sort.AZ -> l.sortedBy { it.first.title.lowercase() }
@@ -166,7 +167,7 @@ fun BrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> Unit, o
                 Spacer(Modifier.height(14.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LazyRow(Modifier.weight(1f).focusRestorer(firstChip), horizontalArrangement = Arrangement.spacedBy(5.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp)) {
-                        items(categories.orEmpty(), key = { it.id }) { cat ->
+                        items(categories.orEmpty().distinctBy { it.id }, key = { it.id }) { cat ->
                             val isFirst = cat.id == categories!!.first().id
                             FilterChip(cat.name, cat.id == selected, { vm.selected.value = cat.id },
                                 if (isFirst) Modifier.focusRequester(firstChip).focusRequester(entry) else Modifier)

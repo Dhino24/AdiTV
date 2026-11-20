@@ -69,7 +69,10 @@ fun QrCode(text: String, modifier: Modifier = Modifier) {
  * Les valeurs reçues sont transmises une seule fois à [onReceived], puis oubliées par le serveur.
  */
 @Composable
-fun RemoteEntryPanel(form: RemoteEntryServer.Form, onReceived: (Map<String, String>) -> Unit, onClose: () -> Unit) {
+fun RemoteEntryPanel(
+    form: RemoteEntryServer.Form, onReceived: (Map<String, String>) -> Unit, onClose: () -> Unit,
+    heading: String = "Saisir depuis mon téléphone",
+) {
     val received by rememberUpdatedState(onReceived)
     val close by rememberUpdatedState(onClose)
     // (ouverture terminée, serveur ou null si la TV n'est sur aucun réseau local)
@@ -101,14 +104,14 @@ fun RemoteEntryPanel(form: RemoteEntryServer.Form, onReceived: (Map<String, Stri
                 else -> Box(Modifier.size(240.dp).background(Aditv.Surface2, RoundedCornerShape(10.dp)))
             }
             Column(Modifier.widthIn(max = 480.dp)) {
-                Text("Saisir depuis mon téléphone", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = Aditv.Text)
+                Text(heading, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = Aditv.Text)
                 Spacer(Modifier.height(4.dp))
                 Text(form.title, style = MaterialTheme.typography.bodyMedium, color = Aditv.Accent)
                 Spacer(Modifier.height(14.dp))
                 when {
                     state is RemoteEntryServer.State.Ready -> {
                         Step("1", "Scannez le QR code avec l'appareil photo du téléphone (même Wi-Fi que la TV).")
-                        Step("2", "Tapez ou collez vos informations, puis « Envoyer à la TV ».")
+                        Step("2", if (form.readOnlyText != null) "Copiez le texte affiché sur le téléphone." else "Tapez ou collez vos informations, puis « Envoyer à la TV ».")
                         Spacer(Modifier.height(12.dp))
                         Text("Sans QR code : ouvrez", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
                         Text(state.shortUrl, style = MaterialTheme.typography.titleMedium, color = Aditv.Text)

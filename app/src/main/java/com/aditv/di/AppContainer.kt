@@ -41,7 +41,9 @@ val VOD_TYPES = listOf(com.aditv.data.provider.MediaType.MOVIE, com.aditv.data.p
 
 /** Injection manuelle : pas de framework DI pour un seul module. */
 class AppContainer(context: Context) {
-    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /** Une erreur imprévue dans une tâche de fond (synchro, guide, TMDB, sport) est notée, jamais fatale. */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default +
+        kotlinx.coroutines.CoroutineExceptionHandler { _, e -> com.aditv.core.CrashReporter.caught("tâche de fond", e) })
     val http = HttpClients()
     val db = AditvDatabase.build(context)
     val prefs = AppPrefs(context)

@@ -151,7 +151,7 @@ private fun ResultRow(title: String, cards: List<CatalogCard>, onOpen: (String) 
     Column {
         RowTitle(title, hint, Modifier.padding(bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp, end = 48.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(cards, key = { it.id }) { card ->
+            items(cards.distinctBy { it.id }, key = { it.id }) { card ->
                 val sub = (if (card.type == "SERIES") "Série" else "Film") + (card.year?.let { " · $it" } ?: "")
                 when {
                     card.type == "LIVE" -> ChannelTile(card.title, card.imageUrl, "OK pour regarder", { onPlayLive(card.id) }, width = 110.dp)

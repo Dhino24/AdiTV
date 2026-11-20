@@ -38,8 +38,14 @@ class RemoteEntryServer(
 ) {
     /** Champs demandés sur le téléphone. */
     data class Field(val name: String, val label: String, val placeholder: String = "", val secret: Boolean = false, val type: String = "text")
-    data class Form(val title: String, val intro: String, val fields: List<Field>) {
+    /** [readOnlyText] : page de consultation seule (rapport de plantage), sans champ ni envoi. */
+    data class Form(val title: String, val intro: String, val fields: List<Field>, val readOnlyText: String? = null) {
         companion object {
+            fun report(text: String) = Form(
+                "Rapport de plantage",
+                "Sélectionnez tout le texte (appui long), copiez-le et collez-le dans la conversation. Il ne contient ni adresse de flux ni accès.",
+                emptyList(), text,
+            )
             val LOGIN = Form(
                 "Connexion à votre abonnement",
                 "Saisissez les accès donnés par votre fournisseur. Ils sont envoyés directement à la TV, sur votre Wi-Fi.",
@@ -177,7 +183,7 @@ class RemoteEntryServer(
                 val p = req.query["pin"]
                 when {
                     t == null && p == null -> respond(out, 200, Html.pinPage(null))
-                    same(t, token) || same(p, pin) -> respond(out, 200, Html.formPage(form, token))
+                    same(t, token) || same(p, pin) -> respond(out, 200, form.readOnlyText?.let { Html.readOnlyPage(form, it) } ?: Html.formPage(form, token))
                     else -> fail(out) { Html.pinPage("Code incorrect. Encore $it essai(s).") }
                 }
             }
@@ -256,6 +262,12 @@ $body
             """<form method="get" action="/"><label for="pin">Code</label>
 <input id="pin" class="pin" name="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required autofocus>
 <button type="submit">Continuer</button></form>""",
+    )
+
+    fun readOnlyPage(form: RemoteEntryServer.Form, text: String) = page(
+        form.title,
+        "<p>${esc(form.intro)}</p><pre style=\"white-space:pre-wrap;word-break:break-word;background:#0E131A;border:1px solid #1D2631;" +
+            "border-radius:10px;padding:12px;font-size:12px;color:#F5F7FA;user-select:text\">${esc(text)}</pre>",
     )
 
     fun formPage(form: RemoteEntryServer.Form, token: String, error: String? = null) = page(

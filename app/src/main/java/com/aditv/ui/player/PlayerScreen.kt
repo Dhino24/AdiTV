@@ -448,7 +448,7 @@ private fun TrackPanel(engine: com.aditv.playback.engine.PlaybackEngine, onClose
         LazyColumn {
             item { SheetHeader("Audio") }
             if (audio.isEmpty()) item { Text("Aucune piste audio exposée par le flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary) }
-            items(audio, key = { "a${it.group}-${it.id}" }) { o ->
+            items(audio.distinctBy { it.group to it.id }, key = { "a${it.group}-${it.id}" }) { o ->
                 SheetOption(o.label, { engine.selectAudio(o); onClose() }, if (o == audio.first()) Modifier.focusRequester(first) else Modifier, checked = o.selected)
             }
             item { SheetHeader("Sous-titres") }
@@ -457,7 +457,7 @@ private fun TrackPanel(engine: com.aditv.playback.engine.PlaybackEngine, onClose
                     if (audio.isEmpty()) Modifier.focusRequester(first) else Modifier, checked = textDisabled || text.none { it.selected })
             }
             if (text.isEmpty()) item { Text("Aucun sous-titre dans ce flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary, modifier = Modifier.padding(start = 11.dp, top = 4.dp)) }
-            items(text, key = { "t${it.group}-${it.id}" }) { o -> SheetOption(o.label, { engine.selectText(o); onClose() }, checked = o.selected && !textDisabled) }
+            items(text.distinctBy { it.group to it.id }, key = { "t${it.group}-${it.id}" }) { o -> SheetOption(o.label, { engine.selectText(o); onClose() }, checked = o.selected && !textDisabled) }
         }
     }
 }
@@ -514,7 +514,7 @@ private fun VersionPanel(options: List<VersionOption>, onPick: (String) -> Unit,
     SideSheet("Versions", "Langue et qualité annoncées par le fournisseur ; la meilleure selon vos préférences est en tête. La position est conservée.", modifier) {
         LazyColumn {
             item { SheetHeader("Changer en gardant la position") }
-            items(options, key = { it.itemId }) { o ->
+            items(options.distinctBy { it.itemId }, key = { it.itemId }) { o ->
                 SheetOption(o.label, { onPick(o.itemId) }, if (o == options.first()) Modifier.focusRequester(first) else Modifier, checked = o.selected, detail = if (o == options.first()) "préférée" else null)
             }
         }

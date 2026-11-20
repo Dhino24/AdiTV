@@ -99,7 +99,7 @@ fun MatchScreen(itemId: String, onDone: () -> Unit) {
         }
         Spacer(Modifier.width(32.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(results.orEmpty(), key = { r -> r.id }) { r ->
+            items(results.orEmpty().distinctBy { it.id }, key = { r -> r.id }) { r ->
                 ListItem(
                     selected = match?.tmdbId == r.id,
                     onClick = { scope.launch { busy = true; runCatching { c.metadata.chooseManually(itemId, r.mediaType, r.id) }.onFailure { e -> message = e.message }; busy = false; if (message == null) onDone() } },

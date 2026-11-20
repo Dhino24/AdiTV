@@ -88,7 +88,7 @@ fun EpgMapScreen(itemId: String, onDone: () -> Unit) {
         Spacer(Modifier.width(32.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (results.isEmpty()) item { Text("Aucune chaîne de guide trouvée. Actualisez le guide dans Réglages si besoin.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
-            items(results, key = { r -> "${r.sourceId}|${r.channelId}" }) { r ->
+            items(results.distinctBy { "${it.sourceId}|${it.channelId}" }, key = { r -> "${r.sourceId}|${r.channelId}" }) { r ->
                 ListItem(
                     selected = (mapping?.epgChannelId ?: it.epgChannelId) == r.channelId,
                     onClick = { scope.launch { c.epg.setManualMapping(it, r.channelId); onDone() } },

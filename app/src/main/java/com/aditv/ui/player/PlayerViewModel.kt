@@ -91,6 +91,7 @@ class PlayerViewModel(
         override fun onError(message: String, retryable: Boolean, formatProblem: Boolean) {
             val current = engine?.kind ?: EngineKind.MEDIA3
             lastError = message
+            com.aditv.core.CrashReporter.event("Erreur de lecture (${current.label}) : $message")
             // « Auto » : une seule bascule vers VLC, uniquement si Media3 refuse le format.
             if (EnginePolicy.shouldFallback(engineChoice, current, formatProblem, fellBack)) {
                 fellBack = true

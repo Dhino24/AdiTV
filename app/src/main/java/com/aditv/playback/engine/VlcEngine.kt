@@ -47,6 +47,8 @@ class VlcEngine(
     private var buffering = true
     private var attached = false
     private var wantPlay = true
+    /** Après release(), plus aucun appel natif : un objet VLC libéré peut faire planter le processus. */
+    @Volatile private var released = false
     override var stalls = 0; private set
     override var startupMs: Long? = null; private set
 
@@ -61,36 +63,37 @@ class VlcEngine(
                     buffering = e.buffering < 100f
                     if (buffering && !wasBuffering && started) stalls++
                 }
-                MediaPlayer.Event.EndReached -> main.post { events?.onEnded() }
-                MediaPlayer.Event.EncounteredError -> main.post { events?.onError("VLC n'a pas pu lire ce flux (format, réseau ou serveur).", true, false) }
+                MediaPlayer.Event.EndReached -> main.post { if (!released) events?.onEnded() }
+                MediaPlayer.Event.EncounteredError -> main.post { if (!released) events?.onError("VLC n'a pas pu lire ce flux (format, réseau ou serveur).", true, false) }
             }
         }
     }
 
-    override val isPlaying get() = runCatching { mp.isPlaying }.getOrDefault(false)
+    override val isPlaying get() = !released && runCatching { mp.isPlaying }.getOrDefault(false)
     override val isBuffering get() = buffering
-    override val positionMs get() = runCatching { mp.time }.getOrDefault(0L).coerceAtLeast(0)
-    override val durationMs get() = if (isLive) 0L else runCatching { mp.length }.getOrDefault(0L).coerceAtLeast(0)
+    override val positionMs get() = if (released) 0L else runCatching { mp.time }.getOrDefault(0L).coerceAtLeast(0)
+    override val durationMs get() = if (isLive || released) 0L else runCatching { mp.length }.getOrDefault(0L).coerceAtLeast(0)
     /** VLC n'expose pas la position tampon : la réserve est indiquée « N/D ». */
     override val bufferedMs get() = positionMs
-    override val seekable get() = !isLive && runCatching { mp.isSeekable }.getOrDefault(false)
-    override val droppedFrames: Int? get() = runCatching { media.stats?.lostPictures }.getOrNull()
+    override val seekable get() = !isLive && !released && runCatching { mp.isSeekable }.getOrDefault(false)
+    override val droppedFrames: Int? get() = if (released) null else runCatching { media.stats?.lostPictures }.getOrNull()
 
-    override fun play() { wantPlay = true; if (attached) mp.play() }
-    override fun pause() { wantPlay = false; mp.pause() }
-    override fun seekTo(ms: Long) { mp.setTime(ms.coerceAtLeast(0)) }
+    override fun play() { wantPlay = true; if (attached && !released) mp.play() }
+    override fun pause() { wantPlay = false; if (!released) runCatching { mp.pause() } }
+    override fun seekTo(ms: Long) { if (!released) runCatching { mp.setTime(ms.coerceAtLeast(0)) } }
     override fun holdPaused() { wantPlay = false }
 
     private fun tracks(list: Array<MediaPlayer.TrackDescription>?, current: Int, group: Int) =
         list.orEmpty().filter { it.id >= 0 }.map { EngineTrack(group, it.id, it.name ?: "Piste ${it.id}", it.id == current) }
 
-    override fun audioTracks() = tracks(runCatching { mp.audioTracks }.getOrNull(), runCatching { mp.audioTrack }.getOrDefault(-1), 0)
-    override fun textTracks() = tracks(runCatching { mp.spuTracks }.getOrNull(), runCatching { mp.spuTrack }.getOrDefault(-1), 1)
-    override val textDisabled get() = runCatching { mp.spuTrack }.getOrDefault(-1) < 0
-    override fun selectAudio(t: EngineTrack) { mp.audioTrack = t.id }
-    override fun selectText(t: EngineTrack?) { mp.spuTrack = t?.id ?: -1 }
+    override fun audioTracks() = if (released) emptyList() else tracks(runCatching { mp.audioTracks }.getOrNull(), runCatching { mp.audioTrack }.getOrDefault(-1), 0)
+    override fun textTracks() = if (released) emptyList() else tracks(runCatching { mp.spuTracks }.getOrNull(), runCatching { mp.spuTrack }.getOrDefault(-1), 1)
+    override val textDisabled get() = released || runCatching { mp.spuTrack }.getOrDefault(-1) < 0
+    override fun selectAudio(t: EngineTrack) { if (!released) runCatching { mp.audioTrack = t.id } }
+    override fun selectText(t: EngineTrack?) { if (!released) runCatching { mp.spuTrack = t?.id ?: -1 } }
 
     override fun stats(): List<StatRow> {
+        if (released) return emptyList()
         val s = runCatching { media.stats }.getOrNull()
         val v = runCatching { mp.currentVideoTrack }.getOrNull()
         val fps = v?.takeIf { it.frameRateDen > 0 }?.let { it.frameRateNum.toFloat() / it.frameRateDen }
@@ -114,6 +117,9 @@ class VlcEngine(
     }
 
     override fun release() {
+        if (released) return
+        released = true
+        main.removeCallbacksAndMessages(null)
         runCatching { mp.setEventListener(null) }
         runCatching { mp.stop() }
         runCatching { mp.detachViews() }
@@ -129,6 +135,7 @@ class VlcEngine(
             factory = { ctx ->
                 VLCVideoLayout(ctx).also { layout ->
                     layout.keepScreenOn = true
+                    if (released) return@also
                     mp.attachViews(layout, null, false, false)
                     attached = true
                     if (wantPlay) mp.play()
@@ -136,6 +143,6 @@ class VlcEngine(
             },
             modifier = modifier,
         )
-        DisposableEffect(Unit) { onDispose { attached = false; runCatching { mp.detachViews() } } }
+        DisposableEffect(Unit) { onDispose { attached = false; if (!released) runCatching { mp.detachViews() } } }
     }
 }

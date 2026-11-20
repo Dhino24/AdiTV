@@ -5,8 +5,16 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.8.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.8.1) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
+
+### 0.8.1 (20/11/2026) — retour d'Adama : « l'appli plante à un moment donné et se ferme toute seule »
+- Cause exacte inconnue (pas de journal de la Stick). Corrections des causes probables :
+  - **listes à clé en double** (Top 10, rangées de l'accueil, épisodes, titres liés, grilles, guide) : deux éléments identiques renvoyés par le fournisseur ou TMDB faisaient planter Compose → doublons retirés partout ;
+  - **tâches de fond** (synchronisation, guide, TMDB, sport) : une erreur imprévue est notée au lieu de fermer l'appli ;
+  - **VLC** : plus aucun appel natif après libération du moteur (plantage natif possible en changeant de chaîne ou en quittant) ;
+  - **mémoire** : cache d'images vidé dès que Fire OS réclame de la mémoire.
+- **Enregistreur de plantages** local : erreur Java (pile d'appels), ou fermeture alors qu'ADITV était à l'écran (plantage natif, mémoire reprise par Fire OS) détectée au lancement suivant, avec les derniers écrans/lectures et l'état mémoire. Réglages → **Plantages** → « Voir sur mon téléphone (QR code) » pour copier le rapport et l'envoyer. Ni URL de flux ni accès dans les rapports.
 
 ### 0.8.0 (20/11/2026) — demande d'Adama : « taper les codes facilement »
 - **Saisie depuis le téléphone (QR code)** : écran de connexion (bouton « Saisir depuis mon téléphone (QR code) ») et Réglages → TMDB (« Depuis mon téléphone »). La TV affiche un QR code et un code à 4 chiffres ; le téléphone ouvre une page servie **par la Stick elle-même sur le Wi-Fi local** (aucun service Internet), on y tape ou colle les accès, ils arrivent dans les champs ; le focus va sur « Tester la connexion ».
@@ -104,7 +112,7 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
 - [x] 0.3.1 testée : films toujours vides.
 - [x] 0.4.0 : seules les chaînes synchronisées.
 - [x] 0.5.0 : films et séries présents, clé TMDB ajoutée.
-- [ ] Installer `ADITV-0.8.0-debug.apk` et dérouler `docs/RECETTE.md` (dont la saisie par QR code).
+- [ ] Installer `ADITV-0.8.1-debug.apk` et dérouler `docs/RECETTE.md` (dont la saisie par QR code).
 - [ ] Juger le design sur le téléviseur : lisibilité des textes à distance, fluidité du focus sur la Stick 1re génération.
 - [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.

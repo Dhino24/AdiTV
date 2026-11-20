@@ -304,7 +304,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                     Column(Modifier.padding(top = 10.dp)) {
                         RowTitle("Matchs à venir", "vos équipes · d'après le guide TV", Modifier.padding(start = 48.dp, bottom = 3.dp))
                         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            items(matches, key = { it.key }) { m ->
+                            items(matches.distinctBy { it.key }, key = { it.key }) { m ->
                                 MatchCard(m, m.key in remindedKeys, { if (m.isLive(System.currentTimeMillis())) onPlayLive(m.channelItemId, "sport") else openMatch = m })
                             }
                         }
@@ -313,7 +313,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                 if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay) }
                 if (topMovies.isNotEmpty()) item(key = "top-movies") { TopRow("Top 10 des films du moment", topMovies, onOpen) }
                 if (topSeries.isNotEmpty()) item(key = "top-series") { TopRow("Top 10 des séries du moment", topSeries, onOpen) }
-                items(state.rows, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive) }
+                items(state.rows.distinctBy { it.title }, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive) }
                 if (state.syncErrors.isNotEmpty()) item(key = "sync") {
                     Row(Modifier.padding(start = 48.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         StatusDot(Aditv.Warn); Spacer(Modifier.width(6.dp))
@@ -399,7 +399,7 @@ private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit
     Column(Modifier.padding(top = 10.dp)) {
         RowTitle(row.title, row.subtitle, Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(row.cards, key = { it.first.id }) { (card, versions) ->
+            items(row.cards.distinctBy { it.first.id }, key = { it.first.id }) { (card, versions) ->
                 val badge = variantBadge(card.lang, card.quality)
                 val extra = if (versions > 1) "$versions versions" else null
                 when {
@@ -421,7 +421,7 @@ private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Un
     Column(Modifier.padding(top = 4.dp)) {
         RowTitle("Reprendre la lecture", modifier = Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(rows, key = { it.contentId }) { r ->
+            items(rows.distinctBy { it.contentId }, key = { it.contentId }) { r ->
                 val left = (r.durationMs - r.positionMs).coerceAtLeast(0) / 60_000
                 val leftLabel = if (left >= 60) "${left / 60} h ${"%02d".format(left % 60)} restantes" else "$left min restantes"
                 WideCard(
@@ -470,7 +470,7 @@ private fun SportChannelsRow(accountId: String, channels: List<CatalogCard>, onP
     Column(Modifier.padding(top = 6.dp)) {
         RowTitle("Sport en direct", "chaînes françaises · ↑/↓ dans le lecteur pour passer de l'une à l'autre", Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(channels, key = { it.id }) { ch -> ChannelTile(ch.title, ch.imageUrl, nowPlaying[ch.id] ?: "Programme non communiqué", { onPlay(ch.id) }) }
+            items(channels.distinctBy { it.id }, key = { it.id }) { ch -> ChannelTile(ch.title, ch.imageUrl, nowPlaying[ch.id] ?: "Programme non communiqué", { onPlay(ch.id) }) }
         }
     }
 }
@@ -480,7 +480,7 @@ private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, o
     Column(Modifier.padding(top = 10.dp)) {
         RowTitle(title, "tendances TMDB de la semaine, disponibles dans votre abonnement", Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(entries, key = { it.card.id }) { e ->
+            items(entries.distinctBy { it.card.id }, key = { it.card.id }) { e ->
                 RankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
                     tmdbImage(e.poster, "w342") ?: tmdbImage(e.card.tmdbPoster, "w342") ?: e.card.imageUrl, { onOpen(e.card.id) })
             }

@@ -15,6 +15,10 @@
 - [ ] Réglages → TMDB → « Depuis mon téléphone » : coller la clé, puis « Enregistrer et tester ».
 - [ ] Si la page ne s'ouvre pas : noter le modèle de box Internet (certaines isolent les appareils Wi-Fi entre eux, « isolation client » / réseau invité).
 
+## Plantages
+- [ ] Après une fermeture inattendue : Réglages → Plantages → « Voir sur mon téléphone (QR code) », copier le rapport et l'envoyer.
+- [ ] Noter ce qui se passait (écran, chaîne ou film, moteur VLC/Media3, Turbo, durée depuis l'ouverture).
+
 ## Catalogue
 - [ ] Films et séries présents (Réglages → Catalogue local : nombres d'éléments).
 - [ ] Top 10 films et séries affichés (clé TMDB), ouvrent la bonne fiche.
