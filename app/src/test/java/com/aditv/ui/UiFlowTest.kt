@@ -73,6 +73,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
     /** Une Fire TV démarre hors mode tactile : on reproduit cet état avant de relancer l'activité. */
     @Before fun remoteMode() {
         com.aditv.ui.intro.IntroGate.enabled = false
+        kotlinx.coroutines.runBlocking { AppPrefsReset.reset() }
         InstrumentationRegistry.getInstrumentation().setInTouchMode(false)
         rule.activityRule.scenario.recreate()
     }
@@ -240,9 +241,10 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitText("COMPTE FOURNISSEUR")
         waitText("Sénégal")
         // ↓ jusqu'aux équipes suivies (celles demandées sont cochées d'office).
+        // Les équipes demandées sont suivies d'office (coche) ; ↓ jusqu'à la section Sport pour la capture.
+        waitText("✓ FC Barcelone"); waitText("✓ Sénégal"); waitText("✓ Aston Villa")
         var n = 0
-        while (n++ < 25 && rule.onAllNodes(hasText("FC Barcelone", substring = true) and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionDown)
-        assertFocused("✓ FC Barcelone")
+        while (n++ < 60 && rule.onAllNodes(hasText("FC Barcelone", substring = true) and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionDown)
         shot("14_reglages_sport")
     }
 
@@ -277,3 +279,11 @@ class UiFlowTest : UiFlowBase(screenshots = true)
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [25], qualifiers = "w960dp-h540dp-land-xhdpi")
 class UiFlowFireOs6Test : UiFlowBase(screenshots = false)
+
+/** Les préférences DataStore survivent d'un test à l'autre dans le même processus : valeurs par défaut avant chaque parcours. */
+object AppPrefsReset {
+    suspend fun reset() {
+        val p = com.aditv.data.prefs.AppPrefs(androidx.test.core.app.ApplicationProvider.getApplicationContext())
+        p.setTextScale(100); p.setReduceMotion(false); p.setReminderLead(5); p.clearSportSeeded()
+    }
+}

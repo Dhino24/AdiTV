@@ -24,7 +24,7 @@ object PlaybackErrors {
             PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "Flux introuvable."
             PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
             PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
-            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> "Format de conteneur non pris en charge par Media3. Le moteur VLC (phase 4) pourra être essayé."
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> "Format de conteneur non pris en charge par Media3. Essayez le moteur VLC (bouton Moteur)."
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
             PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
             PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
@@ -34,6 +34,20 @@ object PlaybackErrors {
             else -> "Lecture interrompue (${e.errorCodeName})."
         }
     }
+
+    /** Format refusé par Media3 (conteneur ou décodage) : seul cas où « Auto » bascule vers VLC. */
+    fun formatProblem(e: PlaybackException): Boolean = e.errorCode in setOf(
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+        PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+        PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
+    )
 
     /** Erreurs pour lesquelles un nouvel essai a du sens. */
     fun retryable(e: PlaybackException): Boolean = e.errorCode in setOf(

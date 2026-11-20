@@ -19,25 +19,55 @@ import okhttp3.OkHttpClient
 
 /**
  * Une seule session de lecture active dans toute l'application : toute ouverture libère d'abord
- * la précédente (contrainte fournisseur sur le nombre de connexions). Moteur : Media3 (LibVLC en phase 4).
+ * la précédente (contrainte fournisseur sur le nombre de connexions). Moteurs : Media3 ou LibVLC.
  */
 @OptIn(UnstableApi::class)
 class PlaybackController(private val context: Context, private val streamClient: OkHttpClient) {
     private var player: ExoPlayer? = null
+    private var engine: com.aditv.playback.engine.PlaybackEngine? = null
+    /** Turbo actif pendant la lecture : les tâches de fond (synchronisation, enrichissement) attendent. */
+    val turbo = MutableStateFlow(false)
     private val _sessions = MutableStateFlow(0)
     /** Nombre de sessions ouvertes (0 ou 1) : vérifié par les tests. */
     val activeSessions: StateFlow<Int> = _sessions
 
     val current: ExoPlayer? get() = player
+    val currentEngine: com.aditv.playback.engine.PlaybackEngine? get() = engine
     var request: PlaybackRequest? = null; private set
 
     /** Préférences de pistes et de qualité appliquées avant la préparation. */
     data class TrackPrefs(val audioLanguages: List<String>, val subtitlesFr: Boolean, val maxQuality: Int, val forceHighest: Boolean)
 
-    fun open(req: PlaybackRequest, prefs: TrackPrefs? = null): ExoPlayer {
+    /** Ouvre le moteur demandé (une seule session : la précédente est libérée). */
+    fun openEngine(
+        req: PlaybackRequest, prefs: TrackPrefs?, kind: com.aditv.playback.engine.EngineKind,
+        policy: com.aditv.playback.engine.BufferPolicy, events: com.aditv.playback.engine.EngineEvents?,
+    ): com.aditv.playback.engine.PlaybackEngine {
+        release()
+        val e = when (kind) {
+            com.aditv.playback.engine.EngineKind.MEDIA3 -> com.aditv.playback.engine.Media3Engine(context, open(req, prefs, policy), events)
+            com.aditv.playback.engine.EngineKind.VLC -> {
+                request = req; _sessions.value = 1
+                com.aditv.playback.engine.VlcEngine(context, req.url, req.startPositionMs, req.isLive, policy, events)
+            }
+        }
+        engine = e
+        turbo.value = policy.turbo
+        AppLog.d("Moteur ouvert : ${kind.label}")
+        return e
+    }
+
+    fun open(req: PlaybackRequest, prefs: TrackPrefs? = null, policy: com.aditv.playback.engine.BufferPolicy = com.aditv.playback.engine.BufferPolicy(false)): ExoPlayer {
         release()
         val dataSource = OkHttpDataSource.Factory(streamClient).setUserAgent("ADITV/${BuildConfig.VERSION_NAME}")
+        // Réserve : Turbo l'étend (60–120 s) avec un plafond mémoire ; sinon valeurs prudentes pour la Stick.
+        val load = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(policy.minBufferMs, policy.maxBufferMs, 1_000, policy.rebufferMs)
+            .setTargetBufferBytes(policy.targetBytes)
+            .setPrioritizeTimeOverSizeThresholds(!policy.turbo)
+            .build()
         val p = ExoPlayer.Builder(context)
+            .setLoadControl(load)
             .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
@@ -73,6 +103,8 @@ class PlaybackController(private val context: Context, private val streamClient:
     }
 
     fun release() {
+        engine?.let { it.release(); engine = null }
+        turbo.value = false
         player?.let {
             it.stop()
             it.release()

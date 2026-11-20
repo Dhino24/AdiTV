@@ -75,6 +75,7 @@ class SportTest {
     // ---------- matchs, meilleure chaîne, rappels automatiques ----------
     @Test fun matchesPickBestChannelAndCreateAutoReminders() = runBlocking {
         val prefs = AppPrefs(ApplicationProvider.getApplicationContext())
+        prefs.setReminderLead(5)
         db.catalog().insertItemsIgnore(listOf(
             item("1", "LIVE", "FR| beIN SPORTS 1 HD", "bein1.fr"),
             item("2", "LIVE", "FR| beIN SPORTS 1 FHD", "bein1.fr"),

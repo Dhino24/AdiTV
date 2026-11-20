@@ -43,7 +43,10 @@ val LocalScreenEntry = staticCompositionLocalOf { androidx.compose.ui.focus.Focu
 fun Root() {
     val c = LocalContainer.current
     val session by c.accounts.session.collectAsStateWithLifecycle()
-    val reduced = com.aditv.ui.design.systemReducedMotion()
+    val reducedPref by c.prefs.reduceMotionPref.collectAsStateWithLifecycle(false)
+    val reduced = com.aditv.ui.design.systemReducedMotion() || reducedPref
+    val textScale by c.prefs.textScalePercent.collectAsStateWithLifecycle(100)
+    val density = androidx.compose.ui.platform.LocalDensity.current
     // Ouverture au démarrage à froid : préférences locales lues sans attendre le réseau.
     var intro by remember { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
     var showIntro by remember { mutableStateOf(com.aditv.ui.intro.IntroGate.enabled && !com.aditv.ui.intro.IntroGate.played) }
@@ -51,7 +54,11 @@ fun Root() {
         if (showIntro) intro = c.prefs.introImageEnabled.first() to c.prefs.introSoundEnabled.first()
     }
     fun endIntro() { com.aditv.ui.intro.IntroGate.played = true; showIntro = false }
-    CompositionLocalProvider(com.aditv.ui.design.LocalReducedMotion provides reduced) {
+    CompositionLocalProvider(
+        com.aditv.ui.design.LocalReducedMotion provides reduced,
+        // Accessibilité : taille du texte choisie dans Réglages (agrandit les textes, pas la mise en page).
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, density.fontScale * textScale / 100f),
+    ) {
         Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent { if (showIntro) { if (it.type == KeyEventType.KeyDown) endIntro(); true } else false }) {
             when (val s = session) {
                 Session.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

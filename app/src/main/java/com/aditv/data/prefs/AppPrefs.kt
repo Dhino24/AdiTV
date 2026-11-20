@@ -64,4 +64,32 @@ class AppPrefs(private val context: Context) {
     suspend fun setReminderLead(minutes: Int) = context.dataStore.edit { it[reminderLead] = minutes }
     suspend fun sportSeeded(accountId: String): Boolean = context.dataStore.data.first()[booleanPreferencesKey("sport_seeded_$accountId")] ?: false
     suspend fun setSportSeeded(accountId: String) = context.dataStore.edit { it[booleanPreferencesKey("sport_seeded_$accountId")] = true }
+    /** Tests : oublie les équipes déjà proposées d'office. */
+    suspend fun clearSportSeeded() = context.dataStore.edit { p -> p.asMap().keys.filter { it.name.startsWith("sport_seeded_") }.forEach { p.remove(it) } }
+
+    // ---------- accessibilité ----------
+    private val textScale = intPreferencesKey("text_scale_percent")
+    private val reduceMotion = booleanPreferencesKey("reduce_motion")
+    /** Taille du texte : 100 (normale), 115 (grande), 130 (très grande). */
+    val textScalePercent: Flow<Int> = context.dataStore.data.map { it[textScale] ?: 100 }
+    suspend fun setTextScale(p: Int) = context.dataStore.edit { it[textScale] = p }
+    /** Animations réduites dans ADITV (en plus du réglage système). */
+    val reduceMotionPref: Flow<Boolean> = context.dataStore.data.map { it[reduceMotion] ?: false }
+    suspend fun setReduceMotion(v: Boolean) = context.dataStore.edit { it[reduceMotion] = v }
+
+    /** Préférences exportables (aucun secret) : clé → valeur texte. */
+    suspend fun exportable(): Map<String, String> = context.dataStore.data.first().asMap()
+        .filterKeys { k -> k.name !in setOf("active_account_id", "cleartext_hosts", "catalog_parse_version") && !k.name.startsWith("sport_seeded_") }
+        .mapKeys { it.key.name }.mapValues { it.value.toString() }
+
+    suspend fun importValues(values: Map<String, String>) = context.dataStore.edit { p ->
+        values["language_preset"]?.let { p[languagePreset] = it }
+        values["max_quality"]?.toIntOrNull()?.let { p[maxQuality] = it }
+        values["force_highest_bitrate"]?.toBooleanStrictOrNull()?.let { p[forceHighest] = it }
+        values["intro_image"]?.toBooleanStrictOrNull()?.let { p[introImage] = it }
+        values["intro_sound"]?.toBooleanStrictOrNull()?.let { p[introSound] = it }
+        values["reminder_lead_minutes"]?.toIntOrNull()?.let { p[reminderLead] = it }
+        values["text_scale_percent"]?.toIntOrNull()?.let { p[textScale] = it }
+        values["reduce_motion"]?.toBooleanStrictOrNull()?.let { p[reduceMotion] = it }
+    }
 }

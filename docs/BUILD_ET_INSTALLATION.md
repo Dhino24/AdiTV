@@ -42,3 +42,23 @@ Le bouton « Bande-annonce » n'apparaît que si une clé TMDB est configurée, 
 ## À relever sur la Stick
 - Espace libre (**Stockage**) : l'appareil cible n'a qu'environ 1 Go disponible.
 - Si la connexion au fournisseur échoue : le message affiché à l'écran (il ne contient jamais vos accès).
+
+## Version signée (version finale, facultatif)
+La version de test (`*-debug.apk`, identifiant `com.aditv.app.debug`) suffit pour l'usage personnel. Pour une version finale optimisée (R8) :
+1. Sur ton PC, crée **ta** clé une seule fois (garde le fichier et les mots de passe hors du dépôt, ne les envoie jamais dans le chat) :
+   `keytool -genkeypair -v -keystore aditv.jks -alias aditv -keyalg RSA -keysize 4096 -validity 10000`
+2. À la racine du projet, crée `keystore.properties` (ignoré par git) :
+   ```
+   storeFile=aditv.jks
+   storePassword=…
+   keyAlias=aditv
+   keyPassword=…
+   ```
+3. `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
+
+La version finale s'installe **à côté** de la version de test (identifiant différent) : comptes et préférences ne sont pas partagés. Utilise **Réglages → Accessibilité et sauvegarde → Exporter** puis **Importer** pour reprendre préférences, équipes suivies, favoris et Ma liste (jamais les accès ni la clé TMDB). Fichier : `Android/data/com.aditv.app[.debug]/files/aditv-preferences.json` (`adb pull` pour le copier).
+
+Garde toujours la même clé : une mise à jour signée avec une autre clé est refusée par la Fire TV.
+
+## Taille de l'APK
+Depuis la 0.7.0, le second moteur VLC (LibVLC, ARMv7) ajoute environ 40 Mo : l'APK de test fait environ 65 Mo, la version finale environ 45 Mo.

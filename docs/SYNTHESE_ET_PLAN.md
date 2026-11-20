@@ -59,10 +59,10 @@ Entités Room : `ProviderAccount`, `CatalogItem`, `Category`, `Channel`, `Series
 | 1 ✅ code | Projet Gradle compilable, thème, navigation, connexion (test + erreurs), catalogue Room incrémental, adaptateur Démo + Xtream | APK debug installable ; connexion réelle testée sur la Stick |
 | 2 ✅ code | TMDB + matching + correction manuelle, fiches, Media3, progression/reprise | Un film et un épisode réellement lus et repris |
 | 3 ✅ code | Direct, favoris, EPG (XMLTV/API), grille virtualisée | Couverture EPG mesurée |
-| 3 bis | Rappels de matchs à venir (guide, équipes suivies, bandeau / notification) | Rappel reçu et bascule sur la chaîne sur la Stick |
-| 4 | LibVLC, politique Auto, métriques par moteur | Comparaison reproductible, 1 seule session |
-| 5 | Turbo, intro + son, optimisation | Gain mesuré… ou absence de gain documentée |
-| 6 | PIN adultes, accessibilité, sommeil, export prefs, recette | APK + sources + limites |
+| 3 bis ✅ code | Rappels de matchs à venir (guide, équipes suivies, bandeau / notification), Top 10 TMDB | Rappel reçu et bascule sur la chaîne sur la Stick |
+| 4 ✅ code | LibVLC, politique Auto, métriques par moteur | Comparaison reproductible, 1 seule session |
+| 5 ✅ code | Turbo, intro + son, optimisation | Gain mesuré… ou absence de gain documentée |
+| 6 ✅ code | Accessibilité, minuterie de veille, export des préférences, version signée, recette (code PIN abandonné à la demande d'Adama) | APK + sources + limites |
 
 ## 6. Maquettes
 `design/maquettes/index.html` (1920×1080, navigable au clavier comme une télécommande) et captures dans `design/maquettes/captures/`.

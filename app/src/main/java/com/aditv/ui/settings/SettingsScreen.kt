@@ -117,6 +117,10 @@ fun SettingsScreen(session: Session.Active) {
             PlaybackPrefsSection()
         }
 
+        Section("Moteur de lecture, Turbo et diagnostic") {
+            EngineSection()
+        }
+
         Section("Sport : équipes suivies et rappels") {
             SportSection(session)
         }
@@ -127,6 +131,10 @@ fun SettingsScreen(session: Session.Active) {
 
         Section("Métadonnées TMDB") {
             TmdbSection()
+        }
+
+        Section("Accessibilité et sauvegarde") {
+            AccessSection(session)
         }
 
         Section("Ouverture") {
@@ -143,8 +151,8 @@ fun SettingsScreen(session: Session.Active) {
         Section("Application") {
             Fact("Version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (build de test)" else "")
             Fact("Confidentialité", "Aucune télémétrie. Accès chiffrés (Android Keystore), exclus des sauvegardes et des journaux.")
-            Fact("Lecture", "Moteur Media3 (LibVLC et choix Auto : phase 4)")
-            Fact("À venir", "LibVLC et diagnostic comparatif (phase 4) · Turbo (phase 5)")
+            Fact("Lecture", "Moteurs Media3 et VLC (LibVLC 3), choix Auto par défaut")
+            Fact("Licences", "Polices Outfit et Inter (OFL), LibVLC (LGPL 2.1), Media3 (Apache 2.0) : détail dans docs/VERSIONS_ET_LICENCES.md")
         }
     }
 }
@@ -326,4 +334,76 @@ private fun SportSection(session: Session.Active) {
             AditvButton("Supprimer", { scope.launch { c.sport.deleteReminder(r.id) } })
         }
     }
+}
+
+/** Moteur par défaut, Turbo par défaut et journal des dernières sessions (comparaison des moteurs sur la Stick). */
+@Composable
+private fun EngineSection() {
+    val c = LocalContainer.current
+    var engineDefault by remember { mutableStateOf(c.engineStore.defaultChoice) }
+    var turbo by remember { mutableStateOf(c.engineStore.turboDefault) }
+    var log by remember { mutableStateOf(c.engineStore.sessions()) }
+    Text("Auto : Media3 d'abord, puis VLC une seule fois si Media3 refuse le format (jamais pour une panne réseau). Le choix fait dans le lecteur est mémorisé par contenu.",
+        style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        com.aditv.playback.engine.EngineChoice.entries.forEach { e ->
+            com.aditv.ui.design.FilterChip(e.label, engineDefault == e, { c.engineStore.defaultChoice = e; engineDefault = e })
+        }
+    }
+    Text("Turbo : réserve de lecture étendue (60 à 120 s, 96 Mo au plus), synchronisation et enrichissement en pause pendant la lecture. Aucun gain de débit n'est promis : comparez les interruptions ci-dessous.",
+        style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        com.aditv.ui.design.FilterChip("Turbo désactivé", !turbo, { c.engineStore.turboDefault = false; turbo = false })
+        com.aditv.ui.design.FilterChip("Turbo activé par défaut", turbo, { c.engineStore.turboDefault = true; turbo = true })
+    }
+    Text("Dernières sessions (mesures du moteur utilisé)", style = MaterialTheme.typography.labelLarge, color = Aditv.Text, modifier = Modifier.padding(top = 6.dp))
+    if (log.isEmpty()) Text("Aucune session enregistrée : lisez un même contenu avec Media3 puis VLC pour comparer.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary)
+    val fmt = remember { java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.FRANCE) }
+    log.take(10).forEach { l ->
+        Row {
+            Text(fmt.format(java.util.Date(l.at)), style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary, modifier = Modifier.width(110.dp))
+            Text(l.engine + if (l.turbo) " + Turbo" else "", style = MaterialTheme.typography.bodyMedium, color = Aditv.Accent, modifier = Modifier.width(110.dp))
+            Text(
+                listOfNotNull(
+                    l.title,
+                    l.startupMs?.let { "démarrage $it ms" },
+                    "${l.stalls} interruption${if (l.stalls > 1) "s" else ""}",
+                    l.dropped?.let { "$it images perdues" },
+                    "${l.watchedSec / 60} min",
+                    if (l.fallback) "bascule Auto" else null,
+                    l.error?.let { "erreur : $it" },
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium, color = Aditv.Text, maxLines = 1,
+            )
+        }
+    }
+    if (log.isNotEmpty()) AditvButton("Effacer le journal", { c.engineStore.clearLog(); log = emptyList() })
+}
+
+/** Taille du texte, animations réduites, export / import des préférences (sans aucun secret). */
+@Composable
+private fun AccessSection(session: Session.Active) {
+    val c = LocalContainer.current
+    val scope = rememberCoroutineScope()
+    val scale by c.prefs.textScalePercent.collectAsStateWithLifecycle(100)
+    val reduce by c.prefs.reduceMotionPref.collectAsStateWithLifecycle(false)
+    var message by remember { mutableStateOf<String?>(null) }
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text("Taille du texte", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, modifier = Modifier.width(120.dp))
+        listOf(100 to "Normale", 115 to "Grande", 130 to "Très grande").forEach { (v, l) ->
+            com.aditv.ui.design.FilterChip(l, scale == v, { scope.launch { c.prefs.setTextScale(v) } })
+        }
+    }
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text("Animations", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, modifier = Modifier.width(120.dp))
+        com.aditv.ui.design.FilterChip("Normales", !reduce, { scope.launch { c.prefs.setReduceMotion(false) } })
+        com.aditv.ui.design.FilterChip("Réduites", reduce, { scope.launch { c.prefs.setReduceMotion(true) } })
+    }
+    Text("Sauvegarde : préférences, équipes suivies, chaînes favorites et Ma liste (jamais vos accès ni la clé TMDB), dans ${c.backup.file.path}. Récupérable avec « adb pull ».",
+        style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        AditvButton("Exporter", { scope.launch { message = runCatching { "Exporté : " + c.backup.export(session.account.id).name }.getOrElse { "Export impossible : ${it.message}" } } })
+        AditvButton("Importer", { scope.launch { message = runCatching { c.backup.import(session.account.id) }.getOrElse { "Import impossible : ${it.message}" }; c.refreshSport() } })
+    }
+    message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Accent) }
 }

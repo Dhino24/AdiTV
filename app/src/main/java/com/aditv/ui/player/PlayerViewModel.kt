@@ -5,9 +5,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import com.aditv.playback.engine.BufferPolicy
+import com.aditv.playback.engine.EngineChoice
+import com.aditv.playback.engine.EngineEvents
+import com.aditv.playback.engine.EngineKind
+import com.aditv.playback.engine.EnginePolicy
+import com.aditv.playback.engine.EngineStore
+import com.aditv.playback.engine.PlaybackEngine
 import com.aditv.data.Session
 import com.aditv.data.db.CatalogCard
 import com.aditv.data.db.CatalogItemEntity
@@ -53,7 +57,12 @@ class PlayerViewModel(
     var error by mutableStateOf<String?>(null); private set
     var canRetry by mutableStateOf(false); private set
     var nextUp by mutableStateOf<NextUp?>(null); private set
-    var player by mutableStateOf<ExoPlayer?>(null); private set
+    var engine by mutableStateOf<PlaybackEngine?>(null); private set
+    /** Choix pour ce contenu (Auto par défaut) et moteur réellement utilisé. */
+    var engineChoice by mutableStateOf(EngineChoice.AUTO); private set
+    /** Bascule automatique effectuée (affichée, jamais silencieuse). */
+    var engineNote by mutableStateOf<String?>(null); private set
+    var turbo by mutableStateOf(false); private set
     var versions by mutableStateOf<List<VersionOption>>(emptyList()); private set
     var isFavorite by mutableStateOf(false); private set
     var nowNext by mutableStateOf<List<Programme>>(emptyList()); private set
@@ -72,23 +81,38 @@ class PlayerViewModel(
     private var retries = 0
     private var suspendedAt: Long? = null
     private val accountId get() = session.account.id
+    private val store = c.engineStore
+    private var fellBack = false
+    private var sessionOpenedAt = 0L
+    private var lastError: String? = null
+    private val choiceKey get() = currentItem?.variantKey ?: request?.contentId ?: contentId
 
-    private val listener = object : Player.Listener {
-        override fun onPlayerError(e: PlaybackException) {
-            error = PlaybackErrors.message(e)
-            canRetry = PlaybackErrors.retryable(e) || retries < 1
+    private val events = object : EngineEvents {
+        override fun onError(message: String, retryable: Boolean, formatProblem: Boolean) {
+            val current = engine?.kind ?: EngineKind.MEDIA3
+            lastError = message
+            // « Auto » : une seule bascule vers VLC, uniquement si Media3 refuse le format.
+            if (EnginePolicy.shouldFallback(engineChoice, current, formatProblem, fellBack)) {
+                fellBack = true
+                engineNote = "Media3 ne lit pas ce format : bascule automatique vers VLC."
+                val r = request ?: return
+                val pos = engine?.positionMs?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs
+                play(r, resumeAtMs = pos, kind = EngineKind.VLC)
+                return
+            }
+            error = message
+            canRetry = retryable || retries < 1
             persistSnapshot()
         }
-        override fun onPlaybackStateChanged(state: Int) {
-            if (state == Player.STATE_ENDED) viewModelScope.launch { persistSnapshot(); onEnded() }
-        }
-        override fun onIsPlayingChanged(isPlaying: Boolean) { if (!isPlaying) persistSnapshot() }
+        override fun onEnded() { viewModelScope.launch { persistSnapshot(); onEnded() } }
+        override fun onPlayingChanged(playing: Boolean) { if (!playing) persistSnapshot() }
     }
 
     fun start() = viewModelScope.launch {
         error = null
         prefs = c.prefs.variantPrefs.first()
         forceHighest = c.prefs.forceHighestBitrate.first()
+        turbo = store.turboDefault
         val req = runCatching { resolve(contentId, fromStart, preferBestVariant = true) }
             .getOrElse { error = it.message ?: "Lecture impossible."; canRetry = false; return@launch }
         play(req)
@@ -102,17 +126,54 @@ class PlayerViewModel(
         forceHighest = forceHighest,
     )
 
-    private fun play(req: PlaybackRequest, resumeAtMs: Long? = null) {
+    private fun play(req: PlaybackRequest, resumeAtMs: Long? = null, kind: EngineKind? = null) {
         val effective = if (resumeAtMs != null) PlaybackRequest(req.url, req.title, req.subtitle, req.isLive, resumeAtMs, req.contentId, req.kind, req.seriesItemId) else req
+        logSession()
         request = effective
         title = req.title; subtitle = req.subtitle; isLive = req.isLive
-        player?.removeListener(listener)
-        val p = c.playback.open(effective, trackPrefs(currentItem?.lang))
-        p.addListener(listener)
-        player = p
+        error = null
+        engineChoice = store.choiceFor(choiceKey) ?: store.defaultChoice
+        if (kind == null) { fellBack = false; engineNote = null }
+        val k = kind ?: EnginePolicy.initial(engineChoice)
+        val e = c.playback.openEngine(effective, trackPrefs(currentItem?.lang), k, BufferPolicy(turbo), events)
+        engine = e
+        sessionOpenedAt = System.currentTimeMillis(); lastError = null
         saver?.cancel()
-        saver = viewModelScope.launch { while (isActive) { delay(10_000); if (p.isPlaying) persistSnapshot() } }
+        saver = viewModelScope.launch { while (isActive) { delay(10_000); if (e.isPlaying) persistSnapshot() } }
         refreshLiveInfo()
+    }
+
+    /** Choix du moteur pour ce contenu (mémorisé), appliqué tout de suite à la même position. */
+    fun chooseEngine(choice: EngineChoice) {
+        store.setChoice(choiceKey, choice)
+        engineChoice = choice
+        restartHere(EnginePolicy.initial(choice))
+    }
+
+    /** Turbo : réserve étendue et plafond mémoire, tâches de fond en attente ; relance à la même position. */
+    fun toggleTurbo(on: Boolean) {
+        turbo = on
+        store.turboDefault = on
+        restartHere(engine?.kind)
+    }
+
+    private fun restartHere(kind: EngineKind?) {
+        val r = request ?: return
+        val pos = engine?.positionMs?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs
+        persistSnapshot()
+        play(r, resumeAtMs = pos, kind = kind)
+    }
+
+    /** Résumé de la session terminée (comparaison des moteurs dans Réglages). */
+    private fun logSession() {
+        val e = engine ?: return
+        val r = request ?: return
+        if (sessionOpenedAt == 0L) return
+        store.record(EngineStore.SessionLog(
+            at = sessionOpenedAt, title = r.title, engine = e.kind.label, turbo = turbo, startupMs = e.startupMs, stalls = e.stalls,
+            dropped = e.droppedFrames, watchedSec = (System.currentTimeMillis() - sessionOpenedAt) / 1000, error = lastError, fallback = fellBack,
+        ))
+        sessionOpenedAt = 0L
     }
 
     /** Résout un identifiant de contenu en demande de lecture ; choisit la meilleure version si demandé. */
@@ -213,7 +274,7 @@ class PlayerViewModel(
     }
 
     fun switchVersion(itemId: String) {
-        val pos = player?.currentPosition?.takeIf { !isLive && it > 0 }
+        val pos = engine?.positionMs?.takeIf { !isLive && it > 0 }
         persistSnapshot()
         viewModelScope.launch {
             runCatching { resolve(itemId, fromStart = false, preferBestVariant = false) }
@@ -279,17 +340,17 @@ class PlayerViewModel(
         retries++
         val r = request ?: run { start(); return }
         error = null
-        play(r, resumeAtMs = player?.currentPosition?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs)
+        play(r, resumeAtMs = engine?.positionMs?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs, kind = engine?.kind)
     }
 
     /** Mise en veille / sortie de l'app : on enregistre puis on libère la session (aucune seconde session au réveil). */
     fun suspendSession() {
         persistSnapshot()
-        val pos = player?.currentPosition
+        val pos = engine?.positionMs
         val r = request
-        player?.removeListener(listener)
+        logSession()
         c.playback.release()
-        player = null
+        engine = null
         epgJob?.cancel()
         suspendedAt = if (r != null && !r.isLive) pos else null
     }
@@ -297,9 +358,9 @@ class PlayerViewModel(
     /** Retour au premier plan : réouverture en pause à la même position. */
     fun resumeSession() {
         val r = request ?: return
-        if (player != null) return
-        play(r, resumeAtMs = suspendedAt)
-        player?.playWhenReady = false
+        if (engine != null) return
+        play(r, resumeAtMs = suspendedAt, kind = if (fellBack) EngineKind.VLC else null)
+        engine?.holdPaused()
     }
 
     override fun onCleared() = close()
@@ -307,19 +368,19 @@ class PlayerViewModel(
     /** Sauvegarde finale puis libération, appelée en quittant l'écran. */
     fun close() {
         persistSnapshot()
-        player?.removeListener(listener)
-        if (c.playback.current === player) c.playback.release()
-        player = null
+        logSession()
+        if (c.playback.currentEngine === engine) c.playback.release()
+        engine = null
         epgJob?.cancel()
     }
 
     /** Lit la position sur le thread principal, puis écrit hors de la portée du ViewModel (qui peut être détruit). */
     private fun persistSnapshot() {
         val r = request ?: return
-        val p = player ?: return
+        val p = engine ?: return
         val id = r.contentId ?: return
-        val dur = p.duration.takeIf { it > 0 } ?: return
-        val pos = p.currentPosition
+        val dur = p.durationMs.takeIf { it > 0 } ?: return
+        val pos = p.positionMs
         c.appScope.launch { c.library.saveProgress(accountId, id, r.kind, r.seriesItemId, pos, dur) }
     }
 

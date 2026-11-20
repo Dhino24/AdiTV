@@ -84,14 +84,14 @@ import com.aditv.ui.theme.Aditv
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private enum class Panel { NONE, AUDIO, VERSION }
+private enum class Panel { NONE, AUDIO, VERSION, ENGINE, SLEEP }
 
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean, liveList: String? = null, onExit: () -> Unit) {
     val c = LocalContainer.current
     val vm: PlayerViewModel = viewModel(key = "player-$contentId") { PlayerViewModel(c, session, contentId, fromStart, liveList) }
-    val player = vm.player
+    val engine = vm.engine
     var controlsVisible by remember { mutableStateOf(true) }
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var panel by remember { mutableStateOf(Panel.NONE) }
@@ -105,22 +105,21 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     var scrubFocused by remember { mutableStateOf(false) }
     var statsOpen by remember { mutableStateOf(false) }
     var osd by remember { mutableIntStateOf(0) }
-    var stalls by remember { mutableIntStateOf(0) }
+    // Minuterie de veille : arrêt de la lecture et sortie du lecteur (le téléviseur se met ensuite en veille selon ses réglages).
+    var sleepAt by remember { mutableStateOf<Long?>(null) }
+    var sleepLeft by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(sleepAt) {
+        while (sleepAt != null) {
+            val left = sleepAt!! - System.currentTimeMillis()
+            sleepLeft = left
+            if (left <= 0) { sleepAt = null; vm.close(); onExit(); break }
+            delay(1_000)
+        }
+        if (sleepAt == null) sleepLeft = null
+    }
     LaunchedEffect(osd, position) { if (osd != 0) { delay(900); osd = 0 } }
     val clock by produceState(java.text.SimpleDateFormat("HH:mm", Locale.FRANCE).format(java.util.Date())) {
         while (true) { delay(15_000); value = java.text.SimpleDateFormat("HH:mm", Locale.FRANCE).format(java.util.Date()) }
-    }
-    // Interruptions mesurées : passage en chargement après un premier démarrage.
-    DisposableEffect(player) {
-        var started = false
-        val l = object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) started = true
-                else if (state == Player.STATE_BUFFERING && started) stalls++
-            }
-        }
-        player?.addListener(l)
-        onDispose { player?.removeListener(l) }
     }
     val rootFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
@@ -144,11 +143,11 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     }
 
     // État du lecteur, rafraîchi 2×/s au plus.
-    LaunchedEffect(player) {
-        while (player != null) {
-            position = player.currentPosition; buffered = player.bufferedPosition
-            duration = player.duration.takeIf { it != C.TIME_UNSET } ?: 0L
-            playing = player.isPlaying; buffering = player.playbackState == Player.STATE_BUFFERING
+    LaunchedEffect(engine) {
+        while (engine != null) {
+            position = engine.positionMs; buffered = engine.bufferedMs
+            duration = engine.durationMs
+            playing = engine.isPlaying; buffering = engine.isBuffering
             delay(500)
         }
     }
@@ -172,10 +171,10 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     }
 
     fun seekBy(ms: Long) {
-        val p = player ?: return
-        if (vm.isLive || !p.isCurrentMediaItemSeekable) return
-        p.seekTo((p.currentPosition + ms).coerceIn(0, (p.duration.takeIf { it > 0 } ?: Long.MAX_VALUE)))
-        position = p.currentPosition
+        val p = engine ?: return
+        if (vm.isLive || !p.seekable) return
+        p.seekTo((p.positionMs + ms).coerceIn(0, (p.durationMs.takeIf { it > 0 } ?: Long.MAX_VALUE)))
+        position = p.positionMs
     }
 
     Box(
@@ -184,7 +183,9 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             .background(Color.Black)
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                val p = player
+                // Dernières 60 s de la minuterie : n'importe quelle touche prolonge de 30 min.
+                if ((sleepLeft ?: Long.MAX_VALUE) < 60_000) { sleepAt = System.currentTimeMillis() + 30 * 60_000L; return@onPreviewKeyEvent true }
+                val p = engine
                 when (ev.key) {
                     Key.MediaPlayPause -> { p?.let { if (it.isPlaying) it.pause() else it.play() }; touch(); true }
                     Key.MediaPlay -> { p?.play(); touch(); true }
@@ -216,20 +217,8 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             .focusRequester(rootFocus)
             .focusable(),
     ) {
-        if (player != null) {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        keepScreenOn = true
-                        setShutterBackgroundColor(android.graphics.Color.BLACK)
-                    }
-                },
-                update = { it.player = player },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        // Surface vidéo du moteur actif (Media3 ou VLC), recréée au changement de moteur.
+        engine?.let { e -> androidx.compose.runtime.key(e) { e.VideoSurface(Modifier.fillMaxSize()) } }
 
         if (buffering && vm.error == null) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Spinner()
@@ -248,6 +237,17 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         }
 
         if (!controlsVisible && vm.error == null && vm.isLive && bannerUntil > 0) ZapBanner(vm, Modifier.align(Alignment.BottomCenter))
+
+        sleepLeft?.takeIf { it < 60_000 }?.let { left ->
+            Row(
+                Modifier.align(Alignment.TopCenter).padding(top = 30.dp).background(Color(0xEB10151C), RoundedCornerShape(12.dp)).padding(horizontal = 16.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(R.drawable.ic_power), contentDescription = null, tint = Aditv.Accent, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(9.dp))
+                Text("Minuterie : arrêt dans ${left / 1000} s · une touche pour prolonger de 30 min", style = MaterialTheme.typography.bodyLarge, color = Aditv.Text)
+            }
+        }
 
         if (controlsVisible || vm.error != null) {
             Box(Modifier.fillMaxWidth().height(150.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent))))
@@ -268,7 +268,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             }
         }
 
-        if (controlsVisible && vm.error == null && player != null) {
+        if (controlsVisible && vm.error == null && engine != null) {
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.88f))))
@@ -285,7 +285,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(64.dp)) {
                     RoundButton(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Lecture",
-                        { player.let { if (it.isPlaying) it.pause() else it.play() }; touch() }, Modifier.focusRequester(playFocus), size = 42.dp)
+                        { engine.let { if (it.isPlaying) it.pause() else it.play() }; touch() }, Modifier.focusRequester(playFocus), size = 42.dp)
                     if (!vm.isLive) {
                         RoundButton(R.drawable.ic_back10, "Reculer de 10 s", { seekBy(-10_000); touch() }, overlay = "10")
                         RoundButton(R.drawable.ic_fwd10, "Avancer de 10 s", { seekBy(10_000); touch() }, overlay = "10")
@@ -297,7 +297,11 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                     Spacer(Modifier.weight(1f))
                     PillButton("Audio et sous-titres", { panel = Panel.AUDIO }, icon = R.drawable.ic_subs, primary = false, small = true)
                     if (vm.versions.size > 1) PillButton(vm.versions.firstOrNull { it.selected }?.label ?: "Version", { panel = Panel.VERSION }, icon = R.drawable.ic_layers, primary = false, small = true)
+                    PillButton("Moteur : " + vm.engineChoice.label + if (vm.engineChoice == com.aditv.playback.engine.EngineChoice.AUTO) " · ${engine.kind.label}" else "", { panel = Panel.ENGINE }, icon = R.drawable.ic_tv, primary = false, small = true)
+                    PillButton("Turbo", { vm.toggleTurbo(!vm.turbo); touch() }, icon = R.drawable.ic_bolt, primary = false, small = true, secondary = if (vm.turbo) "activé" else null)
                     PillButton("Statistiques", { statsOpen = !statsOpen; touch() }, icon = R.drawable.ic_chart, primary = false, small = true)
+                    PillButton("Veille", { panel = Panel.SLEEP }, icon = R.drawable.ic_power, primary = false, small = true,
+                        secondary = sleepLeft?.let { "${(it / 60_000) + 1} min" })
                 }
                 Text(
                     if (vm.isLive) "Commandes masquées : ↑/↓ chaîne précédente / suivante · OK afficher"
@@ -307,14 +311,23 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             }
         }
 
-        if (statsOpen && player != null && vm.error == null) StatsPanel(player, stalls, Modifier.align(Alignment.TopEnd).padding(top = 76.dp, end = 20.dp))
+        if (statsOpen && engine != null && vm.error == null) StatsPanel(engine, vm.turbo, Modifier.align(Alignment.TopEnd).padding(top = 76.dp, end = 20.dp))
 
         if (panel == Panel.VERSION) {
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
             VersionPanel(vm.versions, onPick = { vm.switchVersion(it); panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
-        } else if (panel != Panel.NONE && player != null) {
+        } else if (panel == Panel.SLEEP) {
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
-            TrackPanel(player, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+            val liveEnd = vm.nowNext.firstOrNull { it.isLive(System.currentTimeMillis()) }?.endUtc
+            SleepPanel(sleepAt != null, liveEnd, duration.takeIf { !vm.isLive && it > 0 }?.let { System.currentTimeMillis() + (it - position) }, onPick = { at ->
+                sleepAt = at; panel = Panel.NONE; touch()
+            }, modifier = Modifier.align(Alignment.CenterEnd))
+        } else if (panel == Panel.ENGINE) {
+            Box(Modifier.fillMaxSize().background(Color(0x80030508)))
+            EnginePanel(vm.engineChoice, engine?.kind, vm.engineNote, onPick = { vm.chooseEngine(it); panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+        } else if (panel != Panel.NONE && engine != null) {
+            Box(Modifier.fillMaxSize().background(Color(0x80030508)))
+            TrackPanel(engine, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         }
 
         vm.error?.let { msg ->
@@ -424,55 +437,43 @@ private fun ZapBanner(vm: PlayerViewModel, modifier: Modifier) {
 }
 
 /** Pistes audio et sous-titres réellement présentes dans le flux, dans un seul panneau. */
-@OptIn(UnstableApi::class)
 @Composable
-private fun TrackPanel(player: Player, onClose: () -> Unit, modifier: Modifier) {
-    val audio = remember(player.currentTracks) { trackOptions(player, C.TRACK_TYPE_AUDIO) }
-    val text = remember(player.currentTracks) { trackOptions(player, C.TRACK_TYPE_TEXT) }
-    val textDisabled = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+private fun TrackPanel(engine: com.aditv.playback.engine.PlaybackEngine, onClose: () -> Unit, modifier: Modifier) {
+    val audio = remember(engine) { engine.audioTracks() }
+    val text = remember(engine) { engine.textTracks() }
+    val textDisabled = engine.textDisabled
     val first = remember { FocusRequester() }
     InitialFocus(first)
-    fun select(type: Int, o: TrackOption) {
-        val group = player.currentTracks.groups[o.groupIndex].mediaTrackGroup
-        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(type, false)
-            .setOverrideForType(TrackSelectionOverride(group, o.trackIndex)).build()
-        onClose()
-    }
-    SideSheet("Audio et sous-titres", "Pistes exposées par le flux, telles que le lecteur les lit.", modifier) {
+    SideSheet("Audio et sous-titres", "Pistes exposées par le flux, telles que le moteur ${engine.kind.label} les lit.", modifier) {
         LazyColumn {
             item { SheetHeader("Audio") }
             if (audio.isEmpty()) item { Text("Aucune piste audio exposée par le flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary) }
-            items(audio, key = { "a${it.groupIndex}-${it.trackIndex}" }) { o ->
-                SheetOption(o.label, { select(C.TRACK_TYPE_AUDIO, o) }, if (o == audio.first()) Modifier.focusRequester(first) else Modifier, checked = o.selected)
+            items(audio, key = { "a${it.group}-${it.id}" }) { o ->
+                SheetOption(o.label, { engine.selectAudio(o); onClose() }, if (o == audio.first()) Modifier.focusRequester(first) else Modifier, checked = o.selected)
             }
             item { SheetHeader("Sous-titres") }
             item {
-                SheetOption("Désactivés", {
-                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build(); onClose()
-                }, if (audio.isEmpty()) Modifier.focusRequester(first) else Modifier, checked = textDisabled || text.none { it.selected })
+                SheetOption("Désactivés", { engine.selectText(null); onClose() },
+                    if (audio.isEmpty()) Modifier.focusRequester(first) else Modifier, checked = textDisabled || text.none { it.selected })
             }
             if (text.isEmpty()) item { Text("Aucun sous-titre dans ce flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary, modifier = Modifier.padding(start = 11.dp, top = 4.dp)) }
-            items(text, key = { "t${it.groupIndex}-${it.trackIndex}" }) { o -> SheetOption(o.label, { select(C.TRACK_TYPE_TEXT, o) }, checked = o.selected && !textDisabled) }
+            items(text, key = { "t${it.group}-${it.id}" }) { o -> SheetOption(o.label, { engine.selectText(o); onClose() }, checked = o.selected && !textDisabled) }
         }
     }
 }
 
-@OptIn(UnstableApi::class)
-private fun trackOptions(player: Player, type: Int): List<TrackOption> = buildList {
-    player.currentTracks.groups.forEachIndexed { gi, g ->
-        if (g.type != type) return@forEachIndexed
-        for (ti in 0 until g.length) {
-            if (!g.isTrackSupported(ti)) continue
-            val f = g.getTrackFormat(ti)
-            val lang = f.language?.let { runCatching { Locale.forLanguageTag(it).getDisplayLanguage(Locale.FRENCH) }.getOrNull() }?.ifBlank { null }
-            val parts = listOfNotNull(
-                f.label ?: lang?.replaceFirstChar { it.uppercase() } ?: "Piste ${size + 1}",
-                lang?.takeIf { f.label != null }?.replaceFirstChar { it.uppercase() },
-                f.channelCount.takeIf { it > 0 && type == C.TRACK_TYPE_AUDIO }?.let { if (it >= 6) "5.1" else if (it == 2) "stéréo" else "$it can." },
-                f.sampleMimeType?.substringAfter('/')?.uppercase()?.takeIf { type == C.TRACK_TYPE_AUDIO },
-            )
-            add(TrackOption(gi, ti, parts.joinToString(" · "), g.isTrackSelected(ti)))
+/** Choix du moteur pour ce contenu : mémorisé, appliqué tout de suite à la même position. */
+@Composable
+private fun EnginePanel(choice: com.aditv.playback.engine.EngineChoice, current: com.aditv.playback.engine.EngineKind?, note: String?, onPick: (com.aditv.playback.engine.EngineChoice) -> Unit, modifier: Modifier) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first)
+    SideSheet("Moteur de lecture", "Mémorisé pour ce contenu. En cours : ${current?.label ?: "—"}." + (note?.let { " $it" } ?: ""), modifier) {
+        LazyColumn {
+            item { SheetHeader("Pour ce contenu") }
+            items(com.aditv.playback.engine.EngineChoice.entries.toList(), key = { it.name }) { c ->
+                SheetOption(c.label, { onPick(c) }, if (c == com.aditv.playback.engine.EngineChoice.AUTO) Modifier.focusRequester(first) else Modifier, checked = c == choice)
+                Text(c.detail, style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary, modifier = Modifier.padding(start = 29.dp, bottom = 6.dp))
+            }
         }
     }
 }
@@ -520,63 +521,57 @@ private fun VersionPanel(options: List<VersionOption>, onPick: (String) -> Unit,
     }
 }
 
-private enum class Nature(val label: String, val fg: Color, val bg: Color) {
-    MEASURED("Mesuré", Color(0xFF7FF0F0), Color(0x2400D7D7)),
-    ESTIMATED("Estimé", Color(0xFFF6D58A), Color(0x1FF6D58A)),
-    DECLARED("Déclaré", Color(0xFFC7CFDB), Color(0x1AC7CFDB)),
-    NA("N/D", Color(0xFF7D8896), Color(0x0DFFFFFF)),
+private fun natureColors(n: com.aditv.playback.engine.Nature): Pair<Color, Color> = when (n) {
+    com.aditv.playback.engine.Nature.MEASURED -> Color(0xFF7FF0F0) to Color(0x2400D7D7)
+    com.aditv.playback.engine.Nature.ESTIMATED -> Color(0xFFF6D58A) to Color(0x1FF6D58A)
+    com.aditv.playback.engine.Nature.DECLARED -> Color(0xFFC7CFDB) to Color(0x1AC7CFDB)
+    com.aditv.playback.engine.Nature.NA -> Color(0xFF7D8896) to Color(0x0DFFFFFF)
 }
 
 /**
- * Statistiques de lecture lues dans Media3 chaque seconde. Chaque valeur porte sa nature :
- * mesurée (lecteur), estimée (débit réseau), déclarée (flux) ou non disponible.
+ * Statistiques lues dans le moteur actif chaque seconde. Chaque valeur porte sa nature :
+ * mesurée, estimée, déclarée (annoncée par le flux) ou non disponible. Pas de recopie d'un moteur à l'autre.
  */
-@OptIn(UnstableApi::class)
 @Composable
-private fun StatsPanel(player: androidx.media3.exoplayer.ExoPlayer, stalls: Int, modifier: Modifier) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
+private fun StatsPanel(engine: com.aditv.playback.engine.PlaybackEngine, turbo: Boolean, modifier: Modifier) {
     val tick by produceState(0) { while (true) { delay(1_000); value++ } }
-    @Suppress("UNUSED_EXPRESSION") tick
-    val vf = player.videoFormat
-    val af = player.audioFormat
-    val size = player.videoSize
-    val counters = player.videoDecoderCounters?.also { it.ensureUpdated() }
-    val bandwidth = androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.getSingletonInstance(ctx).bitrateEstimate
-    val reserve = ((player.bufferedPosition - player.currentPosition).coerceAtLeast(0) / 1000)
-    fun mbps(b: Int) = "%.1f".format(b / 1_000_000f).replace('.', ',') + " Mb/s"
-    val hdr = when (vf?.colorInfo?.colorTransfer) { C.COLOR_TRANSFER_ST2084 -> "HDR10 (PQ)"; C.COLOR_TRANSFER_HLG -> "HLG"; null -> null; else -> "SDR" }
-    val rows = listOf(
-        Triple("Moteur", "Media3", Nature.DECLARED),
-        Triple("Image décodée", if (size.width > 0) "${size.width} × ${size.height}" else "N/D", if (size.width > 0) Nature.MEASURED else Nature.NA),
-        Triple("Codec vidéo", vf?.codecs ?: vf?.sampleMimeType?.substringAfter('/') ?: "N/D", if (vf != null) Nature.DECLARED else Nature.NA),
-        Triple("Images / s", vf?.frameRate?.takeIf { it > 0 }?.let { "%.0f".format(it) } ?: "N/D", if ((vf?.frameRate ?: 0f) > 0) Nature.DECLARED else Nature.NA),
-        Triple("HDR", hdr ?: "N/D", if (hdr != null) Nature.DECLARED else Nature.NA),
-        Triple("Débit vidéo", vf?.bitrate?.takeIf { it > 0 }?.let(::mbps) ?: "N/D", if ((vf?.bitrate ?: 0) > 0) Nature.DECLARED else Nature.NA),
-        Triple("Bande passante", if (bandwidth > 0) "≈ " + mbps(bandwidth.toInt().coerceAtMost(Int.MAX_VALUE)) else "N/D", if (bandwidth > 0) Nature.ESTIMATED else Nature.NA),
-        Triple("Réserve", "$reserve s", Nature.MEASURED),
-        Triple("Images perdues", counters?.droppedBufferCount?.toString() ?: "N/D", if (counters != null) Nature.MEASURED else Nature.NA),
-        Triple("Interruptions", stalls.toString(), Nature.MEASURED),
-        Triple("Audio", af?.let { listOfNotNull(it.sampleMimeType?.substringAfter('/')?.uppercase(), it.channelCount.takeIf { c -> c > 0 }?.let { c -> if (c >= 6) "5.1" else if (c == 2) "stéréo" else "$c can." }).joinToString(" · ") } ?: "N/D", if (af != null) Nature.DECLARED else Nature.NA),
-        Triple("Sortie HDMI", "N/D", Nature.NA),
-    )
+    val rows = remember(engine, tick) { engine.stats() }
     Column(modifier.width(290.dp).background(Color(0xD60C1016), RoundedCornerShape(11.dp)).padding(horizontal = 15.dp, vertical = 14.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("Statistiques de lecture", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 13.sp), color = Aditv.Text, modifier = Modifier.weight(1f))
-            Text("chaque seconde", style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.5.sp), color = Aditv.TextTertiary)
+            Text("Statistiques · ${engine.kind.label}", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 13.sp), color = Aditv.Text, modifier = Modifier.weight(1f))
+            Text(if (turbo) "Turbo · chaque seconde" else "chaque seconde", style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.5.sp), color = if (turbo) Aditv.Accent else Aditv.TextTertiary)
         }
         Spacer(Modifier.height(6.dp))
-        rows.forEach { (k, v, n) ->
+        rows.forEach { r ->
+            val (fg, bg) = natureColors(r.nature)
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color.White.copy(alpha = 0.07f)))
-            Row(Modifier.padding(vertical = 4.5.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(k, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 8.5.sp), color = Aditv.TextSecondary, modifier = Modifier.weight(1f))
-                Text(v, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 9.sp, fontWeight = FontWeight.SemiBold), color = Aditv.Text, maxLines = 1)
+            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(r.label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 8.5.sp), color = Aditv.TextSecondary, modifier = Modifier.weight(1f))
+                Text(r.value, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 9.sp, fontWeight = FontWeight.SemiBold), color = Aditv.Text, maxLines = 1)
                 Spacer(Modifier.width(7.dp))
                 Box(Modifier.width(42.dp), contentAlignment = Alignment.CenterEnd) {
-                    Text(n.label.uppercase(), fontSize = 5.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = n.fg, modifier = Modifier.background(n.bg, RoundedCornerShape(3.dp)).padding(horizontal = 4.dp, vertical = 2.dp))
+                    Text(r.nature.label.uppercase(), fontSize = 5.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = fg, modifier = Modifier.background(bg, RoundedCornerShape(3.dp)).padding(horizontal = 4.dp, vertical = 2.dp))
                 }
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text("Valeurs lues dans le lecteur Media3 ; « déclaré » = annoncé par le flux, non vérifié.", style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.sp, lineHeight = 10.sp), color = Aditv.TextTertiary)
+        Text("« Déclaré » = annoncé par le flux, non vérifié. Les mesures de Media3 et de VLC ne sont pas comparables terme à terme.", style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.sp, lineHeight = 10.sp), color = Aditv.TextTertiary)
+    }
+}
+
+/** Minuterie de veille : arrêt de la lecture après un délai, à la fin du programme ou du film. */
+@Composable
+private fun SleepPanel(active: Boolean, programmeEnd: Long?, contentEnd: Long?, onPick: (Long?) -> Unit, modifier: Modifier) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first)
+    val now = System.currentTimeMillis()
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm", Locale.FRANCE) }
+    SideSheet("Minuterie de veille", "La lecture s'arrête et le lecteur se ferme ; le téléviseur se met ensuite en veille selon ses propres réglages.", modifier) {
+        LazyColumn {
+            item { SheetOption("Désactivée", { onPick(null) }, Modifier.focusRequester(first), checked = !active) }
+            items(listOf(15, 30, 60, 90, 120)) { m -> SheetOption("Dans $m min", { onPick(now + m * 60_000L) }, detail = fmt.format(java.util.Date(now + m * 60_000L))) }
+            if (programmeEnd != null) item { SheetOption("Fin du programme", { onPick(programmeEnd) }, detail = fmt.format(java.util.Date(programmeEnd))) }
+            if (contentEnd != null) item { SheetOption("Fin de la lecture", { onPick(contentEnd) }, detail = fmt.format(java.util.Date(contentEnd))) }
+        }
     }
 }

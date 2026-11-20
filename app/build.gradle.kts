@@ -1,3 +1,10 @@
+import java.util.Properties
+
+// Signature de la version finale : clé personnelle d'Adama, hors dépôt (keystore.properties + fichier .jks ignorés par git).
+val releaseKeys: Properties? = rootProject.file("keystore.properties").let { f ->
+    if (f.exists()) Properties().also { p -> f.inputStream().use { s -> p.load(s) } } else null
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -16,11 +23,22 @@ android {
         // Appareil cible confirmé : Fire TV Stick 4K (1re génération), Fire OS 6.7.1.1 = Android 7.1 (API 25).
         minSdk = 25
         targetSdk = 34
-        versionCode = 9
-        versionName = "0.6.0"
+        versionCode = 10
+        versionName = "0.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Fire OS 6 exécute un espace utilisateur 32 bits : seules les bibliothèques ARMv7 sont embarquées.
         ndk { abiFilters += listOf("armeabi-v7a") }
+    }
+
+    signingConfigs {
+        releaseKeys?.let { k: Properties ->
+            create("release") {
+                storeFile = rootProject.file(k.getProperty("storeFile"))
+                storePassword = k.getProperty("storePassword")
+                keyAlias = k.getProperty("keyAlias")
+                keyPassword = k.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -30,7 +48,10 @@ android {
         }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Sans keystore.properties : APK non signé (vérification de la compilation R8 uniquement).
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     buildFeatures {
@@ -99,6 +120,8 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.datasource.okhttp)
     implementation(libs.media3.ui)
+    // Second moteur de lecture (phase 4) : formats que Media3 ne lit pas (ARMv7 seulement, voir abiFilters).
+    implementation(libs.libvlc)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)

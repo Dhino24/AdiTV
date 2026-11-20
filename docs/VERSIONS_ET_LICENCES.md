@@ -14,6 +14,7 @@ Versions figées dans `gradle/libs.versions.toml`. Aucune dépendance Google Pla
 | OkHttp | 5.5.1 | Apache 2.0 |
 | Media3 (ExoPlayer, HLS, OkHttp, UI) | 1.11.1 | Apache 2.0 |
 | Coil 3 | 3.6.3 | Apache 2.0 |
+| LibVLC pour Android (libvlc-all, ARMv7 seulement) | 3.7.7 | LGPL 2.1 ou ultérieure (bibliothèque liée dynamiquement, non modifiée) |
 | Polices Outfit (Medium, SemiBold) et Inter (Regular, Medium, SemiBold) | Google Fonts, 2026 | SIL Open Font License 1.1 (textes dans `app/src/main/assets/licences/`) |
 | Désucrage des API Java (java.time sur Android 7.1) | desugar_jdk_libs 2.1.5 | GPL 2 + exception de liaison (Classpath) |
 | Tests : JUnit 4, MockWebServer, Robolectric, room-testing | 4.13.2 / 5.5.1 / 4.18.1 / 2.8.5 | EPL 1.0 / Apache 2.0 / MIT / Apache 2.0 |
@@ -22,4 +23,4 @@ SDK : `compileSdk` 37.2, `targetSdk` 34, `minSdk` 25 = Fire OS 6.7.1.1 de la Sti
 
 Données TMDB : usage personnel non commercial avec attribution (« This product uses the TMDB API but is not endorsed or certified by TMDB. »), affichée dans les fiches et les paramètres. Clé personnelle de l'utilisateur, jamais embarquée.
 
-Prévu plus tard : LibVLC (LGPL 2.1+, phase 4 — obligations de la LGPL à respecter si l'APK est un jour distribué).
+LibVLC (LGPL 2.1+) : usage personnel. Si l'APK était un jour distribué, fournir la licence LGPL et le moyen d'obtenir le code source de LibVLC (bibliothèque non modifiée, remplaçable).

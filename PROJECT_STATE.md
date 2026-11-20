@@ -5,8 +5,22 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : 3 — terminée côté code (0.3.0), à valider sur la Stick
-0.2.0 installée par Adama (installation OK).
+## Phase actuelle : toutes les phases terminées côté code (0.7.0) — recette sur la Stick (`docs/RECETTE.md`)
+Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
+
+### 0.7.0 (20/11/2026) — phases 4, 5 et 6 (sans code PIN, refusé par Adama)
+- **Phase 4 — VLC** : second moteur LibVLC 3.7.7 (ARMv7) derrière un contrat commun ; **Auto** = Media3 puis VLC **une seule fois** si Media3 refuse le format (jamais pour une panne réseau), bascule affichée ; choix Auto / Media3 / VLC dans le lecteur (bouton Moteur), **mémorisé par contenu** ; une seule session à la fois ; statistiques propres à chaque moteur (mesuré / estimé / déclaré / N/D, jamais recopiées) ; **journal des 20 dernières sessions** (démarrage, interruptions, images perdues, bascule, erreur) dans Réglages pour comparer les moteurs.
+- **Phase 5 — Turbo** : réserve étendue (Media3 60–120 s, VLC 8 s de cache), **plafond mémoire 96 Mo**, synchronisation et enrichissement en pause pendant la lecture ; bouton Turbo dans le lecteur + réglage par défaut ; aucun gain promis : à mesurer avec le journal.
+- **Phase 6** : taille du texte (normale / grande / très grande), animations réduites (réglage ADITV en plus du système), **minuterie de veille** (15 min à 2 h, fin du programme, fin du film ; avertissement 60 s avant, une touche prolonge), **export / import** des préférences, équipes, favoris et Ma liste (aucun secret), **version signée** préparée (clé personnelle hors dépôt, R8), **recette** dans `docs/RECETTE.md`.
+- APK de test ≈ 65 Mo (LibVLC). 80 tests.
+
+### 0.6.0 (20/11/2026) — demandes d'Adama : équipes, chaînes sport françaises, Top 10
+- **Équipes suivies d'office** : FC Barcelone, Real Madrid, PSG, Manchester City, Aston Villa, **Sénégal** (+ autres équipes et compétitions proposées dans Réglages → Sport).
+- **Matchs trouvés dans le guide uniquement** (titre, catégorie, chaîne de sport ; accents ignorés ; « Espanyol » ≠ Barça, « Atlético » ≠ Real ; un documentaire sur le Sénégal n'est pas un match) ; un match diffusé sur plusieurs chaînes = un seul rappel, sur la meilleure chaîne (favorite, française, meilleure version).
+- **Rappels** : automatiques pour les équipes suivies (pas pour les rediffusions/magazines, jamais recréés après refus), « Me rappeler » sur tout programme à venir du guide ; délai 5/10/15/30 min ; **bandeau même pendant une lecture** (Menu ≡ pour regarder), **notification** si ADITV est fermée (l'ouvrir lance la chaîne), alarmes **reprogrammées au redémarrage**.
+- **« Sport en direct »** : chaînes de sport françaises en première rangée sous l'affiche, zapping ↑/↓ entre elles ; filtre **Sport** dans le direct.
+- **Top 10 films et séries du moment** : tendances TMDB de la semaine, limitées aux titres présents dans l'abonnement (meilleure version VF/qualité), rang affiché en grand chiffre.
+- Base v5 (migration 4→5 testée). 75 tests.
 
 ### 0.5.0 (20/11/2026) — design validé par Adama appliqué à l'appli
 Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies données :
@@ -84,20 +98,21 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
 - [x] 0.3.0 installée : films et séries vides signalés → 0.3.1.
 - [x] 0.3.1 testée : films toujours vides.
 - [x] 0.4.0 : seules les chaînes synchronisées.
-- [ ] Installer `ADITV-0.5.0-debug.apk` (nouveau design) ; laisser ADITV ouvert au premier import, vérifier Réglages → Catalogue local (Films / Séries) et l'écran Films.
+- [x] 0.5.0 : films et séries présents, clé TMDB ajoutée.
+- [ ] Installer `ADITV-0.7.0-debug.apk` et dérouler `docs/RECETTE.md`.
 - [ ] Juger le design sur le téléviseur : lisibilité des textes à distance, fluidité du focus sur la Stick 1re génération.
 - [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.
 - [ ] Optionnel : créer une clé TMDB et la saisir dans Paramètres → Métadonnées TMDB.
 
-## Demandé par Adama (à faire avant la phase 4)
-- [ ] Logo ADITV qui ne s'affiche plus dans l'appli (photo de l'écran demandée ; non reproduit en test).
-- [ ] **Rappels de matchs à venir** (à partir du guide uniquement, rien d'inventé) :
+## Demandé par Adama
+- [ ] Logo ADITV qui ne s'affichait plus : visible dans les captures 0.5.0+ ; à confirmer sur la télé.
+- [x] **Rappels de matchs à venir** (0.6.0) — détail ci-dessous, à valider sur la Stick :
   - « 🔔 Me rappeler » sur un programme à venir du guide ; à l'heure (avance réglable, 5 min par défaut) : bandeau dans l'appli avec « Regarder » (même pendant une lecture), sinon notification Fire TV (comportement à vérifier sur Fire OS 6).
   - Rangée « Matchs à venir » (accueil) + filtre Sport dans le guide : catégorie du guide (Sport, Football…) et titres « A – B », compétitions ; favoris d'abord ; meilleure version (VF, qualité max).
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
 
-## Prochaine étape : phase 4
-LibVLC (ARMv7) derrière le même contrat de lecture, choix Auto / Media3 / VLC mémorisé par contenu, bascule bornée sur erreur de format, diagnostic de lecture (débits, réserve, interruptions, décodeur) avec états mesuré / estimé / N/D.
+## Prochaine étape
+Recette sur la Stick (`docs/RECETTE.md`), puis corrections selon les retours d'Adama. Version finale signée quand Adama aura créé sa clé (`docs/BUILD_ET_INSTALLATION.md`).

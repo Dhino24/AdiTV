@@ -54,9 +54,11 @@ class AppContainer(context: Context) {
     val metadata = MetadataRepository(db, tmdbClient)
     val trending = com.aditv.data.tmdb.TrendingRepository(db, tmdbClient)
     val playback = PlaybackController(context, http.streams)
+    val engineStore = com.aditv.playback.engine.EngineStore(context)
     val epg = com.aditv.data.epg.EpgRepository(db, http.providerApi, http.images)
     val reminders = com.aditv.data.sport.ReminderScheduler(context, db)
     val sport = com.aditv.data.sport.SportRepository(db, prefs, reminders)
+    val backup by lazy { com.aditv.data.prefs.PrefsBackup(context, db, prefs, engineStore, sport) }
 
     val imageLoader: ImageLoader = ImageLoader.Builder(context)
         .components { add(OkHttpNetworkFetcherFactory(callFactory = { http.images })) }
@@ -110,8 +112,12 @@ class AppContainer(context: Context) {
     }
 
     /** Enrichissement TMDB des ajouts récents, après synchronisation, si une clé est configurée. */
+    /** Turbo pendant une lecture : synchronisation et enrichissement attendent la fin de la session. */
+    val backgroundPaused: Boolean get() = playback.turbo.value && playback.activeSessions.value > 0
+
     fun enrichInBackground(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
+        if (backgroundPaused) return@launch
         if (tmdbKey.get() != null && playback.activeSessions.value == 0) { trending.refreshIfStale(); metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
     }
 
@@ -139,6 +145,7 @@ class AppContainer(context: Context) {
     /** Chaque groupe (chaînes / films-séries) est relancé s'il n'a jamais réussi ou si son dernier succès est ancien. */
     suspend fun syncIfStale(maxAgeMs: Long) {
         val s = accounts.session.value as? Session.Active ?: return
+        if (backgroundPaused) return
         val states = db.catalog().syncStates(s.account.id).associateBy { it.type }
         val now = System.currentTimeMillis()
         fun stale(types: List<com.aditv.data.provider.MediaType>) = types.any { t -> (states[t.name]?.lastSuccessAt ?: 0L) < now - maxAgeMs }
