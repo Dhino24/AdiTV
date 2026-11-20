@@ -102,10 +102,11 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
             val cats: List<CategoryEntity> = c.db.catalog().categories(accountId, "LIVE").first()
             filters = buildList {
                 if (favs.isNotEmpty()) add(GuideFilter("fav", "★ Favoris"))
+                add(GuideFilter("sport", "Sport"))
                 add(GuideFilter("all", "Toutes"))
                 cats.forEach { add(GuideFilter("cat:${it.id}", it.name)) }
             }
-            filter = filters.first()
+            filter = filters.first { it.key != "sport" }
             load()
         }
     }
@@ -123,6 +124,12 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
         val prefs = c.prefs.variantPrefs.first()
         val raw = when {
             f.key == "fav" -> c.db.live().favorites(accountId).first()
+            // Chaînes de sport (nom ou catégorie), les françaises d'abord.
+            f.key == "sport" -> {
+                val names = c.db.catalog().categories(accountId, "LIVE").first().associate { it.id to it.name }
+                c.db.catalog().allChannels(accountId).filter { ch -> com.aditv.data.sport.SportMatcher.isSportChannel(ch.title, ch.categoryId?.let(names::get)) }
+                    .sortedBy { ch -> if (ch.lang == "fr") 0 else 1 }
+            }
             f.key.startsWith("cat:") -> c.db.catalog().cardsInCategory(accountId, "LIVE", f.key.removePrefix("cat:")).first()
             else -> c.db.catalog().allChannels(accountId)
         }
@@ -163,6 +170,9 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
     val dayFmt = remember { SimpleDateFormat("EEEE d MMMM", Locale.FRANCE) }
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.FRANCE) }
     val favIds by remember { c.db.live().favoriteIds(session.account.id) }.collectAsStateWithLifecycle(emptyList())
+    val reminders by remember { c.sport.upcomingReminders(session.account.id) }.collectAsStateWithLifecycle(emptyList())
+    val remindedKeys = remember(reminders) { reminders.map { it.matchKey }.toSet() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(vm.windowStart) { scrollPx = ((System.currentTimeMillis() - vm.windowStart) / 60_000f * pxPerMin - 60 * pxPerMin).coerceAtLeast(0f) }
     InitialFocus(first, key = vm.rows != null, enabled = vm.rows != null)
     LaunchedEffect(vm.rows) {
@@ -267,7 +277,10 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
                                         progress = if (live) ((now - p.startUtc).toFloat() / (p.endUtc - p.startUtc)) else null,
                                     ) {
                                         Column {
-                                            Text(p.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 9.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (com.aditv.data.sport.SportMatcher.matchKey(p.title, p.startUtc) in remindedKeys) { Icon(painterResource(R.drawable.ic_bell_on), contentDescription = "Rappel programmé", tint = Aditv.Accent, modifier = Modifier.size(9.dp)); Spacer(Modifier.width(4.dp)) }
+                                                Text(p.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 9.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
                                             Text(timeFmt.format(Date(p.startUtc)) + " – " + timeFmt.format(Date(p.endUtc)), style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.5.sp), maxLines = 1)
                                         }
                                     }
@@ -281,6 +294,8 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
                 if (nowX in 0f..viewportPx) Box(Modifier.padding(start = 48.dp + CHANNEL_COL).offset(x = with(density) { nowX.toDp() }).width(1.dp).fillMaxHeight().background(Aditv.Accent))
                 selected?.let { (ch, p) ->
                     ProgrammePanel(ch, p, vm.catchupLookup[ch.id] ?: 0, session.isDemo,
+                        reminded = com.aditv.data.sport.SportMatcher.matchKey(p.title, p.startUtc) in remindedKeys,
+                        onRemind = { scope.launch { c.sport.toggleReminder(session.account.id, p.title, p.startUtc, p.endUtc, ch.id, ch.title) } },
                         onWatch = { selected = null; onPlayLive(ch.id, vm.filter?.key) },
                         onReplay = { selected = null; onPlay("CATCHUP|${ch.id}|${p.startUtc}|${((p.endUtc - p.startUtc) / 60_000).toInt()}", false) },
                         onChannel = { selected = null; onOpen(ch.id) },
@@ -358,6 +373,7 @@ private fun Cell(modifier: Modifier, onClick: () -> Unit, kind: CellKind, progre
 @Composable
 private fun ProgrammePanel(
     ch: CatalogCard, p: Programme, catchupDays: Int, isDemo: Boolean,
+    reminded: Boolean, onRemind: () -> Unit,
     onWatch: () -> Unit, onReplay: () -> Unit, onChannel: () -> Unit, onClose: () -> Unit, modifier: Modifier,
 ) {
     val now = System.currentTimeMillis()
@@ -382,8 +398,10 @@ private fun ProgrammePanel(
                 when {
                     p.isLive(now) -> PillButton("Regarder en direct", onWatch, Modifier.focusRequester(first))
                     replay -> PillButton("Replay (expérimental)", onReplay, Modifier.focusRequester(first))
-                    else -> PillButton(if (p.startUtc > now) "À venir · regarder la chaîne" else "Regarder la chaîne", onWatch, Modifier.focusRequester(first))
+                    p.startUtc > now -> PillButton(if (reminded) "Supprimer le rappel" else "Me rappeler", onRemind, Modifier.focusRequester(first), icon = if (reminded) R.drawable.ic_bell else R.drawable.ic_bell_on)
+                    else -> PillButton("Regarder la chaîne", onWatch, Modifier.focusRequester(first))
                 }
+                if (p.startUtc > now) PillButton("Regarder la chaîne", onWatch, icon = R.drawable.ic_play, primary = false)
                 PillButton("Fiche de la chaîne", onChannel, icon = R.drawable.ic_info, primary = false)
                 PillButton("Fermer", onClose, icon = null, primary = false)
             }

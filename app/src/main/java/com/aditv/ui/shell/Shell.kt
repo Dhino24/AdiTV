@@ -148,8 +148,20 @@ fun Shell(session: Session.Active) {
     // Direct : la liste d'origine (favoris, catégorie, toutes) sert au zapping ↑/↓ dans le lecteur.
     val playLive: (String, String?) -> Unit = { id, list -> nav.navigate("play/" + Uri.encode(id) + "?start=false&list=" + Uri.encode(list ?: "all")) }
 
+    // Rappel déclenché pendant l'utilisation : bandeau 60 s ; Menu ≡ ouvre la chaîne (même depuis le lecteur).
+    val reminder by com.aditv.data.sport.ReminderBus.current.collectAsStateWithLifecycle()
+    LaunchedEffect(reminder) { if (reminder != null) { delay(60_000); com.aditv.data.sport.ReminderBus.clear() } }
+    // Notification de rappel choisie alors qu'ADITV était fermée : lecture de la chaîne.
+    val pendingChannel by com.aditv.data.sport.PendingLaunch.channel.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingChannel) { pendingChannel?.let { com.aditv.data.sport.PendingLaunch.channel.value = null; playLive(it, "sport") } }
+
     CompositionLocalProvider(LocalNavChrome provides chrome) {
-        Box(Modifier.fillMaxSize().background(Aditv.Bg)) {
+        Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent { ev ->
+            val r = reminder
+            if (r != null && ev.type == KeyEventType.KeyDown && ev.key == Key.Menu) {
+                com.aditv.data.sport.ReminderBus.clear(); playLive(r.channelItemId, "sport"); true
+            } else false
+        }) {
             Box(Modifier.fillMaxSize().focusRequester(contentRequester).focusRestorer()) {
                 // Transitions courtes : opacité seulement, pas de recalcul de mise en page.
                 NavHost(
@@ -208,6 +220,10 @@ fun Shell(session: Session.Active) {
                     selected != "home" -> go("home")
                     else -> exitAsked = true
                 }
+            }
+
+            reminder?.let { r ->
+                com.aditv.ui.sport.ReminderBanner(r.title, r.channelName, r.startUtc, Modifier.align(Alignment.TopEnd).padding(top = 62.dp, end = 24.dp))
             }
 
             if (exitAsked) ExitDialog(onStay = { exitAsked = false; runCatching { requesters.getValue(selected).requestFocus() } }, onQuit = { activity?.finish() })

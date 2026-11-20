@@ -50,9 +50,13 @@ class AppContainer(context: Context) {
     val sync = CatalogSync(db.catalog())
     val library = LibraryRepository(db)
     val tmdbKey = TmdbKeyStore(secrets)
-    val metadata = MetadataRepository(db, TmdbClient(http.tmdb, { tmdbKey.get() }))
+    val tmdbClient = TmdbClient(http.tmdb, { tmdbKey.get() })
+    val metadata = MetadataRepository(db, tmdbClient)
+    val trending = com.aditv.data.tmdb.TrendingRepository(db, tmdbClient)
     val playback = PlaybackController(context, http.streams)
     val epg = com.aditv.data.epg.EpgRepository(db, http.providerApi, http.images)
+    val reminders = com.aditv.data.sport.ReminderScheduler(context, db)
+    val sport = com.aditv.data.sport.SportRepository(db, prefs, reminders)
 
     val imageLoader: ImageLoader = ImageLoader.Builder(context)
         .components { add(OkHttpNetworkFetcherFactory(callFactory = { http.images })) }
@@ -94,12 +98,21 @@ class AppContainer(context: Context) {
         epg.ensureProviderSource(s.account.id, if (s.isDemo) "Guide démo (fictif)" else "Guide du fournisseur")
         val last = epg.lastRefresh(s.account.id)
         if (force || last == null || System.currentTimeMillis() - last > 11 * 3_600_000L) epg.refresh(s.account.id, s.adapter, s.account.serverTimezone)
+        // Nouveau guide : matchs des équipes suivies et rappels automatiques recalculés.
+        refreshSport()
+    }
+
+    /** Équipes suivies (premier lancement : celles demandées par Adama), matchs et rappels. */
+    suspend fun refreshSport() {
+        val s = accounts.session.value as? Session.Active ?: return
+        sport.seedDefaults(s.account.id)
+        sport.refresh(s.account.id)
     }
 
     /** Enrichissement TMDB des ajouts récents, après synchronisation, si une clé est configurée. */
     fun enrichInBackground(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
-        if (tmdbKey.get() != null && playback.activeSessions.value == 0) { metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
+        if (tmdbKey.get() != null && playback.activeSessions.value == 0) { trending.refreshIfStale(); metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
     }
 
     /** Après la mise à jour 0.3 : calcule les variantes des éléments déjà en cache (par lots, hors interface). */

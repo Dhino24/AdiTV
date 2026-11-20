@@ -19,13 +19,29 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
         )
         container = AppContainer(this)
         container.appScope.launch {
-            container.accounts.restore(); container.backfillVariants(); container.resyncIfParserChanged()
+            container.accounts.restore()
+            // Rappels reprogrammés, matchs des équipes suivies et tendances TMDB, sans attendre la synchronisation.
+            launch { container.reminders.rescheduleAll(); container.refreshSport(); if (container.tmdbKey.get() != null) container.trending.refreshIfStale() }
+            container.backfillVariants(); container.resyncIfParserChanged()
             // Groupe jamais synchronisé ou interrompu : relancé dès l'ouverture, sans attendre 12 h.
             container.syncIfStale(maxAgeMs = java.util.concurrent.TimeUnit.HOURS.toMillis(11))
         }
+        // Premier plan : un rappel s'affiche en bandeau ; sinon en notification.
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var started = 0
+            override fun onActivityStarted(a: android.app.Activity) { started++; inForeground = started > 0 }
+            override fun onActivityStopped(a: android.app.Activity) { started = (started - 1).coerceAtLeast(0); inForeground = started > 0 }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+            override fun onActivityResumed(a: android.app.Activity) {}
+            override fun onActivityPaused(a: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: android.app.Activity) {}
+        })
         // WorkManager absent (environnement de test) : l'app reste utilisable, actualisation manuelle.
         runCatching { CatalogSyncWorker.schedule(this) }.onFailure { com.aditv.core.AppLog.w("Planification indisponible", it) }
     }
 
     override fun newImageLoader(context: android.content.Context) = container.imageLoader
+
+    companion object { @Volatile var inForeground = false }
 }

@@ -113,6 +113,16 @@ interface MetadataDao {
     )
     suspend fun availableAmong(accountId: String, mediaType: String, tmdbIds: List<Int>, excludeId: String): List<CatalogCard>
 
+    /** Toutes les versions disponibles des titres TMDB donnés (Top 10), avec leur identifiant TMDB. */
+    @Query(
+        """SELECT mm.tmdbId AS tmdbId, ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+           FROM metadata_match mm JOIN catalog_items ci ON ci.id = mm.itemId
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE mm.accountId = :accountId AND mm.status = 'confirmed' AND mm.mediaType = :mediaType
+             AND mm.tmdbId IN (:tmdbIds) AND ci.available = 1"""
+    )
+    suspend fun availableAmongAll(accountId: String, mediaType: String, tmdbIds: List<Int>): List<TmdbLinkedCard>
+
     /** Éléments à enrichir en priorité : ajouts récents sans correspondance. */
     @Query(
         """SELECT ci.id FROM catalog_items ci LEFT JOIN metadata_match mm ON mm.itemId = ci.id
@@ -132,3 +142,6 @@ interface MetadataDao {
     @Query("DELETE FROM metadata_match WHERE accountId = :accountId AND locked = 0") suspend fun deleteAutomaticMatches(accountId: String)
     @Query("DELETE FROM tmdb_metadata") suspend fun clearMetadataCache()
 }
+
+/** Carte du catalogue reliée à son identifiant TMDB. */
+data class TmdbLinkedCard(val tmdbId: Int, @androidx.room.Embedded val card: CatalogCard)

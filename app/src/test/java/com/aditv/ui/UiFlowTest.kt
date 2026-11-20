@@ -228,6 +228,24 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         com.aditv.ui.intro.IntroGate.enabled = false
     }
 
+
+    /** Réglages → Sport : équipes demandées suivies d'office, délai, rappels. */
+    @Test fun sportSettings() {
+        waitText("Connectez votre abonnement")
+        press("Essayer le mode démo")
+        waitText("Votre soirée commence ici")
+        key(Key.DirectionUp)
+        key(Key.DirectionRight, 6)
+        key(Key.DirectionCenter)
+        waitText("COMPTE FOURNISSEUR")
+        waitText("Sénégal")
+        // ↓ jusqu'aux équipes suivies (celles demandées sont cochées d'office).
+        var n = 0
+        while (n++ < 25 && rule.onAllNodes(hasText("FC Barcelone", substring = true) and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionDown)
+        assertFocused("✓ FC Barcelone")
+        shot("14_reglages_sport")
+    }
+
     /** Fiche série (saisons, épisodes) depuis l'onglet Séries. */
     @Test fun seriesDetailWithEpisodes() {
         waitText("Connectez votre abonnement")

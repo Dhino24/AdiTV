@@ -57,4 +57,11 @@ class AppPrefs(private val context: Context) {
     val introSoundEnabled: Flow<Boolean> = context.dataStore.data.map { it[introSound] ?: true }
     suspend fun setIntroImage(v: Boolean) = context.dataStore.edit { it[introImage] = v }
     suspend fun setIntroSound(v: Boolean) = context.dataStore.edit { it[introSound] = v }
+
+    // ---------- sport : équipes suivies (premier lancement), délai des rappels ----------
+    private val reminderLead = intPreferencesKey("reminder_lead_minutes")
+    val reminderLeadMinutes: Flow<Int> = context.dataStore.data.map { it[reminderLead] ?: 5 }
+    suspend fun setReminderLead(minutes: Int) = context.dataStore.edit { it[reminderLead] = minutes }
+    suspend fun sportSeeded(accountId: String): Boolean = context.dataStore.data.first()[booleanPreferencesKey("sport_seeded_$accountId")] ?: false
+    suspend fun setSportSeeded(accountId: String) = context.dataStore.edit { it[booleanPreferencesKey("sport_seeded_$accountId")] = true }
 }

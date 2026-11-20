@@ -35,5 +35,12 @@ class MigrationTest {
         val v3x = v4
         v3x.execSQL("INSERT INTO favorite_channels (accountId, itemId, addedAt) VALUES ('a','a|LIVE|1',1)")
         v3x.execSQL("INSERT INTO watch_progress (accountId, contentId, kind, seriesItemId, positionMs, durationMs, updatedAt, completed) VALUES ('a','a|MOVIE|1','MOVIE',NULL,1,2,3,0)")
+        v3x.close()
+        // v5 : tables sport et tendances ajoutées, données existantes intactes.
+        val v5 = helper.runMigrationsAndValidate("m.db", 5, true)
+        v5.query("SELECT COUNT(*) FROM favorite_channels").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
+        v5.execSQL("INSERT INTO follows (accountId, `key`, name, aliases, excludes, kind, createdAt) VALUES ('a','psg','PSG','psg','','team',1)")
+        v5.query("SELECT COUNT(*) FROM reminders").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        v5.close()
     }
 }

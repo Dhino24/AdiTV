@@ -12,6 +12,7 @@ data class TmdbCandidate(
     val year: Int?,
     val popularity: Double = 0.0,
     val posterPath: String? = null,
+    val backdropPath: String? = null,
 )
 
 data class TmdbDetails(

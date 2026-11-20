@@ -53,7 +53,11 @@ fun SettingsScreen(session: Session.Active) {
     var confirmSignOut by remember { mutableStateOf(false) }
     LaunchedEffect(confirmSignOut) { if (confirmSignOut) { delay(5_000); confirmSignOut = false } }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 48.dp, top = 74.dp, end = 48.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val scroll = rememberScrollState()
+    val chrome = com.aditv.ui.shell.LocalNavChrome.current
+    val scrolled by remember { androidx.compose.runtime.derivedStateOf { scroll.value > 40 } }
+    LaunchedEffect(scrolled) { chrome.scrolled = scrolled }
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 48.dp, top = 74.dp, end = 48.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Réglages", style = MaterialTheme.typography.displaySmall, color = Aditv.Text)
 
         Section("Compte fournisseur") {
@@ -111,6 +115,10 @@ fun SettingsScreen(session: Session.Active) {
 
         Section("Lecture : langue et qualité") {
             PlaybackPrefsSection()
+        }
+
+        Section("Sport : équipes suivies et rappels") {
+            SportSection(session)
         }
 
         Section("Guide TV") {
@@ -279,4 +287,43 @@ private fun GuideSection(session: Session.Active) {
     Text("Le guide du fournisseur est prioritaire ; une chaîne n'utilise qu'une seule source (pas de grilles mélangées). Les chaînes sans données restent « sans guide » : rien n'est inventé. Association manuelle : fiche de la chaîne → Guide.",
         style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
     message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+}
+
+/** Équipes et compétitions suivies, délai des rappels, rappels programmés (depuis le guide uniquement). */
+@Composable
+private fun SportSection(session: Session.Active) {
+    val c = LocalContainer.current
+    val scope = rememberCoroutineScope()
+    val accountId = session.account.id
+    val follows by remember(accountId) { c.sport.follows(accountId) }.collectAsStateWithLifecycle(emptyList())
+    val reminders by remember(accountId) { c.sport.upcomingReminders(accountId) }.collectAsStateWithLifecycle(emptyList())
+    val matches by c.sport.matches.collectAsStateWithLifecycle()
+    val lead by c.prefs.reminderLeadMinutes.collectAsStateWithLifecycle(5)
+    val followed = follows.map { it.key }.toSet()
+    Text("Les matchs sont trouvés dans le guide TV (titres, catégories, chaînes de sport) sur 7 jours ; un rappel automatique est créé pour chacun. " +
+        "Horaires du guide : le coup d'envoi réel peut différer. ${matches.size} programme(s) trouvé(s).",
+        style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 4.dp, horizontal = 2.dp)) {
+        items(com.aditv.data.sport.SportMatcher.PRESETS.size) { i ->
+            val p = com.aditv.data.sport.SportMatcher.PRESETS[i]
+            val on = p.key in followed
+            com.aditv.ui.design.FilterChip((if (on) "✓ " else "") + p.name, on, {
+                c.appScope.launch { if (on) c.sport.unfollow(accountId, p.key) else c.sport.follow(accountId, p); c.refreshSport() }
+            })
+        }
+    }
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text("Rappel", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, modifier = Modifier.width(80.dp))
+        listOf(5, 10, 15, 30).forEach { m ->
+            com.aditv.ui.design.FilterChip("$m min avant", lead == m, { scope.launch { c.prefs.setReminderLead(m) } })
+        }
+    }
+    if (reminders.isEmpty()) Text("Aucun rappel programmé pour l'instant (le guide doit contenir les matchs à venir).", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary)
+    reminders.take(12).forEach { r ->
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(com.aditv.ui.sport.matchWhen(r.startUtc), style = MaterialTheme.typography.bodyMedium, color = Aditv.Accent, modifier = Modifier.width(150.dp))
+            Text(r.title + " · " + r.channelName + if (r.auto) " (auto)" else "", style = MaterialTheme.typography.bodyMedium, color = Aditv.Text, maxLines = 1, modifier = Modifier.weight(1f))
+            AditvButton("Supprimer", { scope.launch { c.sport.deleteReminder(r.id) } })
+        }
+    }
 }

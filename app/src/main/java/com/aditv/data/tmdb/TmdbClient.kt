@@ -32,6 +32,11 @@ class TmdbClient(
     suspend fun imageBaseUrl(): String =
         get("configuration")?.obj("images")?.text("secure_base_url") ?: DEFAULT_IMAGE_BASE
 
+    /** Tendances de la semaine (TMDB), en français. */
+    suspend fun trending(mediaType: String, page: Int = 1): List<TmdbCandidate> =
+        get("trending/$mediaType/week", mapOf("language" to "fr-FR", "page" to page.toString()))?.arr("results").orEmpty()
+            .mapNotNull { (it as? JsonObject)?.let { o -> candidate(mediaType, o) } }
+
     suspend fun search(mediaType: String, query: String, year: Int?): List<TmdbCandidate> {
         val params = buildMap {
             put("query", query); put("language", "fr-FR"); put("include_adult", "false")
@@ -105,7 +110,7 @@ class TmdbClient(
         return TmdbCandidate(
             id = id, mediaType = mediaType, title = title, originalTitle = o.text("original_title", "original_name"),
             year = o.text("release_date", "first_air_date")?.take(4)?.toIntOrNull(),
-            popularity = o.dbl("popularity") ?: 0.0, posterPath = o.text("poster_path"),
+            popularity = o.dbl("popularity") ?: 0.0, posterPath = o.text("poster_path"), backdropPath = o.text("backdrop_path"),
         )
     }
 

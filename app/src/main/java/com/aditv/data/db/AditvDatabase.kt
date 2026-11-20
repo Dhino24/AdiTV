@@ -11,13 +11,15 @@ import androidx.room.RoomDatabase
         AccountEntity::class, CategoryEntity::class, CatalogItemEntity::class, SyncStateEntity::class,
         EpisodeEntity::class, WatchProgressEntity::class, WatchlistEntity::class, MetadataMatchEntity::class, TmdbMetadataEntity::class,
         FavoriteChannelEntity::class, EpgSourceEntity::class, EpgChannelEntity::class, EpgMappingEntity::class, ProgrammeEntity::class,
+        FollowEntity::class, ReminderEntity::class, TrendingEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
     // v2 : nouvelles tables (épisodes, progression, ma liste, TMDB) + colonne accounts.liveFormats. Aucune donnée perdue.
     // v3 : variantes (colonnes nullable, recalculées au démarrage), favoris et guide TV.
     // v4 : diagnostic d'import (catégories, mode) dans sync_state.
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    // v5 : équipes suivies, rappels, tendances TMDB (nouvelles tables uniquement).
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class AditvDatabase : RoomDatabase() {
     abstract fun accounts(): AccountDao
@@ -25,6 +27,7 @@ abstract class AditvDatabase : RoomDatabase() {
     abstract fun library(): LibraryDao
     abstract fun metadata(): MetadataDao
     abstract fun live(): LiveDao
+    abstract fun sport(): SportDao
 
     companion object {
         fun build(context: Context): AditvDatabase =

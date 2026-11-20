@@ -184,6 +184,8 @@ class PlayerViewModel(
     private suspend fun loadChannelList() {
         val raw = when {
             liveList == "fav" -> c.db.live().favorites(accountId).first()
+            // Chaînes de sport françaises (rangée « Sport en direct ») : zapping entre elles.
+            liveList == "sport" -> c.sport.frenchSportChannels(accountId)
             liveList?.startsWith("cat:") == true -> c.db.catalog().cardsInCategory(accountId, "LIVE", liveList.removePrefix("cat:")).first()
             else -> c.db.catalog().allChannels(accountId)
         }

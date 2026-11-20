@@ -81,6 +81,9 @@ import com.aditv.ui.design.StateBox
 import com.aditv.ui.design.VariantBadges
 import com.aditv.ui.design.WideCard
 import com.aditv.ui.shell.LocalNavChrome
+import com.aditv.ui.sport.MatchCard
+import com.aditv.ui.sport.MatchDialog
+import com.aditv.ui.sport.RankedTile
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -219,6 +222,23 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         )
     }
 
+    // ---------- sport et Top 10 ----------
+    val sportChannels: StateFlow<List<CatalogCard>> = dao.observeSyncStates(accountId)
+        .mapLatest { c.sport.frenchSportChannels(accountId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val matches: StateFlow<List<com.aditv.data.sport.UpcomingMatch>> = c.sport.matches
+    val reminders = c.sport.upcomingReminders(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val leadMinutes = c.prefs.reminderLeadMinutes.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 5)
+    private fun top(type: String) = combine(c.db.sport().observeTrending(type), c.prefs.variantPrefs, dao.observeSyncStates(accountId)) { t, p, _ -> t to p }
+        .mapLatest { (t, p) -> c.trending.top(accountId, type, t, p) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val topMovies = top("movie")
+    val topSeries = top("tv")
+
+    fun toggleReminder(m: com.aditv.data.sport.UpcomingMatch) = viewModelScope.launch {
+        c.sport.toggleReminder(accountId, m.title, m.startUtc, m.endUtc, m.channelItemId, m.channelName)
+    }
+
     fun toggleList(itemId: String, inList: Boolean) = viewModelScope.launch { c.library.toggleWatchlist(accountId, itemId, !inList) }
 }
 
@@ -237,6 +257,15 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
     var heroIndex by rememberSaveable { mutableIntStateOf(0) }
     var heroFocused by remember { mutableStateOf(false) }
     val reduced = LocalReducedMotion.current
+    val sportChannels by vm.sportChannels.collectAsStateWithLifecycle()
+    val allMatches by vm.matches.collectAsStateWithLifecycle()
+    val reminders by vm.reminders.collectAsStateWithLifecycle()
+    val leadMinutes by vm.leadMinutes.collectAsStateWithLifecycle()
+    val topMovies by vm.topMovies.collectAsStateWithLifecycle()
+    val topSeries by vm.topSeries.collectAsStateWithLifecycle()
+    val remindedKeys = remember(reminders) { reminders.map { it.matchKey }.toSet() }
+    val matches = remember(allMatches) { val now = System.currentTimeMillis(); allMatches.filter { it.endUtc > now }.take(20) }
+    var openMatch by remember { mutableStateOf<com.aditv.data.sport.UpcomingMatch?>(null) }
     val primary = remember { FocusRequester() }
     val entry = LocalScreenEntry.current
     val hero = state.hero.getOrNull(heroIndex.coerceAtMost((state.hero.size - 1).coerceAtLeast(0)))
@@ -251,6 +280,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
 
     Box(Modifier.fillMaxSize()) {
         HeroBackground(hero, dim = !atTop)
+
         if (state.loaded && state.hero.isEmpty() && state.rows.isEmpty() && state.resume.isEmpty()) {
             EmptyCatalog(progress, state.syncErrors)
         } else if (!state.loaded) {
@@ -268,7 +298,21 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                         modifier = Modifier.onFocusChanged { heroFocused = it.hasFocus },
                     ) else Spacer(Modifier.height(80.dp))
                 }
+                // Demandé par Adama : les chaînes de sport françaises tout de suite à l'écran.
+                if (sportChannels.isNotEmpty()) item(key = "sportfr") { SportChannelsRow(accountId, sportChannels) { onPlayLive(it, "sport") } }
+                if (matches.isNotEmpty()) item(key = "matches") {
+                    Column(Modifier.padding(top = 10.dp)) {
+                        RowTitle("Matchs à venir", "vos équipes · d'après le guide TV", Modifier.padding(start = 48.dp, bottom = 3.dp))
+                        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(matches, key = { it.key }) { m ->
+                                MatchCard(m, m.key in remindedKeys, { if (m.isLive(System.currentTimeMillis())) onPlayLive(m.channelItemId, "sport") else openMatch = m })
+                            }
+                        }
+                    }
+                }
                 if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay) }
+                if (topMovies.isNotEmpty()) item(key = "top-movies") { TopRow("Top 10 des films du moment", topMovies, onOpen) }
+                if (topSeries.isNotEmpty()) item(key = "top-series") { TopRow("Top 10 des séries du moment", topSeries, onOpen) }
                 items(state.rows, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive) }
                 if (state.syncErrors.isNotEmpty()) item(key = "sync") {
                     Row(Modifier.padding(start = 48.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -277,6 +321,12 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                     }
                 }
             }
+        }
+        openMatch?.let { m ->
+            MatchDialog(m, m.key in remindedKeys, leadMinutes,
+                onToggleReminder = { vm.toggleReminder(m); openMatch = null },
+                onWatch = { openMatch = null; onPlayLive(m.channelItemId, "sport") },
+                onClose = { openMatch = null })
         }
     }
 }
@@ -410,6 +460,30 @@ private fun EmptyCatalog(progress: SyncProgress, errors: List<String>) {
                 if (errors.isEmpty()) "Aucun élément reçu pour le moment. Lancez une synchronisation depuis Réglages." else errors.joinToString("\n"),
                 error = errors.isNotEmpty(),
             )
+        }
+    }
+}
+
+@Composable
+private fun SportChannelsRow(accountId: String, channels: List<CatalogCard>, onPlay: (String) -> Unit) {
+    val nowPlaying = com.aditv.ui.common.rememberNowPlaying(accountId, channels)
+    Column(Modifier.padding(top = 6.dp)) {
+        RowTitle("Sport en direct", "chaînes françaises · ↑/↓ dans le lecteur pour passer de l'une à l'autre", Modifier.padding(start = 48.dp, bottom = 3.dp))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(channels, key = { it.id }) { ch -> ChannelTile(ch.title, ch.imageUrl, nowPlaying[ch.id] ?: "Programme non communiqué", { onPlay(ch.id) }) }
+        }
+    }
+}
+
+@Composable
+private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, onOpen: (String) -> Unit) {
+    Column(Modifier.padding(top = 10.dp)) {
+        RowTitle(title, "tendances TMDB de la semaine, disponibles dans votre abonnement", Modifier.padding(start = 48.dp, bottom = 3.dp))
+        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(entries, key = { it.card.id }) { e ->
+                RankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
+                    tmdbImage(e.poster, "w342") ?: tmdbImage(e.card.tmdbPoster, "w342") ?: e.card.imageUrl, { onOpen(e.card.id) })
+            }
         }
     }
 }
