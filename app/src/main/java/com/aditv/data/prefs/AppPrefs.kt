@@ -59,6 +59,10 @@ class AppPrefs(private val context: Context) {
     suspend fun setIntroSound(v: Boolean) = context.dataStore.edit { it[introSound] = v }
 
     // ---------- sport : équipes suivies (premier lancement), délai des rappels ----------
+    /** Dernier filtre choisi dans le Direct (catégorie, favoris, sport), par compte. */
+    fun guideFilter(accountId: String): Flow<String?> = context.dataStore.data.map { it[stringPreferencesKey("guide_filter_$accountId")] }
+    suspend fun setGuideFilter(accountId: String, key: String) = context.dataStore.edit { it[stringPreferencesKey("guide_filter_$accountId")] = key }
+
     private val reminderLead = intPreferencesKey("reminder_lead_minutes")
     val reminderLeadMinutes: Flow<Int> = context.dataStore.data.map { it[reminderLead] ?: 5 }
     suspend fun setReminderLead(minutes: Int) = context.dataStore.edit { it[reminderLead] = minutes }

@@ -95,6 +95,8 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
     var rows by mutableStateOf<List<GuideRow>?>(null); private set
     var coverageText by mutableStateOf<String?>(null); private set
     var catchupLookup: Map<String, Int> = emptyMap(); private set
+    /** Nombre total de chaînes quand « Toutes » est plafonné, sinon null. */
+    var truncated by mutableStateOf<Int?>(null); private set
 
     init {
         viewModelScope.launch {
@@ -106,18 +108,37 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
                 add(GuideFilter("all", "Toutes"))
                 cats.forEach { add(GuideFilter("cat:${it.id}", it.name)) }
             }
-            filter = filters.first { it.key != "sport" }
-            load()
+            filter = defaultFilter(filters, cats, c.prefs.guideFilter(accountId).first())
+            reload()
         }
     }
 
-    fun select(f: GuideFilter) { filter = f; viewModelScope.launch { load() } }
+    /**
+     * Jamais « Toutes » à l'ouverture (programmes de milliers de chaînes : trop lourd pour la Stick) :
+     * dernier filtre choisi s'il existe encore, sinon Favoris, sinon la première catégorie française, sinon la première catégorie.
+     */
+    private fun defaultFilter(filters: List<GuideFilter>, cats: List<CategoryEntity>, last: String?): GuideFilter {
+        filters.firstOrNull { it.key == last && it.key != "all" }?.let { return it }
+        filters.firstOrNull { it.key == "fav" }?.let { return it }
+        val french = cats.firstOrNull { isFrenchCategory(it.name) } ?: cats.firstOrNull()
+        return french?.let { f -> filters.first { it.key == "cat:${f.id}" } } ?: filters.first { it.key == "sport" }
+    }
+
+    private var loadJob: kotlinx.coroutines.Job? = null
+    /** Un seul chargement à la fois : changer vite de filtre annule le précédent. */
+    private fun reload() { loadJob?.cancel(); loadJob = viewModelScope.launch { load() } }
+
+    fun select(f: GuideFilter) {
+        filter = f; rows = null
+        viewModelScope.launch { c.prefs.setGuideFilter(accountId, f.key) }
+        reload()
+    }
     fun shift(deltaMs: Long) {
         val min = alignedNow() - 24 * HOUR
         val max = alignedNow() + 7 * 24 * HOUR - WINDOW
-        windowStart = (windowStart + deltaMs).coerceIn(min, max); viewModelScope.launch { load() }
+        windowStart = (windowStart + deltaMs).coerceIn(min, max); reload()
     }
-    fun goNow() { windowStart = alignedNow(); viewModelScope.launch { load() } }
+    fun goNow() { windowStart = alignedNow(); reload() }
 
     private suspend fun load() {
         val f = filter ?: return
@@ -133,16 +154,23 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
             f.key.startsWith("cat:") -> c.db.catalog().cardsInCategory(accountId, "LIVE", f.key.removePrefix("cat:")).first()
             else -> c.db.catalog().allChannels(accountId)
         }
-        val channels = raw.collapsed(prefs).map { it.first }
+        // « Toutes » : plafonné, les programmes de milliers de chaînes ne tiennent pas en mémoire sur la Stick.
+        val all = raw.collapsed(prefs).map { it.first }
+        val channels = if (f.key == "all") all.take(ALL_MAX) else all
+        truncated = if (f.key == "all" && all.size > ALL_MAX) all.size else null
         val programmes = c.epg.programmesFor(accountId, channels.map { it.id to it.epgChannelId }, windowStart, windowStart + WINDOW)
         rows = channels.map { GuideRow(it, programmes[it.id].orEmpty()) }
         val cov = c.epg.coverage(accountId)
-        coverageText = "Couverture : ${cov.covered} / ${cov.channels} chaînes avec programmes à venir" +
+        coverageText = (truncated?.let { "$ALL_MAX premières chaînes sur $it : choisissez une catégorie pour les autres · " } ?: "") + "Couverture : ${cov.covered} / ${cov.channels} chaînes avec programmes à venir" +
             if (cov.withGuideId > cov.covered) " · ${cov.withGuideId - cov.covered} avec un ID de guide sans données" else ""
         catchupLookup = channels.associate { it.id to (c.db.catalog().observeItem(it.id).first()?.catchupDays ?: 0) }
     }
 
     companion object {
+        const val ALL_MAX = 200
+        private val FRENCH = Regex("""(?i)^\s*(fr|france|french|français)\b|\bfr\s*[|:]|\bfrance\b""")
+        fun isFrenchCategory(name: String) = FRENCH.containsMatchIn(name)
+
         /** Début de fenêtre : demi-heure pleine précédant « maintenant − 30 min ». */
         fun alignedNow(): Long { val n = System.currentTimeMillis() - 30 * 60_000; return n - n % (30 * 60_000) }
     }
