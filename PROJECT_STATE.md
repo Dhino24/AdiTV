@@ -5,8 +5,12 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.8.4) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.8.5) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
+
+### 0.8.5 (20/11/2026) — proposition d'Adama : films et séries mis à jour toutes les 3 semaines, pas à chaque ouverture
+- Films et séries importés automatiquement **une seule fois** (premier import) ; ensuite, **bandeau sur l'accueil toutes les 3 semaines** : « Mettre à jour » ou « Plus tard » (repousse de 3 jours). Bouton manuel toujours dans Réglages → Catalogue local.
+- Chaînes inchangées : actualisation automatique (≈ 12 h), légère.
 
 ### 0.8.4 (20/11/2026) — 3 rapports d'Adama : fermeture sur l'accueil 30 à 50 s après l'ouverture, mémoire Java basse (13–35 / 192 Mo), 300+ Mo libres
 - Piste principale : listes du fournisseur renvoyées en **objet indexé** (`{"123": {...}}`) lues **d'un seul bloc** (des dizaines de Mo) pendant la synchronisation automatique du démarrage → pic soudain entre deux relevés, rapport impossible. Désormais lues entrée par entrée (découpeur JSON en flux, test sur 3 000 films).
@@ -128,7 +132,7 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
 - [x] 0.3.1 testée : films toujours vides.
 - [x] 0.4.0 : seules les chaînes synchronisées.
 - [x] 0.5.0 : films et séries présents, clé TMDB ajoutée.
-- [ ] Installer `ADITV-0.8.4-debug.apk` et dérouler `docs/RECETTE.md` (dont la saisie par QR code).
+- [ ] Installer `ADITV-0.8.5-debug.apk` et dérouler `docs/RECETTE.md` (dont la saisie par QR code).
 - [ ] Juger le design sur le téléviseur : lisibilité des textes à distance, fluidité du focus sur la Stick 1re génération.
 - [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.

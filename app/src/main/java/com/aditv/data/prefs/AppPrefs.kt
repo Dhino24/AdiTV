@@ -59,6 +59,11 @@ class AppPrefs(private val context: Context) {
     suspend fun setIntroSound(v: Boolean) = context.dataStore.edit { it[introSound] = v }
 
     // ---------- sport : équipes suivies (premier lancement), délai des rappels ----------
+    /** « Plus tard » sur la proposition de mise à jour des films et séries : pas de nouvelle proposition avant cette date. */
+    private val vodSnooze = androidx.datastore.preferences.core.longPreferencesKey("vod_update_snooze_until")
+    val vodUpdateSnoozedUntil: Flow<Long> = context.dataStore.data.map { it[vodSnooze] ?: 0L }
+    suspend fun snoozeVodUpdate(until: Long) = context.dataStore.edit { it[vodSnooze] = until }
+
     /** Dernier filtre choisi dans le Direct (catégorie, favoris, sport), par compte. */
     fun guideFilter(accountId: String): Flow<String?> = context.dataStore.data.map { it[stringPreferencesKey("guide_filter_$accountId")] }
     suspend fun setGuideFilter(accountId: String, key: String) = context.dataStore.edit { it[stringPreferencesKey("guide_filter_$accountId")] = key }

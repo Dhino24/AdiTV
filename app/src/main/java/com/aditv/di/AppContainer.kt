@@ -39,6 +39,17 @@ const val CATALOG_PARSE_VERSION = 4
 val LIVE_TYPES = listOf(com.aditv.data.provider.MediaType.LIVE)
 val VOD_TYPES = listOf(com.aditv.data.provider.MediaType.MOVIE, com.aditv.data.provider.MediaType.SERIES)
 
+/** Mise à jour des films et séries proposée toutes les 3 semaines ; « Plus tard » la repousse de 3 jours. */
+const val VOD_UPDATE_DAYS = 21
+const val VOD_SNOOZE_DAYS = 3
+
+/** Jours depuis la dernière mise à jour des films et séries s'il faut la proposer, sinon null. */
+fun vodDueDays(lastSuccess: Long?, now: Long, snoozedUntil: Long, running: Boolean): Int? {
+    if (lastSuccess == null || running || now < snoozedUntil) return null
+    val days = ((now - lastSuccess) / 86_400_000L).toInt()
+    return days.takeIf { it >= VOD_UPDATE_DAYS }
+}
+
 /** Inactivité à la télécommande avant de mettre à jour le guide TV. */
 const val EPG_IDLE_MS = 90_000L
 
@@ -97,6 +108,18 @@ class AppContainer(context: Context) {
         refreshEpg()
         enrichInBackground()
     }
+
+    /**
+     * Jours écoulés depuis la dernière mise à jour réussie des films et séries, quand elle date d'au moins 3 semaines
+     * et que l'utilisateur ne l'a pas repoussée ; sinon null (rien à proposer).
+     */
+    fun vodUpdateDue(accountId: String): kotlinx.coroutines.flow.Flow<Int?> =
+        kotlinx.coroutines.flow.combine(db.catalog().observeSyncStates(accountId), prefs.vodUpdateSnoozedUntil, sync.running) { states, snooze, running ->
+            vodDueDays(VOD_TYPES.mapNotNull { t -> states.firstOrNull { it.type == t.name }?.lastSuccessAt }.minOrNull(),
+                System.currentTimeMillis(), snooze, VOD_TYPES.any { it in running })
+        }
+
+    suspend fun snoozeVodUpdate() = prefs.snoozeVodUpdate(System.currentTimeMillis() + VOD_SNOOZE_DAYS * 86_400_000L)
 
     /** Tâche de fond notée (début, fin, durée) : le rapport de plantage dit ce qui tournait. */
     private suspend fun <T> tracked(label: String, block: suspend () -> T): T {
@@ -167,9 +190,12 @@ class AppContainer(context: Context) {
         val states = db.catalog().syncStates(s.account.id).associateBy { it.type }
         val now = System.currentTimeMillis()
         fun stale(types: List<com.aditv.data.provider.MediaType>) = types.any { t -> (states[t.name]?.lastSuccessAt ?: 0L) < now - maxAgeMs }
+        // Films et séries (le plus lourd) : automatiques seulement s'ils n'ont jamais été importés.
+        // Ensuite, une mise à jour est proposée toutes les 3 semaines sur l'accueil (vodUpdateDue), jamais imposée.
+        val vodNeverImported = VOD_TYPES.all { t -> states[t.name]?.lastSuccessAt == null }
         kotlinx.coroutines.coroutineScope {
             if (stale(LIVE_TYPES)) launch { tracked("Synchro chaînes") { sync.run(s.account.id, s.adapter, LIVE_TYPES) } }
-            if (stale(VOD_TYPES)) launch { tracked("Synchro films et séries") { sync.run(s.account.id, s.adapter, VOD_TYPES) } }
+            if (vodNeverImported) launch { tracked("Synchro films et séries") { sync.run(s.account.id, s.adapter, VOD_TYPES) } }
         }
         refreshEpg()
     }

@@ -281,6 +281,8 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
         if (state.hero.size > 1 && atTop && !heroFocused && !reduced) { delay(9_000); heroIndex = (heroIndex + 1) % state.hero.size }
     }
 
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val vodDue by remember(accountId) { c.vodUpdateDue(accountId) }.collectAsStateWithLifecycle(null)
     Box(Modifier.fillMaxSize()) {
         HeroBackground(hero, dim = !atTop)
 
@@ -301,6 +303,8 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                         modifier = Modifier.onFocusChanged { heroFocused = it.hasFocus },
                     ) else Spacer(Modifier.height(80.dp))
                 }
+                // Films et séries : mise à jour proposée toutes les 3 semaines (jamais à chaque ouverture).
+                vodDue?.let { days -> item(key = "vodupdate") { VodUpdatePrompt(days, onUpdate = { c.syncVodNow() }, onLater = { scope.launch { c.snoozeVodUpdate() } }) } }
                 // Demandé par Adama : les chaînes de sport françaises tout de suite à l'écran.
                 if (sportChannels.isNotEmpty()) item(key = "sportfr") { SportChannelsRow(accountId, sportChannels) { onPlayLive(it, "sport") } }
                 if (matches.isNotEmpty()) item(key = "matches") {
@@ -331,6 +335,26 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                 onWatch = { openMatch = null; onPlayLive(m.channelItemId, "sport") },
                 onClose = { openMatch = null })
         }
+    }
+}
+
+@Composable
+private fun VodUpdatePrompt(days: Int, onUpdate: () -> Unit, onLater: () -> Unit) {
+    Row(
+        Modifier.padding(start = 48.dp, end = 48.dp, top = 10.dp).background(Aditv.Surface1, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatusDot(Aditv.Accent); Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Mise à jour des films et séries proposée", style = MaterialTheme.typography.titleSmall, color = Aditv.Text)
+            Text("Dernière mise à jour il y a $days jours. Elle prend quelques minutes ; vous pouvez continuer à regarder pendant ce temps.",
+                style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+        }
+        Spacer(Modifier.width(12.dp))
+        PillButton("Mettre à jour", onUpdate, icon = R.drawable.ic_retry, small = true)
+        Spacer(Modifier.width(8.dp))
+        PillButton("Plus tard", onLater, icon = null, primary = false, small = true)
     }
 }
 

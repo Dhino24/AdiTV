@@ -103,7 +103,7 @@ fun SettingsScreen(session: Session.Active) {
                 })
                 if (run == null) s?.detail?.let { d -> Text("   import : $d", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
             }
-            Text("Actualisation automatique toutes les 12 h environ (réseau requis), et au démarrage si un import n'a jamais abouti. Les titres retirés par le fournisseur sont masqués, pas supprimés. Gardez ADITV ouvert pendant un premier import volumineux.",
+            Text("Chaînes : actualisation automatique toutes les 12 h environ (réseau requis). Films et séries : importés automatiquement une seule fois. Les titres retirés par le fournisseur sont masqués, pas supprimés. Gardez ADITV ouvert pendant un premier import volumineux.",
                 style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
             val liveRunning = com.aditv.data.provider.MediaType.LIVE in running
             val vodRunning = com.aditv.data.provider.MediaType.MOVIE in running || com.aditv.data.provider.MediaType.SERIES in running
@@ -111,6 +111,8 @@ fun SettingsScreen(session: Session.Active) {
                 AditvButton(if (liveRunning) "Chaînes : en cours…" else "Synchroniser les chaînes", { c.syncLiveNow() }, enabled = !liveRunning)
                 AditvButton(if (vodRunning) "Films et séries : en cours…" else "Synchroniser films et séries", { c.syncVodNow() }, enabled = !vodRunning)
             }
+            Text("Films et séries : jamais rechargés à chaque ouverture. Une mise à jour est proposée sur l'accueil toutes les 3 semaines (« Plus tard » la repousse de 3 jours). Les chaînes, plus légères, restent mises à jour automatiquement.",
+                style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
         }
 
         Section("Lecture : langue et qualité") {

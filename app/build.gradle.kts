@@ -23,8 +23,8 @@ android {
         // Appareil cible confirmé : Fire TV Stick 4K (1re génération), Fire OS 6.7.1.1 = Android 7.1 (API 25).
         minSdk = 25
         targetSdk = 34
-        versionCode = 15
-        versionName = "0.8.4"
+        versionCode = 16
+        versionName = "0.8.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Fire OS 6 exécute un espace utilisateur 32 bits : seules les bibliothèques ARMv7 sont embarquées.
         ndk { abiFilters += listOf("armeabi-v7a") }
