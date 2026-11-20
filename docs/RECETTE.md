@@ -8,6 +8,13 @@
 - [ ] Retour : contenu → barre → Accueil → « Quitter ADITV ? ».
 - [ ] Textes lisibles à 3 m (sinon Réglages → Accessibilité → Grande).
 
+## Saisie depuis le téléphone (QR code)
+- [ ] Connexion → « Saisir depuis mon téléphone (QR code) » : le QR s'affiche avec une adresse et un code à 4 chiffres.
+- [ ] Le téléphone (même Wi-Fi) scanne le QR : la page ADITV s'ouvre ; envoyer les accès → « C'est reçu », les champs de la TV sont remplis, focus sur « Tester la connexion ».
+- [ ] Sans QR : taper l'adresse affichée dans le navigateur du téléphone, puis le code à 4 chiffres.
+- [ ] Réglages → TMDB → « Depuis mon téléphone » : coller la clé, puis « Enregistrer et tester ».
+- [ ] Si la page ne s'ouvre pas : noter le modèle de box Internet (certaines isolent les appareils Wi-Fi entre eux, « isolation client » / réseau invité).
+
 ## Catalogue
 - [ ] Films et séries présents (Réglages → Catalogue local : nombres d'éléments).
 - [ ] Top 10 films et séries affichés (clé TMDB), ouvrent la bonne fiche.

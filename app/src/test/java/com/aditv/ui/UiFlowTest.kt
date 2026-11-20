@@ -230,6 +230,31 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
     }
 
 
+    /** Connexion : saisie depuis le téléphone (QR code), accès reçus dans les champs, focus sur « Tester la connexion ». */
+    @Test fun phoneEntryFillsLogin() {
+        com.aditv.net.RemoteEntryServer.addressProvider = { java.net.InetAddress.getLoopbackAddress() }
+        try {
+            waitText("Connectez votre abonnement")
+            press("Saisir depuis mon téléphone (QR code)")
+            waitText("puis tapez le code")
+            shot("16_saisie_telephone")
+            val texts = rule.onAllNodes(androidx.compose.ui.test.SemanticsMatcher("tout") { true }, useUnmergedTree = true)
+                .fetchSemanticsNodes().flatMap { it.config.getOrElse(androidx.compose.ui.semantics.SemanticsProperties.Text) { emptyList() } }.map { it.text }
+            val base = texts.first { it.startsWith("http://127.0.0.1:") }
+            val pin = texts.first { it.matches(Regex("\\d{4}")) }
+            val http = okhttp3.OkHttpClient()
+            val form = http.newCall(okhttp3.Request.Builder().url(base + "?pin=" + pin).build()).execute().use { it.body.string() }
+            val token = Regex("name=\"t\" value=\"([0-9a-f]+)\"").find(form)!!.groupValues[1]
+            val body = okhttp3.FormBody.Builder().add("t", token).add("server", "http://exemple.test:8080").add("username", "depuis-le-tel").add("password", "secret").build()
+            http.newCall(okhttp3.Request.Builder().url(base).post(body).build()).execute().use { assertEquals(200, it.code) }
+            waitGone("puis tapez le code")
+            waitText("depuis-le-tel")
+            assertFocused("Tester la connexion")
+        } finally {
+            com.aditv.net.RemoteEntryServer.addressProvider = com.aditv.net.RemoteEntryServer::localAddress
+        }
+    }
+
     /** Réglages → Sport : équipes demandées suivies d'office, délai, rappels. */
     @Test fun sportSettings() {
         waitText("Connectez votre abonnement")

@@ -5,8 +5,13 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.7.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.8.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
+
+### 0.8.0 (20/11/2026) — demande d'Adama : « taper les codes facilement »
+- **Saisie depuis le téléphone (QR code)** : écran de connexion (bouton « Saisir depuis mon téléphone (QR code) ») et Réglages → TMDB (« Depuis mon téléphone »). La TV affiche un QR code et un code à 4 chiffres ; le téléphone ouvre une page servie **par la Stick elle-même sur le Wi-Fi local** (aucun service Internet), on y tape ou colle les accès, ils arrivent dans les champs ; le focus va sur « Tester la connexion ».
+- Sécurité : écoute sur l'adresse locale seulement, port aléatoire, jeton 128 bits dans le QR, code à 4 chiffres pour l'adresse tapée à la main, **5 essais faux = fermeture**, usage unique, fermeture après 10 min, requêtes bornées à 8 Ko, aucune valeur journalisée, page sans script ni ressource externe. Limite assumée : HTTP simple sur le réseau de la maison (dit à l'écran).
+- Bibliothèque ajoutée : ZXing core 3.5.3 (Apache 2.0), génération du QR uniquement.
 
 ### 0.7.0 (20/11/2026) — phases 4, 5 et 6 (sans code PIN, refusé par Adama)
 - **Phase 4 — VLC** : second moteur LibVLC 3.7.7 (ARMv7) derrière un contrat commun ; **Auto** = Media3 puis VLC **une seule fois** si Media3 refuse le format (jamais pour une panne réseau), bascule affichée ; choix Auto / Media3 / VLC dans le lecteur (bouton Moteur), **mémorisé par contenu** ; une seule session à la fois ; statistiques propres à chaque moteur (mesuré / estimé / déclaré / N/D, jamais recopiées) ; **journal des 20 dernières sessions** (démarrage, interruptions, images perdues, bascule, erreur) dans Réglages pour comparer les moteurs.
@@ -99,7 +104,7 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
 - [x] 0.3.1 testée : films toujours vides.
 - [x] 0.4.0 : seules les chaînes synchronisées.
 - [x] 0.5.0 : films et séries présents, clé TMDB ajoutée.
-- [ ] Installer `ADITV-0.7.0-debug.apk` et dérouler `docs/RECETTE.md`.
+- [ ] Installer `ADITV-0.8.0-debug.apk` et dérouler `docs/RECETTE.md` (dont la saisie par QR code).
 - [ ] Juger le design sur le téléviseur : lisibilité des textes à distance, fluidité du focus sur la Stick 1re génération.
 - [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.

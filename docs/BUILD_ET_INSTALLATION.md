@@ -31,6 +31,7 @@ Mise à jour : `adb install -r` sur un APK signé avec la **même clé** conserv
 ## Clé TMDB (facultative)
 1. Créer un compte gratuit sur themoviedb.org, puis **Paramètres du compte → API** : demander une clé (usage personnel).
 2. Dans ADITV : **Réglages → Métadonnées TMDB**, saisir la *clé API* (v3) ou le *jeton d'accès en lecture* (v4), puis **Enregistrer et tester**.
+Plus simple : **Depuis mon téléphone** affiche un QR code ; scanner avec le téléphone (même Wi-Fi que la Stick), coller la clé dans la page qui s'ouvre, Envoyer, puis **Enregistrer et tester** sur la TV. Même principe sur l'écran de connexion pour l'adresse, l'identifiant et le mot de passe du fournisseur.
 La clé est chiffrée sur la Stick. Sans clé, les fiches affichent uniquement les informations du fournisseur.
 
 ## Guide TV

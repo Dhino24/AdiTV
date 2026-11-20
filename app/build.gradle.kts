@@ -23,8 +23,8 @@ android {
         // Appareil cible confirmé : Fire TV Stick 4K (1re génération), Fire OS 6.7.1.1 = Android 7.1 (API 25).
         minSdk = 25
         targetSdk = 34
-        versionCode = 10
-        versionName = "0.7.0"
+        versionCode = 11
+        versionName = "0.8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Fire OS 6 exécute un espace utilisateur 32 bits : seules les bibliothèques ARMv7 sont embarquées.
         ndk { abiFilters += listOf("armeabi-v7a") }
@@ -122,6 +122,8 @@ dependencies {
     implementation(libs.media3.ui)
     // Second moteur de lecture (phase 4) : formats que Media3 ne lit pas (ARMv7 seulement, voir abiFilters).
     implementation(libs.libvlc)
+    // QR code de la saisie depuis le téléphone (génération seulement).
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)

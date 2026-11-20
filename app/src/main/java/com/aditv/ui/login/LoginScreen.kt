@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -44,7 +47,15 @@ fun LoginScreen(notice: String?) {
     val first = remember { FocusRequester() }
     val consentRequester = remember { FocusRequester() }
     val saveRequester = remember { FocusRequester() }
+    val testRequester = remember { FocusRequester() }
+    var phoneEntry by remember { mutableStateOf(false) }
+    var gotFromPhone by remember { mutableStateOf(false) }
+    var panelUsed by remember { mutableStateOf(false) }
     com.aditv.ui.common.InitialFocus(first)
+    // Panneau fermé : focus sur « Tester la connexion » si des accès sont arrivés, sinon sur le premier champ.
+    LaunchedEffect(phoneEntry) {
+        if (!phoneEntry && panelUsed) runCatching { (if (gotFromPhone) testRequester else first).requestFocus() }
+    }
     LaunchedEffect(vm.phase) {
         when (vm.phase) {
             is LoginPhase.NeedsCleartextConsent -> consentRequester.requestFocus()
@@ -53,6 +64,7 @@ fun LoginScreen(notice: String?) {
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize().background(Aditv.Bg)) {
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 64.dp, end = 32.dp), verticalArrangement = Arrangement.Center) {
             Image(painterResource(R.drawable.logo_full), contentDescription = "ADITV", modifier = Modifier.width(300.dp))
@@ -86,10 +98,12 @@ fun LoginScreen(notice: String?) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         AditvButton(
                             if (p is LoginPhase.Testing) "Test en cours…" else if (p is LoginPhase.Saving) "Enregistrement…" else "Tester la connexion",
-                            vm::test, enabled = p !is LoginPhase.Testing && p !is LoginPhase.Saving,
+                            vm::test, Modifier.focusRequester(testRequester), enabled = p !is LoginPhase.Testing && p !is LoginPhase.Saving,
                         )
                         AditvButton("Essayer le mode démo", vm::demo, enabled = p !is LoginPhase.Testing && p !is LoginPhase.Saving)
                     }
+                    Spacer(Modifier.height(12.dp))
+                    AditvButton("Saisir depuis mon téléphone (QR code)", { phoneEntry = true; panelUsed = true }, enabled = p !is LoginPhase.Testing && p !is LoginPhase.Saving)
                     if (p is LoginPhase.Failed) {
                         Spacer(Modifier.height(14.dp))
                         Text(p.message, style = MaterialTheme.typography.bodyLarge, color = Aditv.Error)
@@ -98,6 +112,18 @@ fun LoginScreen(notice: String?) {
                 }
             }
         }
+    }
+    if (phoneEntry) com.aditv.ui.common.RemoteEntryPanel(
+        com.aditv.net.RemoteEntryServer.Form.LOGIN,
+        onReceived = { v ->
+            v["server"]?.takeIf { it.isNotBlank() }?.let { vm.server = it }
+            v["username"]?.takeIf { it.isNotBlank() }?.let { vm.username = it }
+            v["password"]?.takeIf { it.isNotEmpty() }?.let { vm.password = it }
+            vm.onEdited()
+            gotFromPhone = true
+        },
+        onClose = { phoneEntry = false },
+    )
     }
 }
 

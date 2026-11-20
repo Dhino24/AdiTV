@@ -152,7 +152,7 @@ fun SettingsScreen(session: Session.Active) {
             Fact("Version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (build de test)" else "")
             Fact("Confidentialité", "Aucune télémétrie. Accès chiffrés (Android Keystore), exclus des sauvegardes et des journaux.")
             Fact("Lecture", "Moteurs Media3 et VLC (LibVLC 3), choix Auto par défaut")
-            Fact("Licences", "Polices Outfit et Inter (OFL), LibVLC (LGPL 2.1), Media3 (Apache 2.0) : détail dans docs/VERSIONS_ET_LICENCES.md")
+            Fact("Licences", "Polices Outfit et Inter (OFL), LibVLC (LGPL 2.1), Media3 et ZXing (Apache 2.0) : détail dans docs/VERSIONS_ET_LICENCES.md")
         }
     }
 }
@@ -184,6 +184,17 @@ private fun TmdbSection() {
     var input by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var phoneEntry by remember { mutableStateOf(false) }
+    if (phoneEntry) androidx.compose.ui.window.Dialog(
+        onDismissRequest = { phoneEntry = false },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        com.aditv.ui.common.RemoteEntryPanel(
+            com.aditv.net.RemoteEntryServer.Form.TMDB,
+            onReceived = { v -> v["value"]?.trim()?.takeIf { it.isNotEmpty() }?.let { input = it; message = "Clé reçue du téléphone : choisissez « Enregistrer et tester »." } },
+            onClose = { phoneEntry = false },
+        )
+    }
     Fact("État", if (configured) "Clé configurée (chiffrée sur l'appareil)" else "Aucune clé : fiches limitées aux informations du fournisseur", if (configured) Aditv.Text else Aditv.Warn)
     Text(
         "Créez gratuitement une clé sur themoviedb.org (Paramètres du compte → API), puis saisissez la clé API (v3) ou le jeton d'accès en lecture (v4).",
@@ -206,6 +217,7 @@ private fun TmdbSection() {
                 busy = false
             }
         }, enabled = !busy)
+        AditvButton("Depuis mon téléphone", { phoneEntry = true }, enabled = !busy)
         if (configured) AditvButton("Supprimer la clé", { c.tmdbKey.clear(); configured = false; message = "Clé supprimée." })
         AditvButton("Vider le cache TMDB", {
             scope.launch {
