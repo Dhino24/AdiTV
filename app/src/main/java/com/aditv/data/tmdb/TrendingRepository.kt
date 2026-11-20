@@ -35,8 +35,17 @@ class TrendingRepository(private val db: AditvDatabase, private val tmdb: TmdbCl
     }
 
     /** Les 10 premières tendances présentes dans l'abonnement, dans l'ordre TMDB. */
-    suspend fun top(accountId: String, mediaType: String, trending: List<TrendingEntity>, prefs: VariantPrefs, size: Int = 10): List<TopEntry> {
+    /** Dernier résultat par type : rouvrir l'accueil ne refait pas le calcul si rien n'a changé. */
+    private val memo = java.util.concurrent.ConcurrentHashMap<String, Pair<Any, List<TopEntry>>>()
+
+    suspend fun top(accountId: String, mediaType: String, trending: List<TrendingEntity>, prefs: VariantPrefs, size: Int = 10, catalogStamp: Long = 0): List<TopEntry> {
         if (trending.isEmpty()) return emptyList()
+        val key = listOf(trending.map { it.tmdbId }, trending.firstOrNull()?.fetchedAt, prefs, size, catalogStamp)
+        memo["$accountId|$mediaType"]?.takeIf { it.first == key }?.let { return it.second }
+        return compute(accountId, mediaType, trending, prefs, size).also { memo["$accountId|$mediaType"] = key to it }
+    }
+
+    private suspend fun compute(accountId: String, mediaType: String, trending: List<TrendingEntity>, prefs: VariantPrefs, size: Int): List<TopEntry> {
         val type = if (mediaType == "movie") "MOVIE" else "SERIES"
         // 1) Titres déjà reconnus par TMDB dans le catalogue.
         val matched = trending.map { it.tmdbId }.chunked(200).flatMap { ids -> db.metadata().availableAmongAll(accountId, mediaType, ids) }
@@ -57,9 +66,9 @@ class TrendingRepository(private val db: AditvDatabase, private val tmdb: TmdbCl
         for (title in listOfNotNull(t.title, t.originalTitle).distinct()) {
             val key = TitleNormalizer.searchKey(title)
             if (key.length < 2) continue
-            val hits = db.catalog().search(accountId, key, 40).filter { c ->
-                c.type == type && TitleNormalizer.clean(c.title).searchKey == key &&
-                    (t.year == null || c.year == null || abs(c.year - t.year) <= 1)
+            // Recherche exacte par l'index (avant : recherche « contient » = parcours de tout le catalogue, ×60 titres).
+            val hits = db.catalog().byExactKey(accountId, type, key).filter { c ->
+                t.year == null || c.year == null || abs(c.year - t.year) <= 1
             }
             if (hits.isNotEmpty()) return hits.collapsed(prefs).first().first
         }

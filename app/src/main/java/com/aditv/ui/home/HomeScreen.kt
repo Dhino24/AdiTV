@@ -103,6 +103,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.Dispatchers
 import com.aditv.core.throttleLatest
 import kotlinx.coroutines.launch
@@ -149,8 +150,11 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         dao.recentlyAdded(accountId, MediaType.MOVIE.name, 80),
         dao.recentlyAdded(accountId, MediaType.SERIES.name, 80),
         dao.firstItems(accountId, MediaType.LIVE.name, 80),
-        // 200 premiers films seulement (repli quand le fournisseur ne date pas ses ajouts) : jamais tout le catalogue.
-        dao.firstItems(accountId, MediaType.MOVIE.name, 200),
+        // Repli (fournisseur qui ne date pas ses ajouts) : 200 premiers films, lus seulement si « ajoutés récemment » est vide
+        // (sinon cette requête triait tout le catalogue des films à chaque ouverture, pour rien).
+        dao.recentlyAdded(accountId, MediaType.MOVIE.name, 1).flatMapLatest { recent ->
+            if (recent.isEmpty()) dao.firstItems(accountId, MediaType.MOVIE.name, 200) else kotlinx.coroutines.flow.flowOf(emptyList())
+        },
         c.db.library().watchlist(accountId),
     ) { recentMovies, recentSeries, channels, anyMovies, myList -> listOf(recentMovies, recentSeries, channels, anyMovies, myList) }
         .throttleLatest(3_000)
@@ -234,8 +238,8 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
     val matches: StateFlow<List<com.aditv.data.sport.UpcomingMatch>> = c.sport.matches
     val reminders = c.sport.upcomingReminders(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val leadMinutes = c.prefs.reminderLeadMinutes.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 5)
-    private fun top(type: String) = combine(c.db.sport().observeTrending(type), c.prefs.variantPrefs, dao.observeSyncStates(accountId)) { t, p, _ -> t to p }
-        .mapLatest { (t, p) -> c.trending.top(accountId, type, t, p) }.flowOn(Dispatchers.Default)
+    private fun top(type: String) = combine(c.db.sport().observeTrending(type), c.prefs.variantPrefs, dao.observeSyncStates(accountId).throttleLatest(3_000)) { t, p, st -> Triple(t, p, st.mapNotNull { it.lastSuccessAt }.maxOrNull() ?: 0L) }
+        .mapLatest { (t, p, stamp) -> c.trending.top(accountId, type, t, p, catalogStamp = stamp) }.flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val topMovies = top("movie")
     val topSeries = top("tv")

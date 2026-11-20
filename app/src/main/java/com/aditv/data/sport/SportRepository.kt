@@ -172,9 +172,14 @@ class SportRepository(
         return db.catalog().allChannels(accountId)
             .filter { c ->
                 val cat = c.categoryId?.let(catNames::get)
-                val french = c.lang == "fr" || (cat != null && Regex("(?i)(^|[^a-z])(fr|france|french|francais|français)([^a-z]|$)").containsMatchIn(cat))
+                val french = c.lang == "fr" || (cat != null && FRENCH_CATEGORY.containsMatchIn(cat))
                 french && SportMatcher.isSportChannel(c.title, cat)
             }
             .collapsed(variantPrefs).map { it.first }
+    }
+
+    private companion object {
+        /** Compilée une fois (avant : une expression par chaîne, sur des milliers de chaînes). */
+        val FRENCH_CATEGORY = Regex("(?i)(^|[^a-z])(fr|france|french|francais|français)([^a-z]|$)")
     }
 }

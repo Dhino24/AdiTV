@@ -24,6 +24,11 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
         }
         container.appScope.launch {
             container.accounts.restore()
+            // Accueil d'abord : les tâches de fond attendent qu'il soit affiché (processeur de la Stick partagé),
+            // sauf premier import (catalogue vide).
+            val firstImport = (container.accounts.session.value as? com.aditv.data.Session.Active)
+                ?.let { s -> container.db.catalog().syncStates(s.account.id).none { it.lastSuccessAt != null } } ?: true
+            if (!firstImport) kotlinx.coroutines.delay(STARTUP_GRACE_MS)
             // Rappels reprogrammés, matchs des équipes suivies et tendances TMDB, sans attendre la synchronisation.
             launch { container.reminders.rescheduleAll(); container.refreshSport(); if (container.tmdbKey.get() != null) container.trending.refreshIfStale() }
             container.backfillVariants(); container.resyncIfParserChanged()
@@ -63,5 +68,9 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: android.content.Context) = container.imageLoader
 
-    companion object { @Volatile var inForeground = false }
+    companion object {
+        @Volatile var inForeground = false
+        /** Délai avant les tâches de fond au démarrage (l'accueil s'affiche d'abord). */
+        @Volatile var STARTUP_GRACE_MS = 12_000L
+    }
 }

@@ -65,6 +65,7 @@ class CatalogSyncTest {
         override fun allCards(accountId: String, type: String): Flow<List<CatalogCard>> = emptyFlow()
         override fun cardsWindow(accountId: String, type: String, categoryId: String?, sort: Int, limit: Int): Flow<List<CatalogCard>> = emptyFlow()
         override fun countCards(accountId: String, type: String, categoryId: String?): Flow<Int> = emptyFlow()
+        override suspend fun byExactKey(accountId: String, type: String, key: String): List<CatalogCard> = emptyList()
     }
 
     private class FakeAdapter(var movies: List<String>, var failMovies: ProviderError? = null) : ProviderAdapter {
