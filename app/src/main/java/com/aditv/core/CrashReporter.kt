@@ -46,18 +46,18 @@ object CrashReporter {
         if (marker.exists()) {
             val last = runCatching { File(dir, "heartbeat.txt").readText() }.getOrDefault("(aucun relevé)")
             val fatal = File(dir, "fatal.txt").takeIf { it.exists() }?.readText()
-            val blocked = File(dir, "watchdog.txt").takeIf { it.exists() }?.readText()
+            val blocked = (File(dir, "watchdog.txt").takeIf { it.exists() } ?: File(dir, "watchdog-last.txt").takeIf { it.exists() })?.readText()
             write(
                 if (fatal != null) "Erreur fatale (rapport incomplet) : ${fatal.substringAfter(' ').substringAfter(' ')}" else "Fermeture inattendue sans erreur Java",
                 (fatal?.let { "Erreur Java au moment de la fermeture, rapport complet impossible (manque de mémoire probable) : $it\n\n" }
                     ?: "ADITV était à l'écran et s'est fermée sans erreur Java : plantage natif (VLC, décodeur vidéo), " +
-                        "blocage de l'interface ou mémoire reprise par Fire OS.\n\n") +
+                        "blocage de l'interface (Fire OS ferme une appli figée) ou mémoire reprise par Fire OS.\n\n") +
                     (blocked?.let { "Interface bloquée avant la fermeture :\n$it\n\n" } ?: "") +
                     "Dernier état connu :\n$last\n\nJournal système d'ADITV :\n${systemLog()}",
             )
             marker.delete(); File(dir, "fatal.txt").delete()
         }
-        File(dir, "watchdog.txt").delete()
+        File(dir, "watchdog.txt").delete(); File(dir, "watchdog-last.txt").delete()
         if (!handlerSet) { handlerSet = true; setHandler() }
         val main = Handler(Looper.getMainLooper())
         main.postDelayed(object : Runnable {
@@ -126,7 +126,8 @@ object CrashReporter {
                     }
                 } else if (reported) {
                     reported = false
-                    runCatching { File(dir, "watchdog.txt").delete() }
+                    // Gardé (renommé) : si Fire OS ferme l'appli juste après, le rapport montre où l'interface était bloquée.
+                    runCatching { File(dir, "watchdog.txt").renameTo(File(dir, "watchdog-last.txt")) }
                     event("Interface débloquée")
                 }
             }
@@ -136,8 +137,9 @@ object CrashReporter {
     /** Lignes du journal Android émises par ADITV (plantage natif, mémoire) : lisibles par l'appli elle-même. */
     private fun systemLog(): String = runCatching {
         val p = ProcessBuilder("logcat", "-d", "-v", "time", "-t", "2000").redirectErrorStream(true).start()
-        val keep = Regex("(?i)fatal|signal|sigsegv|sigabrt|tombstone|outofmemory|out of memory|lowmemory|anr|libc|libvlc|vlc|mediacodec|omx|art\\s|aditv|crash|abort|died|killing")
-        val lines = p.inputStream.bufferedReader().readLines().filter { keep.containsMatchIn(it) }.takeLast(60)
+        val noise = Regex("(?i)mark sweep GC|Compiler allocated|JIT allocated|code cache")
+        val keep = Regex("(?i)fatal|signal|sigsegv|sigabrt|tombstone|outofmemory|out of memory|lowmemory|anr|libc|libvlc|vlc|mediacodec|omx|art\\s|aditv|crash|latency|stack traces|signal catcher|abort|died|killing")
+        val lines = p.inputStream.bufferedReader().readLines().filter { keep.containsMatchIn(it) && !noise.containsMatchIn(it) }.takeLast(60)
         p.destroy()
         lines.joinToString("\n").ifEmpty { "(aucune ligne utile)" }
     }.getOrDefault("(journal illisible)")

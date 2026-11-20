@@ -129,7 +129,11 @@ class EpgRepository(
     }
 
     /** Programmes par chaîne (clé = itemId) sur une fenêtre, décalages appliqués, une seule source par chaîne. */
-    suspend fun programmesFor(accountId: String, items: List<Pair<String, String?>>, from: Long, to: Long): Map<String, List<Programme>> {
+    /** Calcul hors du fil de l'interface (sur la Stick, des milliers de programmes figeaient l'écran plusieurs secondes). */
+    suspend fun programmesFor(accountId: String, items: List<Pair<String, String?>>, from: Long, to: Long): Map<String, List<Programme>> =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { programmesForImpl(accountId, items, from, to) }
+
+    private suspend fun programmesForImpl(accountId: String, items: List<Pair<String, String?>>, from: Long, to: Long): Map<String, List<Programme>> {
         val mappings = dao.mappings(accountId).associateBy { it.itemId }
         val ids = items.mapNotNull { (itemId, epg) ->
             val m = mappings[itemId]
@@ -137,7 +141,8 @@ class EpgRepository(
         }
         if (ids.isEmpty()) return emptyMap()
         val sources = dao.sources(accountId).associateBy { it.id }
-        val margin = 12 * HOUR
+        // Marge pour les décalages horaires des sources (quelques heures au plus).
+        val margin = 4 * HOUR
         val rows = ids.map { it.second }.distinct().chunked(500).flatMap { dao.programmesIn(accountId, it, from - margin, to + margin) }
         val byChannel = rows.groupBy { it.channelId }
         return ids.associate { (itemId, epg) ->

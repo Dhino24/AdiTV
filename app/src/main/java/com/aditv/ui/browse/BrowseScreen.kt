@@ -72,6 +72,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import com.aditv.core.throttleLatest
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -109,6 +110,7 @@ class BrowseViewModel(c: AppContainer, private val accountId: String, private va
                 .combine(c.prefs.variantPrefs) { list, prefs -> list.collapsed(prefs).distinctBy { it.first.id } as List<Pair<CatalogCard, Int>>? }
                 .onStart { emit(null) }
         }
+        .flowOn(kotlinx.coroutines.Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Total (versions regroupées) pour l'en-tête, sans charger les titres. */

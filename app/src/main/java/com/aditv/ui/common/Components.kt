@@ -256,11 +256,15 @@ fun rememberNowPlaying(accountId: String, cards: List<com.aditv.data.db.CatalogC
     val live = cards.filter { it.type == "LIVE" }
     val guideVersion by c.epg.version.collectAsStateWithLifecycle()
     val state = androidx.compose.runtime.produceState(emptyMap<String, String>(), live.map { it.id }, guideVersion) {
+        val ids = live.map { it.id to it.epgChannelId }
         while (true) {
             val now = System.currentTimeMillis()
-            value = c.epg.programmesFor(accountId, live.map { it.id to it.epgChannelId }, now, now + 60_000)
-                .mapNotNull { (id, list) -> list.firstOrNull { p -> p.isLive(now) }?.let { id to it.title } }.toMap()
-            kotlinx.coroutines.delay(60_000)
+            value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                c.epg.programmesFor(accountId, ids, now, now + 60_000)
+                    .mapNotNull { (id, list) -> list.firstOrNull { p -> p.isLive(now) }?.let { id to it.title } }.toMap()
+            }
+            // Recalé sur la minute suivante (les rangées ne recalculent pas toutes en même temps qu'un import).
+            kotlinx.coroutines.delay(60_000 - System.currentTimeMillis() % 60_000 + 500)
         }
     }
     return state.value

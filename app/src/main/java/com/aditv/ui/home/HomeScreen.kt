@@ -102,6 +102,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import com.aditv.core.throttleLatest
 import kotlinx.coroutines.launch
 
@@ -167,7 +169,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         // Carrousel : d'abord les titres avec un visuel paysage TMDB, puis les autres.
         val candidates = (recentMovies + recentSeries + anyMovies).map { it.first }.distinctBy { it.id }
         Triple(rows, candidates.sortedByDescending { it.tmdbBackdrop != null }.take(6), myList.map { it.first.id }.toSet())
-    }
+    }.flowOn(Dispatchers.Default) // regroupement des versions hors du fil de l'interface
 
     val state: StateFlow<HomeState> = combine(
         catalogRows, c.db.library().resumeRows(accountId, 20), dao.observeSyncStates(accountId).throttleLatest(3_000),
@@ -183,7 +185,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
                 lastSyncAt = syncStates.mapNotNull { it.lastSuccessAt }.maxOrNull(),
                 syncErrors = syncStates.mapNotNull { s -> s.lastError?.let { "${typeLabel(s.type)} : $it" } },
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 
     private suspend fun meta(itemId: String, type: String) = c.db.metadata().match(itemId)?.takeIf { it.status == "confirmed" }?.tmdbId
         ?.let { c.db.metadata().metadata(if (type == "SERIES") "tv" else "movie", it) }
@@ -227,13 +229,13 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
 
     // ---------- sport et Top 10 ----------
     val sportChannels: StateFlow<List<CatalogCard>> = dao.observeSyncStates(accountId).throttleLatest(3_000)
-        .mapLatest { c.sport.frenchSportChannels(accountId) }
+        .mapLatest { c.sport.frenchSportChannels(accountId) }.flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val matches: StateFlow<List<com.aditv.data.sport.UpcomingMatch>> = c.sport.matches
     val reminders = c.sport.upcomingReminders(accountId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val leadMinutes = c.prefs.reminderLeadMinutes.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 5)
     private fun top(type: String) = combine(c.db.sport().observeTrending(type), c.prefs.variantPrefs, dao.observeSyncStates(accountId)) { t, p, _ -> t to p }
-        .mapLatest { (t, p) -> c.trending.top(accountId, type, t, p) }
+        .mapLatest { (t, p) -> c.trending.top(accountId, type, t, p) }.flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val topMovies = top("movie")
     val topSeries = top("tv")

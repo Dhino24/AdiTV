@@ -142,6 +142,18 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
 
     private suspend fun load() {
         val f = filter ?: return
+        val start = windowStart
+        // Tout le calcul hors du fil de l'interface ; seul le résultat est appliqué à l'écran.
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { compute(f, start) }
+        truncated = result.truncated
+        rows = result.rows
+        coverageText = result.coverage
+        catchupLookup = result.catchup
+    }
+
+    private class Loaded(val rows: List<GuideRow>, val truncated: Int?, val coverage: String, val catchup: Map<String, Int>)
+
+    private suspend fun compute(f: GuideFilter, windowStart: Long): Loaded {
         val prefs = c.prefs.variantPrefs.first()
         val raw = when {
             f.key == "fav" -> c.db.live().favorites(accountId).first()
@@ -157,13 +169,14 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
         // « Toutes » : plafonné, les programmes de milliers de chaînes ne tiennent pas en mémoire sur la Stick.
         val all = raw.collapsed(prefs).map { it.first }
         val channels = if (f.key == "all") all.take(ALL_MAX) else all
-        truncated = if (f.key == "all" && all.size > ALL_MAX) all.size else null
+        val truncated = if (f.key == "all" && all.size > ALL_MAX) all.size else null
         val programmes = c.epg.programmesFor(accountId, channels.map { it.id to it.epgChannelId }, windowStart, windowStart + WINDOW)
-        rows = channels.map { GuideRow(it, programmes[it.id].orEmpty()) }
         val cov = c.epg.coverage(accountId)
-        coverageText = (truncated?.let { "$ALL_MAX premières chaînes sur $it : choisissez une catégorie pour les autres · " } ?: "") + "Couverture : ${cov.covered} / ${cov.channels} chaînes avec programmes à venir" +
+        val coverage = (truncated?.let { "$ALL_MAX premières chaînes sur $it : choisissez une catégorie pour les autres · " } ?: "") +
+            "Couverture : ${cov.covered} / ${cov.channels} chaînes avec programmes à venir" +
             if (cov.withGuideId > cov.covered) " · ${cov.withGuideId - cov.covered} avec un ID de guide sans données" else ""
-        catchupLookup = channels.associate { it.id to (c.db.catalog().observeItem(it.id).first()?.catchupDays ?: 0) }
+        val catchup = channels.associate { it.id to (c.db.catalog().observeItem(it.id).first()?.catchupDays ?: 0) }
+        return Loaded(channels.map { GuideRow(it, programmes[it.id].orEmpty()) }, truncated, coverage, catchup)
     }
 
     companion object {

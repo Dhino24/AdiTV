@@ -5,8 +5,14 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.8.5) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.8.6) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
+
+### 0.8.6 (21/11/2026) — rapport d'Adama : la cause est un **blocage de l'interface** (ANR)
+- Rapport 0.8.4 : import films/séries réussi (123 s) → correctif 0.8.4 validé. Fermeture = ANR (« signal 3 », traces ANR, touche traitée après 8,4 s), blocages ≈ toutes les 60 s sur l'accueil.
+- Cause : « programme en cours » des rangées de chaînes recalculé chaque minute **sur le fil de l'interface** (24 h de programmes par chaîne), plus regroupements de listes (accueil, grilles, Top 10, guide, zapping) sur ce même fil.
+- Correctif : tous ces calculs passent en arrière-plan (Dispatchers.Default) ; marge de lecture du guide réduite (12 h → 4 h) ; rafraîchissements recalés sur la minute.
+- Rapport : pile du dernier blocage conservée même s'il se débloque juste avant la fermeture ; journal système débarrassé des lignes de GC.
 
 ### 0.8.5 (20/11/2026) — proposition d'Adama : films et séries mis à jour toutes les 3 semaines, pas à chaque ouverture
 - Films et séries importés automatiquement **une seule fois** (premier import) ; ensuite, **bandeau sur l'accueil toutes les 3 semaines** : « Mettre à jour » ou « Plus tard » (repousse de 3 jours). Bouton manuel toujours dans Réglages → Catalogue local.
@@ -132,7 +138,7 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
 - [x] 0.3.1 testée : films toujours vides.
 - [x] 0.4.0 : seules les chaînes synchronisées.
 - [x] 0.5.0 : films et séries présents, clé TMDB ajoutée.
-- [ ] Installer `ADITV-0.8.5-debug.apk` et dérouler `docs/RECETTE.md` (dont la saisie par QR code).
+- [ ] Installer `ADITV-0.8.6-debug.apk` et dérouler `docs/RECETTE.md` (dont la saisie par QR code).
 - [ ] Juger le design sur le téléviseur : lisibilité des textes à distance, fluidité du focus sur la Stick 1re génération.
 - [ ] Ajouter une clé TMDB (Réglages → Métadonnées TMDB) pour les grands visuels et logos-titres.
 - [ ] Lire un film, un épisode, une chaîne ; zapper ↑/↓ ; ouvrir le Guide TV et noter la couverture affichée et le temps d'actualisation.

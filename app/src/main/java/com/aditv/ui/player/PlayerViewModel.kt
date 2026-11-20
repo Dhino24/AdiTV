@@ -251,7 +251,7 @@ class PlayerViewModel(
             liveList?.startsWith("cat:") == true -> c.db.catalog().cardsInCategory(accountId, "LIVE", liveList.removePrefix("cat:")).first()
             else -> c.db.catalog().allChannels(accountId)
         }
-        channels = raw.collapsed(prefs).map { it.first }
+        channels = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { raw.collapsed(prefs).map { it.first } }
         updatePosition()
     }
 
