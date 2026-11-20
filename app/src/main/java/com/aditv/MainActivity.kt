@@ -21,9 +21,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Toute touche de la télécommande : ADITV est en cours d'utilisation (le guide TV attend). */
-    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+    override fun onUserInteraction() {
+        super.onUserInteraction()
         com.aditv.core.UserActivity.touch()
-        return super.dispatchKeyEvent(event)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
