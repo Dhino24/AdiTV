@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADITV — prototype TV (données fictives)</title>
+<link rel="stylesheet" href="aditv.css">
+</head>
+<body>
+<div id="viewport">
+  <div id="stage" aria-live="polite">
+    <nav id="nav" aria-label="Menu principal">
+      <img class="nav-logo" src="img/logo_full.png" alt="ADITV">
+      <div class="nav-pills" data-row="nav">
+        <button class="pill f" data-k="nav-home" data-act="tab:home">Accueil</button>
+        <button class="pill f" data-k="nav-live" data-act="tab:live">Direct</button>
+        <button class="pill f" data-k="nav-films" data-act="tab:films">Films</button>
+        <button class="pill f" data-k="nav-series" data-act="tab:series">Séries</button>
+        <button class="pill f" data-k="nav-mylist" data-act="tab:mylist">Ma liste</button>
+      </div>
+      <div class="nav-right" data-row="nav-r">
+        <span class="nav-clock">21:12</span>
+        <button class="icon-btn f" data-k="nav-search" data-act="tab:search" aria-label="Rechercher"></button>
+        <button class="avatar f" data-k="nav-profile" data-act="demo" aria-label="Profil et démonstration">A</button>
+      </div>
+    </nav>
+    <main id="screens"></main>
+    <div id="overlay" hidden></div>
+    <div id="toast" role="status"></div>
+  </div>
+</div>
+<footer id="demobar">
+  <span class="demo-tag">Prototype</span>
+  <span>Données fictives · aucune connexion, aucun flux, aucun service tiers</span>
+  <span class="keys"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> naviguer · <kbd>Entrée</kbd> OK · <kbd>Échap</kbd> retour · <kbd>D</kbd> états de démo · <kbd>M</kbd> animations réduites</span>
+</footer>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
