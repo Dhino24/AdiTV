@@ -1,5 +1,6 @@
 package com.aditv.ui.design
 
+import com.aditv.ui.common.navSound
 import android.provider.Settings
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.LinearEasing
@@ -96,7 +97,10 @@ fun systemReducedMotion(): Boolean {
 private val Halo = Glow(elevationColor = Aditv.Accent.copy(alpha = 0.32f), elevation = 10.dp)
 private val Lift = Glow(elevationColor = Color.Black.copy(alpha = 0.6f), elevation = 14.dp)
 
-/** Bouton en pilule : principal (blanc) ou secondaire (verre fumé). Au focus : blanc plein, halo turquoise. */
+/**
+ * Bouton (maquette validée) : rectangle aux coins arrondis. Principal : blanc plein ; secondaire : contour blanc fin.
+ * Au focus : blanc plein, liseré turquoise, léger agrandissement.
+ */
 @Composable
 fun PillButton(
     text: String,
@@ -108,28 +112,28 @@ fun PillButton(
     small: Boolean = false,
     enabled: Boolean = true,
 ) {
-    val shape = RoundedCornerShape(50)
+    val shape = RoundedCornerShape(if (small) 5.dp else 6.dp)
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(if (small) 27.dp else 33.dp),
+        modifier = (modifier.height(if (small) 27.dp else 32.dp)).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (primary) Color.White.copy(alpha = 0.92f) else Glass.Idle,
+            containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.04f),
             contentColor = if (primary) Aditv.OnLight else Aditv.Text,
             focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
             disabledContainerColor = Glass.Idle.copy(alpha = 0.06f), disabledContentColor = Aditv.TextTertiary,
         ),
         border = ClickableSurfaceDefaults.border(
-            border = if (primary) Border.None else Border(BorderStroke(0.5.dp, Glass.Border), shape = shape),
-            focusedBorder = Border(BorderStroke(2.dp, Aditv.Accent.copy(alpha = 0.6f)), shape = shape, inset = (-2).dp),
+            border = if (primary) Border.None else Border(BorderStroke(0.75.dp, Color.White.copy(alpha = 0.55f)), shape = shape),
+            focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp),
         ),
     ) {
-        Row(Modifier.fillMaxHeight().padding(horizontal = if (small) 12.dp else 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) { Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(if (small) 11.dp else 13.dp)); Spacer(Modifier.width(7.dp)) }
-            Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = if (small) 10.sp else 11.sp), maxLines = 1)
+        Row(Modifier.fillMaxHeight().padding(horizontal = if (small) 12.dp else 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) { Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(if (small) 11.dp else 13.dp)); Spacer(Modifier.width(8.dp)) }
+            Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = if (small) 10.sp else 11.5.sp), maxLines = 1)
             if (secondary != null) { Spacer(Modifier.width(6.dp)); Text(secondary, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium, fontSize = 10.sp), modifier = Modifier.padding(start = 0.dp)) }
         }
     }
@@ -150,7 +154,7 @@ fun RoundButton(
     Box(modifier.size(size), contentAlignment = Alignment.TopCenter) {
         Surface(
             onClick = onClick,
-            modifier = Modifier.size(size).onFocusChanged { focused = it.isFocused },
+            modifier = (Modifier.size(size).onFocusChanged { focused = it.isFocused }).navSound(),
             shape = ClickableSurfaceDefaults.shape(CircleShape),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
             glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
@@ -181,7 +185,7 @@ fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: M
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
-        modifier = modifier.height(25.dp),
+        modifier = (modifier.height(25.dp)).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
@@ -309,7 +313,7 @@ fun WideCard(
     Column(Modifier.width(width)) {
         Card(
             onClick = onClick,
-            modifier = modifier.width(width).height(width / aspect).onFocusChanged { focused = it.isFocused },
+            modifier = (modifier.width(width).height(width / aspect).onFocusChanged { focused = it.isFocused }).navSound(),
             shape = CardDefaults.shape(shape),
             scale = CardDefaults.scale(focusedScale = 1.06f),
             glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),
@@ -370,7 +374,7 @@ fun PosterTile(title: String, subtitle: String?, posterUrl: String?, onClick: ()
     Column(Modifier.width(width)) {
         Card(
             onClick = onClick,
-            modifier = modifier.width(width).height(width * 1.5f).onFocusChanged { focused = it.isFocused },
+            modifier = (modifier.width(width).height(width * 1.5f).onFocusChanged { focused = it.isFocused }).navSound(),
             shape = CardDefaults.shape(shape),
             scale = CardDefaults.scale(focusedScale = 1.06f),
             glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),
@@ -398,7 +402,7 @@ fun ChannelTile(name: String, logoUrl: String?, detail: String?, onClick: () -> 
     Column(Modifier.width(width)) {
         Card(
             onClick = onClick,
-            modifier = modifier.width(width).height(width * 9f / 16f).onFocusChanged { focused = it.isFocused },
+            modifier = (modifier.width(width).height(width * 9f / 16f).onFocusChanged { focused = it.isFocused }).navSound(),
             shape = CardDefaults.shape(shape),
             scale = CardDefaults.scale(focusedScale = 1.06f),
             glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),
@@ -490,7 +494,7 @@ fun SkeletonCard(width: Dp, aspect: Float = CINEMASCOPE) {
 fun SheetOption(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, checked: Boolean? = null, detail: String? = null, switch: Boolean? = null) {
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(35.dp),
+        modifier = (modifier.fillMaxWidth().height(35.dp)).navSound(),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(7.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight),
@@ -532,7 +536,7 @@ fun CardFrame(onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 20
     val shape = RoundedCornerShape(7.dp)
     Card(
         onClick = onClick,
-        modifier = modifier.width(width).height(width / aspect),
+        modifier = (modifier.width(width).height(width / aspect)).navSound(),
         shape = CardDefaults.shape(shape),
         scale = CardDefaults.scale(focusedScale = 1.06f),
         glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),

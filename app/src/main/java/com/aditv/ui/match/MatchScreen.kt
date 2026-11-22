@@ -1,5 +1,6 @@
 package com.aditv.ui.match
 
+import com.aditv.ui.common.navSound
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -108,7 +109,7 @@ fun MatchScreen(itemId: String, onDone: () -> Unit) {
                     supportingContent = { r.originalTitle?.takeIf { o -> o != r.title }?.let { o -> Text(o) } },
                     shape = ListItemDefaults.shape(RoundedCornerShape(10.dp)),
                     colors = ListItemDefaults.colors(focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight, selectedContainerColor = Aditv.Surface2),
-                    modifier = Modifier.height(88.dp),
+                    modifier = (Modifier.height(88.dp)).navSound(),
                 )
             }
         }

@@ -1,5 +1,6 @@
 package com.aditv.ui.shell
 
+import com.aditv.ui.common.navSound
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -90,12 +91,12 @@ private data class Tab(val route: String, val label: String)
 
 private val tabs = listOf(
     Tab("home", "Accueil"),
-    Tab("live", "Direct"),
     Tab("movies", "Films"),
     Tab("series", "Séries"),
-    Tab("mylist", "Ma liste"),
+    Tab("live", "En direct"),
 )
-private val topRoutes = tabs.map { it.route } + listOf("search", "settings")
+/** À droite de la barre : Recherche, Ma liste (signet), Réglages. */
+private val topRoutes = tabs.map { it.route } + listOf("search", "mylist", "settings")
 
 /** Barre de navigation : les écrans qui défilent la masquent ; elle réapparaît dès qu'elle reçoit le focus. */
 @Stable
@@ -173,7 +174,8 @@ fun Shell(session: Session.Active) {
                 ) {
                     composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive) } }
                     composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }
-                    composable("live") { Entry(entries, "live") { com.aditv.ui.guide.GuideScreen(session, onPlayLive = playLive, onPlay = play, onOpen = openItem) } }
+                    composable("live") { Entry(entries, "live") { com.aditv.ui.live.LiveScreen(session, onPlayLive = playLive, onGuide = { nav.navigate("guide") }) } }
+                    composable("guide") { com.aditv.ui.guide.GuideScreen(session, onPlayLive = playLive, onPlay = play, onOpen = openItem) }
                     composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onPlayLive = playLive) } }
                     composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onPlayLive = playLive) } }
                     composable("channels") { BrowseScreen(accountId, MediaType.LIVE, onOpen = openItem, onPlayLive = playLive) }
@@ -250,23 +252,25 @@ private fun TopNav(
     }
     val running by c.sync.running.collectAsStateWithLifecycle()
     Box(
-        modifier.fillMaxWidth().height(60.dp)
+        modifier.fillMaxWidth().height(50.dp)
             .graphicsLayer { this.alpha = alpha; translationY = -12.dp.toPx() * (1f - alpha) }
-            .background(Brush.verticalGradient(listOf(Aditv.Bg.copy(alpha = 0.78f), Color.Transparent)))
+            .background(Brush.verticalGradient(listOf(Aditv.Bg.copy(alpha = 0.96f), Aditv.Bg.copy(alpha = 0.82f))))
             // La barre retient sa rubrique : y entrer ramène sur la rubrique active.
             .focusProperties { onEnter = { requesters[selected]?.requestFocus() } }
             .onPreviewKeyEvent { ev -> ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionDown && onDown() }
             .focusGroup()
-            .padding(horizontal = 48.dp),
+            .padding(horizontal = 32.dp),
     ) {
+        // Logo à gauche, puis les rubriques alignées à sa suite (maquette validée).
         Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.height(20.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))
             if (isDemo) { Spacer(Modifier.width(8.dp)); Text("DÉMO", fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Aditv.OnLight, modifier = Modifier.background(Aditv.Accent, RoundedCornerShape(50)).padding(horizontal = 5.dp, vertical = 1.5.dp)) }
+            Spacer(Modifier.width(40.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                tabs.forEach { t -> NavTab(t.label, t.route == selected, { onPick(t.route) }, Modifier.focusRequester(requesters.getValue(t.route))) }
+            }
         }
-        Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-            tabs.forEach { t -> NavPill(t.label, t.route == selected, { onPick(t.route) }, Modifier.focusRequester(requesters.getValue(t.route))) }
-        }
-        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             running.values.firstOrNull()?.let { r ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(5.dp).background(Aditv.Accent, CircleShape))
@@ -274,8 +278,9 @@ private fun TopNav(
                     Text("Mise à jour · ${com.aditv.ui.home.typeLabel(r.type.name)} ${r.count}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, maxLines = 1)
                 }
             }
-            Text(clock, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
+            Text(clock, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary)
             NavIcon(R.drawable.ic_search, "Rechercher", selected == "search", { onPick("search") }, Modifier.focusRequester(requesters.getValue("search")))
+            NavIcon(R.drawable.ic_bookmark, "Ma liste", selected == "mylist", { onPick("mylist") }, Modifier.focusRequester(requesters.getValue("mylist")))
             NavIcon(R.drawable.ic_settings, "Réglages", selected == "settings", { onPick("settings") }, Modifier.focusRequester(requesters.getValue("settings")))
         }
     }
@@ -283,22 +288,25 @@ private fun TopNav(
 
 private val NavHalo = Glow(elevationColor = Aditv.Accent.copy(alpha = 0.25f), elevation = 8.dp)
 
+/** Rubrique : texte seul ; active = blanc souligné ; sélectionnée à la télécommande = pastille blanche. */
 @Composable
-private fun NavPill(label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun NavTab(label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        modifier = modifier.height(26.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+        modifier = (modifier.height(28.dp).onFocusChanged { focused = it.isFocused }).navSound(),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (isSelected) Color.White.copy(alpha = 0.14f) else Color.Transparent,
+            containerColor = Color.Transparent,
             contentColor = if (isSelected) Aditv.Text else Aditv.TextSecondary,
             focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
         ),
     ) {
-        Box(Modifier.fillMaxHeight().padding(horizontal = 13.dp), contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp), maxLines = 1)
+        Column(Modifier.fillMaxHeight().padding(horizontal = 11.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium, fontSize = 12.sp), maxLines = 1)
+            if (isSelected && !focused) Box(Modifier.padding(top = 3.dp).width(22.dp).height(2.dp).background(Aditv.Text, RoundedCornerShape(1.dp)))
         }
     }
 }
@@ -307,7 +315,7 @@ private fun NavPill(label: String, isSelected: Boolean, onClick: () -> Unit, mod
 private fun NavIcon(icon: Int, label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     Surface(
         onClick = onClick,
-        modifier = modifier.size(27.dp),
+        modifier = (modifier.size(28.dp)).navSound(),
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),

@@ -74,6 +74,12 @@ class PlayerViewModel(
 
     private var request: PlaybackRequest? = null
     private var currentItem: CatalogItemEntity? = null
+        set(v) {
+            field = v
+            badges = listOfNotNull(com.aditv.data.variants.VariantParser.qualityLabel(v?.quality), com.aditv.data.variants.VariantParser.languageLabel(v?.lang))
+        }
+    /** Qualité et langue annoncées par le fournisseur (badges en haut à droite du lecteur). */
+    var badges by mutableStateOf<List<String>>(emptyList()); private set
     private var channels: List<CatalogCard> = emptyList()
     private var prefs = VariantPrefs()
     private var forceHighest = true

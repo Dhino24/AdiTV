@@ -55,7 +55,7 @@ fun AditvButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(30.dp),
+        modifier = (modifier.height(30.dp)).navSound(),
         shape = ButtonDefaults.shape(RoundedCornerShape(50)),
         scale = ButtonDefaults.scale(focusedScale = 1.06f),
         glow = ButtonDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Aditv.Accent.copy(alpha = 0.3f), 10.dp)),
@@ -121,7 +121,7 @@ fun PosterCard(title: String, imageUrl: String?, subtitle: String?, onClick: () 
     Column(Modifier.width(width)) {
         Card(
             onClick = onClick,
-            modifier = cardModifier.width(width).height(width * 1.5f),
+            modifier = (cardModifier.width(width).height(width * 1.5f)).navSound(),
             shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
             scale = CardDefaults.scale(focusedScale = 1.05f),
             border = CardDefaults.border(focusedBorder = FocusBorder),
@@ -137,7 +137,7 @@ fun PosterCard(title: String, imageUrl: String?, subtitle: String?, onClick: () 
 fun ChannelCard(name: String, logoUrl: String?, detail: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         onClick = onClick,
-        modifier = modifier.width(180.dp).height(104.dp),
+        modifier = (modifier.width(180.dp).height(104.dp)).navSound(),
         shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
         scale = CardDefaults.scale(focusedScale = 1.05f),
         border = CardDefaults.border(border = Border(BorderStroke(1.dp, Aditv.Line), shape = RoundedCornerShape(12.dp)), focusedBorder = FocusBorder),
@@ -229,7 +229,7 @@ fun ProgressCard(title: String, subtitle: String?, imageUrl: String?, progress: 
     Column(Modifier.width(width)) {
         Card(
             onClick = onClick,
-            modifier = cardModifier.width(width).height(width * 9f / 16f),
+            modifier = (cardModifier.width(width).height(width * 9f / 16f)).navSound(),
             shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
             scale = CardDefaults.scale(focusedScale = 1.05f),
             border = CardDefaults.border(focusedBorder = FocusBorder),

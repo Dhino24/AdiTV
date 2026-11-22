@@ -1,5 +1,6 @@
 package com.aditv.ui.guide
 
+import com.aditv.ui.common.navSound
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -89,7 +90,7 @@ fun EpgMapScreen(itemId: String, onDone: () -> Unit) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (results.isEmpty()) item { Text("Aucune chaîne de guide trouvée. Actualisez le guide dans Réglages si besoin.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
             items(results.distinctBy { "${it.sourceId}|${it.channelId}" }, key = { r -> "${r.sourceId}|${r.channelId}" }) { r ->
-                ListItem(
+                ListItem(modifier = Modifier.navSound(),
                     selected = (mapping?.epgChannelId ?: it.epgChannelId) == r.channelId,
                     onClick = { scope.launch { c.epg.setManualMapping(it, r.channelId); onDone() } },
                     headlineContent = { Text(r.displayName) },

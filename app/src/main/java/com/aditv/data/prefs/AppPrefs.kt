@@ -61,6 +61,10 @@ class AppPrefs(private val context: Context) {
     val introSoundEnabled: Flow<Boolean> = context.dataStore.data.map { it[introSound] ?: true }
     suspend fun setIntroImage(v: Boolean) = context.dataStore.edit { it[introImage] = v }
     suspend fun setIntroSound(v: Boolean) = context.dataStore.edit { it[introSound] = v }
+    /** Petit son doux quand la sélection se déplace (façon Apple TV). */
+    private val navSoundKey = booleanPreferencesKey("nav_sound")
+    val navSoundEnabled: Flow<Boolean> = context.dataStore.data.map { it[navSoundKey] ?: true }
+    suspend fun setNavSound(v: Boolean) = context.dataStore.edit { it[navSoundKey] = v }
 
     // ---------- sport : équipes suivies (premier lancement), délai des rappels ----------
     /** « Plus tard » sur la proposition de mise à jour des films et séries : pas de nouvelle proposition avant cette date. */
@@ -101,6 +105,7 @@ class AppPrefs(private val context: Context) {
         values["force_highest_bitrate"]?.toBooleanStrictOrNull()?.let { p[forceHighest] = it }
         values["intro_image"]?.toBooleanStrictOrNull()?.let { p[introImage] = it }
         values["intro_sound"]?.toBooleanStrictOrNull()?.let { p[introSound] = it }
+        values["nav_sound"]?.toBooleanStrictOrNull()?.let { p[navSoundKey] = it }
         values["reminder_lead_minutes"]?.toIntOrNull()?.let { p[reminderLead] = it }
         values["text_scale_percent"]?.toIntOrNull()?.let { p[textScale] = it }
         values["reduce_motion"]?.toBooleanStrictOrNull()?.let { p[reduceMotion] = it }

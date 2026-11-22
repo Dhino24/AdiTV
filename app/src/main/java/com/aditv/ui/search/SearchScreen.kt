@@ -1,5 +1,6 @@
 package com.aditv.ui.search
 
+import com.aditv.ui.common.navSound
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -169,7 +170,7 @@ private val KeyHalo = Glow(elevationColor = Aditv.Accent.copy(alpha = 0.3f), ele
 private fun Key(label: String, modifier: Modifier, small: Boolean = false, icon: Int? = null, enabled: Boolean = true, onClick: () -> Unit) {
     Surface(
         onClick = onClick, enabled = enabled,
-        modifier = modifier.height(31.dp),
+        modifier = (modifier.height(31.dp)).navSound(),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = KeyHalo),

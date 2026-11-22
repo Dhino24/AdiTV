@@ -1,5 +1,7 @@
 package com.aditv.ui.guide
 
+import androidx.compose.foundation.border
+import com.aditv.ui.common.navSound
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -227,25 +229,30 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
         else if (x + minOf(w, viewportPx * 0.6f) > scrollPx + viewportPx) scrollPx = x + minOf(w, viewportPx * 0.6f) - viewportPx + 20 * pxPerMin
     }
 
-    Column(Modifier.fillMaxSize().padding(top = 66.dp)) {
+    Column(Modifier.fillMaxSize().padding(top = 58.dp)) {
+        // En-tête (maquette validée) : « Guide TV », jour et fuseau ; horaires à droite.
+        Row(Modifier.padding(horizontal = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Guide TV", fontFamily = com.aditv.ui.theme.Outfit, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, color = Aditv.Text)
+                Text(dayFmt.format(Date(vm.windowStart)).replaceFirstChar { it.uppercase() } + "  ·  heure de " + java.util.TimeZone.getDefault().id.substringAfterLast('/').replace('_', ' '),
+                    style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip("− 6 h", false, { vm.shift(-6 * HOUR) })
+                FilterChip("+ 6 h", false, { vm.shift(6 * HOUR) })
+                FilterChip("Jour suivant", false, { vm.shift(24 * HOUR) })
+                com.aditv.ui.design.PillButton("Maintenant", { vm.goNow() }, icon = null, primary = false, small = true)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         // Aperçu de la chaîne / du programme sélectionné.
-        Box(Modifier.padding(horizontal = 48.dp).height(150.dp)) { preview?.let { (ch, p) -> LivePreview(ch, p, ch.id in favIds, timeFmt) } }
-        Row(Modifier.padding(start = 48.dp, end = 48.dp, top = 6.dp).height(34.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.padding(horizontal = 48.dp).height(118.dp)) { preview?.let { (ch, p) -> LivePreview(ch, p, ch.id in favIds, timeFmt) } }
+        Row(Modifier.padding(start = 48.dp, end = 48.dp, top = 4.dp).height(32.dp), verticalAlignment = Alignment.CenterVertically) {
             LazyRow(Modifier.weight(1f).focusRestorer(), horizontalArrangement = Arrangement.spacedBy(5.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp)) {
                 items(vm.filters.distinctBy { it.key }, key = { it.key }) { f -> FilterChip(f.label, f == vm.filter, { vm.select(f) }) }
             }
             Spacer(Modifier.width(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilterChip("Maintenant", false, { vm.goNow() })
-                FilterChip("− 6 h", false, { vm.shift(-6 * HOUR) })
-                FilterChip("+ 6 h", false, { vm.shift(6 * HOUR) })
-                FilterChip("Jour suivant", false, { vm.shift(24 * HOUR) })
-            }
-        }
-        Row(Modifier.padding(start = 48.dp, end = 48.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(dayFmt.format(Date(vm.windowStart)).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
-            Spacer(Modifier.width(10.dp))
-            vm.coverageText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            vm.coverageText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 300.dp)) }
         }
         // Axe horaire
         Row(Modifier.padding(start = 48.dp, end = 48.dp)) {
@@ -343,6 +350,17 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
                         onClose = { selected = null },
                         modifier = Modifier.align(Alignment.BottomCenter))
                 }
+            
+                // Rappel des touches (maquette validée).
+                Row(
+                    Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Aditv.Bg)))
+                        .padding(start = 48.dp, top = 14.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    KeyHint("OK"); Text("Détails", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+                    Spacer(Modifier.width(10.dp)); KeyHint("Retour"); Text("Fermer", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+                    Spacer(Modifier.width(10.dp)); KeyHint("◀ ▶"); Text("Parcourir", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+                }
             }
         }
     }
@@ -352,7 +370,7 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
 private fun LivePreview(ch: CatalogCard, p: Programme?, fav: Boolean, timeFmt: SimpleDateFormat) {
     val now = System.currentTimeMillis()
     Row {
-        Box(Modifier.width(250.dp).height(141.dp).clip(RoundedCornerShape(8.dp)).background(Brush.radialGradient(listOf(Color(0xFF22303E), Color(0xFF10161D)))), contentAlignment = Alignment.Center) {
+        Box(Modifier.width(206.dp).height(116.dp).clip(RoundedCornerShape(8.dp)).background(Brush.radialGradient(listOf(Color(0xFF22303E), Color(0xFF10161D)))), contentAlignment = Alignment.Center) {
             if (ch.imageUrl != null) com.aditv.ui.common.RemoteImage(ch.imageUrl, ch.title, Modifier.fillMaxSize().padding(28.dp), androidx.compose.ui.layout.ContentScale.Fit, fallbackTitle = false)
             else Text(ch.title.uppercase(), fontFamily = com.aditv.ui.theme.Outfit, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = 1.5.sp, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 2)
             if (p != null && p.isLive(now)) {
@@ -391,7 +409,7 @@ private enum class CellKind { CHANNEL, NOW, PAST, NEXT, NONE }
 private fun Cell(modifier: Modifier, onClick: () -> Unit, kind: CellKind, progress: Float? = null, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(5.dp)
     Surface(
-        onClick = onClick, modifier = modifier,
+        onClick = onClick, modifier = modifier.navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = if (kind == CellKind.CHANNEL) 1.04f else 1f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Aditv.Accent.copy(alpha = 0.3f), 8.dp)),
@@ -449,3 +467,10 @@ private fun ProgrammePanel(
         }
     }
 }
+
+
+@Composable
+private fun KeyHint(label: String) = Text(
+    label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Medium), color = Aditv.Text,
+    modifier = Modifier.border(0.75.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+)

@@ -1,5 +1,8 @@
 package com.aditv.ui.player
 
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
@@ -85,7 +88,7 @@ import com.aditv.ui.theme.Aditv
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private enum class Panel { NONE, AUDIO, VERSION, ENGINE, SLEEP }
+private enum class Panel { NONE, AUDIO, SUBS, VERSION, ENGINE, SLEEP, MORE }
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -252,20 +255,28 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         }
 
         if (controlsVisible || vm.error != null) {
-            Box(Modifier.fillMaxWidth().height(150.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent))))
-            Column(Modifier.padding(start = 48.dp, top = 36.dp).widthIn(max = 620.dp)) {
-                if (vm.isLive) Row(verticalAlignment = Alignment.CenterVertically) {
-                    LivePill()
-                    vm.channelPosition?.let { Spacer(Modifier.width(8.dp)); Text("Chaîne $it", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
-                } else Kicker("En lecture")
-                Spacer(Modifier.height(6.dp))
-                Text(vm.title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (!vm.isLive) vm.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, modifier = Modifier.padding(top = 4.dp)) }
-                if (vm.isLive) NowNext(vm.nowNext)
+            Box(Modifier.fillMaxWidth().height(150.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Transparent))))
+            // En-tête (maquette validée) : logo, retour, titre et informations ; badges à droite.
+            Row(Modifier.padding(start = 32.dp, top = 22.dp, end = 300.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.height(18.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))
+                Box(Modifier.padding(horizontal = 16.dp).width(1.dp).height(26.dp).background(Color.White.copy(alpha = 0.22f)))
+                Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Retour", tint = Aditv.Text, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(vm.title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 17.sp), color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (vm.isLive) Row(verticalAlignment = Alignment.CenterVertically) {
+                        LivePill()
+                        vm.channelPosition?.let { Spacer(Modifier.width(8.dp)); Text("Chaîne $it", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+                    } else vm.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, maxLines = 1) }
+                    if (vm.isLive) NowNext(vm.nowNext)
+                }
             }
-            Row(Modifier.align(Alignment.TopEnd).padding(end = 48.dp, top = 38.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Moteur : Media3", style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
-                Spacer(Modifier.width(10.dp))
+            Row(Modifier.align(Alignment.TopEnd).padding(end = 32.dp, top = 26.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                vm.badges.forEach { b ->
+                    Text(b, style = MaterialTheme.typography.labelLarge.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium), color = Aditv.Text,
+                        modifier = Modifier.border(0.75.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(5.dp)).padding(horizontal = 9.dp, vertical = 3.dp))
+                }
+                Spacer(Modifier.width(4.dp))
                 Text(clock, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
             }
         }
@@ -273,37 +284,43 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         if (controlsVisible && vm.error == null && engine != null) {
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.88f))))
-                    .padding(start = 48.dp, end = 48.dp, top = 60.dp, bottom = 32.dp),
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.9f))))
+                    .padding(start = 32.dp, end = 32.dp, top = 60.dp, bottom = 24.dp),
             ) {
+                // Temps écoulé · barre · durée totale (maquette validée).
                 if (!vm.isLive && duration > 0) {
-                    SeekBar(position, buffered, duration, Modifier.onFocusChanged { scrubFocused = it.isFocused })
-                    Spacer(Modifier.height(4.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(fmt(position), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
-                        Text("− " + fmt((duration - position).coerceAtLeast(0)), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(fmt(position), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp), color = Aditv.Text)
+                        Spacer(Modifier.width(16.dp))
+                        SeekBar(position, buffered, duration, Modifier.weight(1f).onFocusChanged { scrubFocused = it.isFocused })
+                        Spacer(Modifier.width(16.dp))
+                        Text(fmt(duration), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp), color = Aditv.Text)
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(64.dp)) {
-                    RoundButton(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Lecture",
-                        { engine.let { if (it.isPlaying) it.pause() else it.play() }; touch() }, Modifier.focusRequester(playFocus), size = 42.dp)
-                    if (!vm.isLive) {
-                        RoundButton(R.drawable.ic_back10, "Reculer de 10 s", { seekBy(-10_000); touch() }, overlay = "10")
-                        RoundButton(R.drawable.ic_fwd10, "Avancer de 10 s", { seekBy(10_000); touch() }, overlay = "10")
-                    } else {
-                        RoundButton(R.drawable.ic_up, "Chaîne précédente", { vm.zap(-1); touch() })
-                        RoundButton(R.drawable.ic_down, "Chaîne suivante", { vm.zap(1); touch() })
-                        RoundButton(if (vm.isFavorite) R.drawable.ic_star else R.drawable.ic_star_outline, if (vm.isFavorite) "Chaîne favorite" else "Ajouter aux favoris", { vm.toggleFavorite(); touch() }, active = vm.isFavorite)
+                Box(Modifier.fillMaxWidth().height(58.dp)) {
+                    Text(
+                        if (vm.isLive) "En direct" else if (playing) "En cours de lecture" else "En pause",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp), color = Aditv.TextSecondary, modifier = Modifier.align(Alignment.CenterStart),
+                    )
+                    // Commandes de lecture au centre.
+                    Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (!vm.isLive) RoundButton(R.drawable.ic_back10, "Reculer de 10 s", { seekBy(-10_000); touch() }, overlay = "10")
+                        else RoundButton(R.drawable.ic_up, "Chaîne précédente", { vm.zap(-1); touch() })
+                        RoundButton(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Lecture",
+                            { engine.let { if (it.isPlaying) it.pause() else it.play() }; touch() }, Modifier.focusRequester(playFocus), size = 46.dp, active = true)
+                        if (!vm.isLive) RoundButton(R.drawable.ic_fwd10, "Avancer de 10 s", { seekBy(10_000); touch() }, overlay = "10")
+                        else RoundButton(R.drawable.ic_down, "Chaîne suivante", { vm.zap(1); touch() })
                     }
-                    Spacer(Modifier.weight(1f))
-                    PillButton("Audio et sous-titres", { panel = Panel.AUDIO }, icon = R.drawable.ic_subs, primary = false, small = true)
-                    if (vm.versions.size > 1) PillButton(vm.versions.firstOrNull { it.selected }?.label ?: "Version", { panel = Panel.VERSION }, icon = R.drawable.ic_layers, primary = false, small = true)
-                    PillButton("Moteur : " + vm.engineChoice.label + if (vm.engineChoice == com.aditv.playback.engine.EngineChoice.AUTO) " · ${engine.kind.label}" else "", { panel = Panel.ENGINE }, icon = R.drawable.ic_tv, primary = false, small = true)
-                    PillButton("Turbo", { vm.toggleTurbo(!vm.turbo); touch() }, icon = R.drawable.ic_bolt, primary = false, small = true, secondary = if (vm.turbo) "activé" else null)
-                    PillButton("Statistiques", { statsOpen = !statsOpen; touch() }, icon = R.drawable.ic_chart, primary = false, small = true)
-                    PillButton("Veille", { panel = Panel.SLEEP }, icon = R.drawable.ic_power, primary = false, small = true,
-                        secondary = sleepLeft?.let { "${(it / 60_000) + 1} min" })
+                    // Options à droite : Audio, Sous-titres, Turbo, Infos, puis « Plus » (moteur, version, veille, favori).
+                    Row(Modifier.align(Alignment.CenterEnd), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        PillButton("Audio", { panel = Panel.AUDIO }, icon = R.drawable.ic_trailer, primary = false, small = true)
+                        PillButton("Sous-titres", { panel = Panel.SUBS }, icon = R.drawable.ic_subs, primary = false, small = true)
+                        PillButton("Turbo", { vm.toggleTurbo(!vm.turbo); touch() }, icon = R.drawable.ic_bolt, primary = false, small = true, secondary = if (vm.turbo) "activé" else null)
+                        PillButton("Infos", { statsOpen = !statsOpen; touch() }, icon = R.drawable.ic_info, primary = false, small = true)
+                        PillButton("Plus", { panel = Panel.MORE }, icon = R.drawable.ic_more, primary = false, small = true,
+                            secondary = sleepLeft?.let { "veille ${(it / 60_000) + 1} min" })
+                    }
                 }
                 Text(
                     if (vm.isLive) "Commandes masquées : ↑/↓ chaîne précédente / suivante · OK afficher"
@@ -327,9 +344,20 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         } else if (panel == Panel.ENGINE) {
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
             EnginePanel(vm.engineChoice, engine?.kind, vm.engineNote, onPick = { vm.chooseEngine(it); panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+        } else if (panel == Panel.MORE) {
+            BackHandler { panel = Panel.NONE }
+            MorePanel(
+                engineLabel = vm.engineChoice.label + if (vm.engineChoice == com.aditv.playback.engine.EngineChoice.AUTO && engine != null) " · ${engine.kind.label}" else "",
+                versionLabel = if (vm.versions.size > 1) vm.versions.firstOrNull { it.selected }?.label ?: "Version" else null,
+                sleepLabel = sleepLeft?.let { "${(it / 60_000) + 1} min" },
+                favorite = if (vm.isLive) vm.isFavorite else null,
+                onEngine = { panel = Panel.ENGINE }, onVersion = { panel = Panel.VERSION }, onSleep = { panel = Panel.SLEEP },
+                onFavorite = { vm.toggleFavorite(); panel = Panel.NONE; touch() },
+                modifier = Modifier.align(Alignment.CenterEnd),
+            )
         } else if (panel != Panel.NONE && engine != null) {
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
-            TrackPanel(engine, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+            TrackPanel(engine, subtitlesFirst = panel == Panel.SUBS, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         }
 
         vm.error?.let { msg ->
@@ -440,7 +468,7 @@ private fun ZapBanner(vm: PlayerViewModel, modifier: Modifier) {
 
 /** Pistes audio et sous-titres réellement présentes dans le flux, dans un seul panneau. */
 @Composable
-private fun TrackPanel(engine: com.aditv.playback.engine.PlaybackEngine, onClose: () -> Unit, modifier: Modifier) {
+private fun TrackPanel(engine: com.aditv.playback.engine.PlaybackEngine, subtitlesFirst: Boolean = false, onClose: () -> Unit, modifier: Modifier) {
     val audio = remember(engine) { engine.audioTracks() }
     val text = remember(engine) { engine.textTracks() }
     val textDisabled = engine.textDisabled
@@ -451,12 +479,12 @@ private fun TrackPanel(engine: com.aditv.playback.engine.PlaybackEngine, onClose
             item { SheetHeader("Audio") }
             if (audio.isEmpty()) item { Text("Aucune piste audio exposée par le flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary) }
             items(audio.distinctBy { it.group to it.id }, key = { "a${it.group}-${it.id}" }) { o ->
-                SheetOption(o.label, { engine.selectAudio(o); onClose() }, if (o == audio.first()) Modifier.focusRequester(first) else Modifier, checked = o.selected)
+                SheetOption(o.label, { engine.selectAudio(o); onClose() }, if (o == audio.first() && !subtitlesFirst) Modifier.focusRequester(first) else Modifier, checked = o.selected)
             }
             item { SheetHeader("Sous-titres") }
             item {
                 SheetOption("Désactivés", { engine.selectText(null); onClose() },
-                    if (audio.isEmpty()) Modifier.focusRequester(first) else Modifier, checked = textDisabled || text.none { it.selected })
+                    if (audio.isEmpty() || subtitlesFirst) Modifier.focusRequester(first) else Modifier, checked = textDisabled || text.none { it.selected })
             }
             if (text.isEmpty()) item { Text("Aucun sous-titre dans ce flux.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary, modifier = Modifier.padding(start = 11.dp, top = 4.dp)) }
             items(text.distinctBy { it.group to it.id }, key = { "t${it.group}-${it.id}" }) { o -> SheetOption(o.label, { engine.selectText(o); onClose() }, checked = o.selected && !textDisabled) }
@@ -538,9 +566,9 @@ private fun natureColors(n: com.aditv.playback.engine.Nature): Pair<Color, Color
 private fun StatsPanel(engine: com.aditv.playback.engine.PlaybackEngine, turbo: Boolean, modifier: Modifier) {
     val tick by produceState(0) { while (true) { delay(1_000); value++ } }
     val rows = remember(engine, tick) { engine.stats() }
-    Column(modifier.width(290.dp).background(Color(0xD60C1016), RoundedCornerShape(11.dp)).padding(horizontal = 15.dp, vertical = 14.dp)) {
+    Column(modifier.width(290.dp).background(Color(0xE6161B22), RoundedCornerShape(10.dp)).padding(horizontal = 15.dp, vertical = 14.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("Statistiques · ${engine.kind.label}", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 13.sp), color = Aditv.Text, modifier = Modifier.weight(1f))
+            Text("Informations de lecture", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 13.sp), color = Aditv.Text, modifier = Modifier.weight(1f))
             Text(if (turbo) "Turbo · chaque seconde" else "chaque seconde", style = MaterialTheme.typography.bodySmall.copy(fontSize = 7.5.sp), color = if (turbo) Aditv.Accent else Aditv.TextTertiary)
         }
         Spacer(Modifier.height(6.dp))
@@ -600,6 +628,25 @@ private fun DisplayRateMatcher(fps: Float?) {
             if (activity.window.attributes.preferredDisplayModeId == target.id) return@runCatching
             com.aditv.core.CrashReporter.event("Écran réglé sur ${target.refresh} Hz")
             activity.window.attributes = activity.window.attributes.apply { preferredDisplayModeId = target.id }
+        }
+    }
+}
+
+
+/** « Plus » : options moins fréquentes (moteur de lecture, version, minuterie de veille, chaîne favorite). */
+@Composable
+private fun MorePanel(
+    engineLabel: String, versionLabel: String?, sleepLabel: String?, favorite: Boolean?,
+    onEngine: () -> Unit, onVersion: () -> Unit, onSleep: () -> Unit, onFavorite: () -> Unit, modifier: Modifier,
+) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first)
+    SideSheet("Plus d'options", null, modifier) {
+        Column {
+            SheetOption("Moteur de lecture", onEngine, Modifier.focusRequester(first), detail = engineLabel)
+            if (versionLabel != null) SheetOption("Version", onVersion, detail = versionLabel)
+            SheetOption("Minuterie de veille", onSleep, detail = sleepLabel ?: "Désactivée")
+            if (favorite != null) SheetOption(if (favorite) "Retirer des favoris" else "Ajouter aux favoris", onFavorite)
         }
     }
 }

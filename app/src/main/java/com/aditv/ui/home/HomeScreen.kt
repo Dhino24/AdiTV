@@ -207,7 +207,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         return HeroItem(
             itemId = card.id, playId = card.id, fromStart = false, title = m?.title ?: card.title,
             logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(m?.backdropPath, com.aditv.core.DeviceProfile.backdropSize), poster = tmdbImage(card.tmdbPoster, "w500") ?: card.imageUrl,
-            meta = metaLine, overview = m?.overview, resumeLabel = null, kicker = "Nouveau dans votre abonnement",
+            meta = metaLine, overview = m?.overview, resumeLabel = null, kicker = "À l'affiche",
             metaParts = listOfNotNull(
                 (m?.releaseDate?.take(4) ?: card.year?.toString()),
                 (if (card.type == "SERIES") "Série · " else "") + (m?.genres?.split(", ")?.firstOrNull() ?: card.genre ?: if (card.type == "SERIES") "" else "Film").trimEnd(' ', '·'),
@@ -393,14 +393,14 @@ private fun HeroBlock(
             Spacer(Modifier.height(8.dp))
             DisplayTitle(hero.title, hero.logo)
             Spacer(Modifier.height(9.dp))
-            MetaLine(hero.metaParts.ifEmpty { listOf(hero.meta) }) { VariantBadges(hero.lang, hero.quality) }
+            MetaLine(hero.metaParts.ifEmpty { listOf(hero.meta) })
             hero.overview?.let {
                 Spacer(Modifier.height(7.dp))
                 Text(it, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp, lineHeight = 17.sp), color = Aditv.Text.copy(alpha = 0.92f), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(400.dp))
             }
             Spacer(Modifier.height(16.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically,
                 // ← sur le premier bouton / → sur le dernier : page précédente / suivante du carrousel.
                 modifier = Modifier.onPreviewKeyEvent { ev ->
                     if (ev.type != KeyEventType.KeyDown || count < 2) false
@@ -409,16 +409,25 @@ private fun HeroBlock(
                     else false
                 },
             ) {
-                PillButton(hero.resumeLabel ?: "Lecture", onPlay, primaryModifier.onFocusChanged { firstFocused = it.isFocused })
-                PillButton("Plus d'infos", onInfo, icon = R.drawable.ic_info, primary = false)
-                RoundButton(if (inList) R.drawable.ic_check else R.drawable.ic_plus, if (inList) "Dans Ma liste" else "Ajouter à Ma liste", onToggleList,
-                    Modifier.onFocusChanged { lastFocused = it.isFocused }, active = inList)
+                PillButton(hero.resumeLabel ?: "Regarder", onPlay, primaryModifier.onFocusChanged { firstFocused = it.isFocused })
+                PillButton(if (inList) "Dans Ma liste" else "Ma liste", onToggleList, icon = if (inList) R.drawable.ic_check else R.drawable.ic_plus, primary = false)
+                RoundButton(R.drawable.ic_info, "Plus d'infos", onInfo, Modifier.onFocusChanged { lastFocused = it.isFocused })
             }
-            Spacer(Modifier.height(20.dp))
-            if (hero.progress != null) ResumeBar(hero.progress, hero.remaining) else Spacer(Modifier.height(4.dp))
             Spacer(Modifier.height(12.dp))
-            PageDots(count, index)
+            // Qualité annoncée sous les boutons, « selon la source » (jamais garantie).
+            if (hero.lang != null || hero.quality != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                VariantBadges(hero.lang, hero.quality)
+                Spacer(Modifier.width(4.dp))
+                Text("Selon la source", style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.5.sp), color = Aditv.TextTertiary)
+            }
+            Spacer(Modifier.height(14.dp))
+            if (hero.progress != null) ResumeBar(hero.progress, hero.remaining)
         }
+        // Compteur du carrousel en bas à droite (« 01 / 03 »).
+        if (count > 1) Text(
+            "%02d / %02d".format(index + 1, count), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, letterSpacing = 1.sp),
+            color = Aditv.TextSecondary, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 12.dp),
+        )
     }
 }
 
@@ -452,7 +461,7 @@ private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit
 @Composable
 private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Unit) {
     Column(Modifier.padding(top = 4.dp)) {
-        RowTitle("Reprendre la lecture", modifier = Modifier.padding(start = 48.dp, bottom = 3.dp))
+        RowTitle("Reprendre", modifier = Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(rows.distinctBy { it.contentId }, key = { it.contentId }) { r ->
                 val left = (r.durationMs - r.positionMs).coerceAtLeast(0) / 60_000
@@ -461,6 +470,8 @@ private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Un
                     r.title, listOfNotNull(r.episodeLabel, leftLabel).joinToString(" · "),
                     tmdbImage(r.tmdbBackdrop, "w780") ?: r.imageUrl?.takeIf { r.kind == "EPISODE" },
                     tmdbImage(r.tmdbPoster, "w342") ?: r.imageUrl, { onPlay(r.contentId, false) },
+                    // Format 16:9, 4 cartes par ligne, comme la maquette.
+                    aspect = 16f / 9f, width = 207.dp,
                     progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
                 )
             }

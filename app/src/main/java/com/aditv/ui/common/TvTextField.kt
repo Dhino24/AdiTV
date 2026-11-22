@@ -71,7 +71,7 @@ fun TvTextField(
         Spacer(Modifier.height(6.dp))
         Surface(
             onClick = { editing = true },
-            modifier = Modifier.fillMaxWidth().height(52.dp).focusRequester(surfaceRequester).then(if (modifierEntry != null) Modifier.focusRequester(modifierEntry) else Modifier),
+            modifier = (Modifier.fillMaxWidth().height(52.dp).focusRequester(surfaceRequester).then(if (modifierEntry != null) Modifier.focusRequester(modifierEntry) else Modifier)).navSound(),
             shape = ClickableSurfaceDefaults.shape(shape),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
             colors = ClickableSurfaceDefaults.colors(

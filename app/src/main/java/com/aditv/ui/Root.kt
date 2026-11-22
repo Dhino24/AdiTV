@@ -48,6 +48,9 @@ fun Root() {
     val reduced = com.aditv.ui.design.systemReducedMotion() || reducedPref
     val textScale by c.prefs.textScalePercent.collectAsStateWithLifecycle(100)
     val density = androidx.compose.ui.platform.LocalDensity.current
+    val navSound by c.prefs.navSoundEnabled.collectAsStateWithLifecycle(true)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(navSound) { com.aditv.ui.common.NavSound.init(ctx); com.aditv.ui.common.NavSound.enabled = navSound }
     // Ouverture au démarrage à froid : préférences locales lues sans attendre le réseau.
     var intro by remember { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
     var showIntro by remember { mutableStateOf(com.aditv.ui.intro.IntroGate.enabled && !com.aditv.ui.intro.IntroGate.played) }
@@ -60,7 +63,16 @@ fun Root() {
         // Accessibilité : taille du texte choisie dans Réglages (agrandit les textes, pas la mise en page).
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, density.fontScale * textScale / 100f),
     ) {
-        Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent { if (showIntro) { if (it.type == KeyEventType.KeyDown) endIntro(); true } else false }) {
+        Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent {
+            if (showIntro) { if (it.type == KeyEventType.KeyDown) endIntro(); true }
+            else {
+                // Validation (OK) : petit son de sélection, sans bloquer la touche.
+                if (it.type == KeyEventType.KeyDown && it.nativeKeyEvent.repeatCount == 0 &&
+                    it.nativeKeyEvent.keyCode in intArrayOf(android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)
+                ) com.aditv.ui.common.NavSound.selected()
+                false
+            }
+        }) {
             when (val s = session) {
                 Session.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.width(220.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))

@@ -147,6 +147,8 @@ fun SettingsScreen(session: Session.Active) {
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 AditvButton("Ouverture animée", { scope.launch { c.prefs.setIntroImage(!introImage) } }, secondaryText = if (introImage) "Activée" else "Désactivée")
                 AditvButton("Son de l'ouverture", { scope.launch { c.prefs.setIntroSound(!introSound) } }, secondaryText = if (introSound) "Activé" else "Désactivé")
+                val navSound by c.prefs.navSoundEnabled.collectAsStateWithLifecycle(true)
+                AditvButton("Son de navigation", { scope.launch { c.prefs.setNavSound(!navSound) } }, secondaryText = if (navSound) "Activé" else "Désactivé")
             }
         }
 

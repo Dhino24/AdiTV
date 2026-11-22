@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.10.1) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.11.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,16 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.11.0 (22/11/2026) — interface retravaillée d'après les 4 maquettes d'Adama + son de navigation
+- **Barre du haut** : logo à gauche, Accueil · Films · Séries · En direct (rubrique active soulignée), à droite Recherche, Ma liste (signet), Réglages.
+- **Boutons** : rectangles arrondis (blanc plein / contour blanc), liseré turquoise au focus — partout.
+- **Accueil** : « À l'affiche », Regarder + Ma liste + infos, qualité « selon la source » sous les boutons, compteur 01 / 06, rangée « Reprendre » en 16:9 avec titre et temps restant.
+- **En direct** (nouvel écran) : chaînes à gauche (logo, programme en cours, progression, favori), aperçu à droite (programme, horaires, progression, à suivre, description), Regarder / Guide TV / favori. Filtre partagé avec le guide, rafraîchi chaque minute, calculs hors interface.
+- **Guide TV** (ouvert depuis En direct) : en-tête « Guide TV », jour et ville du fuseau, −6 h / +6 h / Jour suivant / Maintenant, rappel des touches OK · Retour · ◀ ▶.
+- **Lecteur** : logo, retour, titre, badges qualité/langue, « Informations de lecture » ; en bas temps · barre · durée, « En cours de lecture », −10 / pause / +10 (↑/↓ en direct), Audio, Sous-titres, Turbo, Infos, Plus (moteur, version, veille, favori).
+- **Son de navigation** : petit « tic » doux synthétisé (original), seulement quand la sélection bouge à la télécommande ; son de validation sur OK ; Réglages → Ouverture → « Son de navigation ».
+- Limites : l'aperçu du Direct montre le logo de la chaîne (le guide ne fournit pas d'image de programme) ; lecteur non capturable en démo (pas de flux).
 
 ### 0.10.1 (22/11/2026) — Adama : navigation un peu lente, souhaite la sensation Apple TV / Fire TV
 - Cause principale : APK de test (debug) — Compose non optimisé, 2 à 3× moins fluide. Nouvelle version **« rapide »** (R8, non débogable, profils de démarrage Compose installés par ProfileInstaller) **signée et identifiée comme la version de test** : s'installe par-dessus sans perdre compte ni réglages. APK Cube ≈ 27 Mo, Stick ≈ 25 Mo.

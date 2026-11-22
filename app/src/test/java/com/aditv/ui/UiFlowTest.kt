@@ -112,7 +112,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         press("Essayer le mode démo")
         waitText("Votre soirée commence ici")
         // Focus initial sur l'action principale du carrousel.
-        assertFocused("Lecture")
+        assertFocused("Regarder")
         shot("02_accueil")
 
         // ↑ : la barre de navigation, sur la rubrique active ; ↓ : retour exact sur l'élément quitté.
@@ -120,15 +120,15 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         assertFocused("Accueil")
         shot("03_menu")
         key(Key.DirectionDown)
-        assertFocused("Lecture")
+        assertFocused("Regarder")
         // Rangées : ↓ descend dans les vignettes, Retour remonte sur la barre (rubrique active).
         key(Key.DirectionDown, 2)
         shot("03b_accueil_rangees")
         back()
         assertFocused("Accueil")
 
-        // Films : puces de catégories, grille alignée.
-        key(Key.DirectionRight, 2)
+        // Films : puces de catégories, grille alignée (barre : Accueil · Films · Séries · En direct).
+        key(Key.DirectionRight)
         assertFocused("Films")
         key(Key.DirectionCenter)
         waitText("Tous les films")
@@ -159,33 +159,45 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitGone("Lecture indisponible (démo)")
         waitText("Fjord noir")
 
-        // ↑ ↑ : puces puis barre (sur Films) ; → → Ma liste.
+        // ↑ ↑ : puces puis barre (sur Films) ; → Séries, En direct, Recherche, Ma liste (signet).
         key(Key.DirectionUp, 2)
         assertFocused("Films")
-        key(Key.DirectionRight, 2)
-        assertFocused("Ma liste")
+        key(Key.DirectionRight, 4)
+        // Icône « signet » : libellé porté par la description (pas de texte affiché).
+        assertEquals(1, rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Ma liste") and androidx.compose.ui.test.isFocused(), useUnmergedTree = false).fetchSemanticsNodes().size
+            + rule.onAllNodes(androidx.compose.ui.test.isFocused() and androidx.compose.ui.test.hasAnyDescendant(androidx.compose.ui.test.hasContentDescription("Ma liste"))).fetchSemanticsNodes().size)
         key(Key.DirectionCenter)
         waitText("Chaînes favorites")
         shot("06_ma_liste")
 
-        // Direct : aperçu + guide (programmes fictifs de la démo), panneau de détail, Retour.
+        // En direct : liste des chaînes + aperçu (programmes fictifs de la démo) ; → Regarder → Guide TV.
         key(Key.DirectionUp)
-        key(Key.DirectionLeft, 3)
-        assertFocused("Direct")
+        key(Key.DirectionLeft, 2)
+        assertFocused("En direct")
         key(Key.DirectionCenter)
         waitText("fictif n°")
-        waitText("Couverture")
+        waitText("Guide TV")
         shot("07_direct")
+        key(Key.DirectionRight)
+        assertFocused("Regarder")
+        key(Key.DirectionRight)
+        assertFocused("Guide TV")
+        key(Key.DirectionCenter)
+        waitText("Couverture")
+        waitText("Parcourir")
+        shot("07b_guide")
         key(Key.DirectionCenter)
         waitText("Fiche de la chaîne")
         shot("08_programme")
         back()
         waitGone("Fiche de la chaîne")
+        back()
+        waitGone("Parcourir")
 
         // Recherche : clavier à l'écran ; une seule carte par chaîne (variantes regroupées).
         back()
-        assertFocused("Direct")
-        key(Key.DirectionRight, 4)
+        assertFocused("En direct")
+        key(Key.DirectionRight)
         key(Key.DirectionCenter)
         waitText("Saisissez au moins 2 caractères")
         listOf("i", "n", "f", "o").forEach { press(it) }
@@ -193,9 +205,9 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         assertEquals("variantes regroupées", 1, rule.onAllNodesWithText("Info 24 (démo)", substring = true).fetchSemanticsNodes().size)
         shot("09_recherche")
 
-        // Réglages : ↑ vers la barre, → (icône réglages).
+        // Réglages : ↑ vers la barre, → → (Ma liste, puis réglages).
         key(Key.DirectionUp, 2)
-        key(Key.DirectionRight)
+        key(Key.DirectionRight, 2)
         key(Key.DirectionCenter)
         waitText("COMPTE FOURNISSEUR")
         waitText("éléments")
@@ -282,7 +294,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         press("Essayer le mode démo")
         waitText("Votre soirée commence ici")
         key(Key.DirectionUp)
-        key(Key.DirectionRight, 3)
+        key(Key.DirectionRight, 2)
         assertFocused("Séries")
         key(Key.DirectionCenter)
         waitText("Toutes les séries")
