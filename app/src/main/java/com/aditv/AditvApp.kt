@@ -71,6 +71,6 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
     companion object {
         @Volatile var inForeground = false
         /** Délai avant les tâches de fond au démarrage (l'accueil s'affiche d'abord). */
-        @Volatile var STARTUP_GRACE_MS = 12_000L
+        @Volatile var STARTUP_GRACE_MS = com.aditv.core.DeviceProfile.startupGraceMs
     }
 }

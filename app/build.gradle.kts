@@ -20,14 +20,32 @@ android {
 
     defaultConfig {
         applicationId = "com.aditv.app"
-        // Appareil cible confirmé : Fire TV Stick 4K (1re génération), Fire OS 6.7.1.1 = Android 7.1 (API 25).
         minSdk = 25
         targetSdk = 34
-        versionCode = 18
-        versionName = "0.8.7"
+        versionCode = 19
+        versionName = "0.9.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Fire OS 6 exécute un espace utilisateur 32 bits : seules les bibliothèques ARMv7 sont embarquées.
-        ndk { abiFilters += listOf("armeabi-v7a") }
+    }
+
+    // Deux versions de l'appli, mêmes sources :
+    // - stick : Fire TV Stick 4K 1re génération (Fire OS 6.7.1.1 = Android 7.1, API 25, espace utilisateur 32 bits ARMv7) ;
+    // - cube  : Fire TV Cube 3e génération (Fire OS 7 ou plus = Android 9+, processeur 64 bits) — réglages moins bridés.
+    flavorDimensions += "device"
+    productFlavors {
+        create("stick") {
+            dimension = "device"
+            isDefault = true
+            minSdk = 25
+            ndk { abiFilters += listOf("armeabi-v7a") }
+            buildConfigField("boolean", "HIGH_END", "false")
+        }
+        create("cube") {
+            dimension = "device"
+            minSdk = 28
+            versionNameSuffix = "-cube"
+            ndk { abiFilters += listOf("arm64-v8a") }
+            buildConfigField("boolean", "HIGH_END", "true")
+        }
     }
 
     signingConfigs {
@@ -135,3 +153,7 @@ dependencies {
     testImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
 }
+
+// Tests Robolectric : sources communes, exécutés sur la version Stick (API 25 et API 35).
+// La version Cube (minSdk 28) ne peut pas charger les tests épinglés sur l'API 25 ; elle est vérifiée par compilation + lint.
+tasks.matching { it.name.startsWith("testCube") && it.name.endsWith("UnitTest") }.configureEach { enabled = false }

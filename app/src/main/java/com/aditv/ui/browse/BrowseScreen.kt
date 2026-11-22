@@ -129,7 +129,7 @@ class BrowseViewModel(c: AppContainer, private val accountId: String, private va
     @Volatile private var rawCount = 0
     @Volatile private var grownFrom = -1
 
-    companion object { const val FAVORITES = "★favoris"; const val ALL = "★tout"; const val PAGE = 240 }
+    companion object { const val FAVORITES = "★favoris"; const val ALL = "★tout"; val PAGE = com.aditv.core.DeviceProfile.gridPage }
 }
 
 @Composable

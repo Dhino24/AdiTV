@@ -37,7 +37,24 @@ class Media3Engine(private val context: Context, val player: ExoPlayer, private 
         }
         override fun onIsPlayingChanged(isPlaying: Boolean) { events?.onPlayingChanged(isPlaying) }
     }
-    init { player.addListener(listener) }
+    /** Cadence : déclarée par le flux si possible, sinon mesurée sur les premières images (fréquent en direct). */
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var fpsReported = false
+    private val stamps = java.util.Collections.synchronizedList(ArrayList<Long>())
+    private val frameListener = androidx.media3.exoplayer.video.VideoFrameMetadataListener { presentationTimeUs, _, format, _ ->
+        if (fpsReported) return@VideoFrameMetadataListener
+        val declared = format.frameRate.takeIf { it > 0 }?.let { com.aditv.playback.FrameRateMatch.normalize(it) }
+        val fps = declared ?: run {
+            stamps += presentationTimeUs
+            if (stamps.size >= 40) com.aditv.playback.FrameRateMatch.estimate(synchronized(stamps) { stamps.toList() }) else null
+        }
+        if (fps != null || stamps.size > 200) {
+            fpsReported = true
+            if (fps != null) main.post { events?.onFrameRate(fps) }
+        }
+    }
+
+    init { player.addListener(listener); player.setVideoFrameMetadataListener(frameListener) }
 
     override val isPlaying get() = player.isPlaying
     override val isBuffering get() = player.playbackState == Player.STATE_BUFFERING
@@ -110,7 +127,7 @@ class Media3Engine(private val context: Context, val player: ExoPlayer, private 
         )
     }
 
-    override fun release() { player.removeListener(listener) }
+    override fun release() { player.removeListener(listener); runCatching { player.clearVideoFrameMetadataListener(frameListener) }; main.removeCallbacksAndMessages(null) }
 
     @Composable
     override fun VideoSurface(modifier: Modifier) {

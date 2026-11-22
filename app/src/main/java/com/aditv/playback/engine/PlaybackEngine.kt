@@ -26,18 +26,20 @@ interface EngineEvents {
     fun onError(message: String, retryable: Boolean, formatProblem: Boolean)
     fun onEnded()
     fun onPlayingChanged(playing: Boolean)
+    /** Cadence de la vidéo (images/s), dès qu'elle est connue. */
+    fun onFrameRate(fps: Float) {}
 }
 
 /** Paramètres de mémoire tampon (Turbo : réserve étendue, plafond mémoire). */
 data class BufferPolicy(val turbo: Boolean) {
     /** Media3 : réserve minimale / maximale et reprise après coupure (ms), plafond mémoire (octets). */
     val minBufferMs get() = if (turbo) 60_000 else 30_000
-    val maxBufferMs get() = if (turbo) 120_000 else 50_000
+    val maxBufferMs get() = if (turbo) com.aditv.core.DeviceProfile.turboMaxBufferMs else 50_000
     val rebufferMs get() = if (turbo) 5_000 else 2_500
     /** Plafond : Fire TV Stick 1re génération (1,5 Go de RAM partagée), jamais plus de 96 Mo de tampon. */
-    val targetBytes get() = if (turbo) 96 * 1024 * 1024 else -1
+    val targetBytes get() = if (turbo) com.aditv.core.DeviceProfile.turboTargetBytes else -1
     /** VLC : mise en cache réseau (ms). */
-    val vlcNetworkCachingMs get() = if (turbo) 8_000 else 2_000
+    val vlcNetworkCachingMs get() = if (turbo) com.aditv.core.DeviceProfile.vlcTurboCachingMs else 2_000
 }
 
 /**

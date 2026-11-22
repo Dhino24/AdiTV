@@ -78,7 +78,7 @@ class AppContainer(context: Context) {
 
     val imageLoader: ImageLoader = ImageLoader.Builder(context)
         .components { add(OkHttpNetworkFetcherFactory(callFactory = { http.images })) }
-        .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.15).build() }
+        .memoryCache { MemoryCache.Builder().maxSizePercent(context, com.aditv.core.DeviceProfile.imageMemoryPercent).build() }
         .diskCache { DiskCache.Builder().directory(context.cacheDir.resolve("images").toOkioPath()).maxSizeBytes(imageCacheBytes(context)).build() }
         .crossfade(false)
         .build()

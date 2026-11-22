@@ -49,6 +49,10 @@ class AppPrefs(private val context: Context) {
     /** Flux adaptatifs (HLS multi-débits) : forcer le débit le plus élevé au lieu de l'adaptation au réseau. */
     val forceHighestBitrate: Flow<Boolean> = context.dataStore.data.map { it[forceHighest] ?: true }
     suspend fun setForceHighestBitrate(v: Boolean) = context.dataStore.edit { it[forceHighest] = v }
+    /** Adapter la fréquence de l'écran à la cadence du flux (50 Hz pour le foot, 24 Hz pour les films). */
+    private val matchRate = booleanPreferencesKey("match_frame_rate")
+    val matchFrameRate: Flow<Boolean> = context.dataStore.data.map { it[matchRate] ?: true }
+    suspend fun setMatchFrameRate(v: Boolean) = context.dataStore.edit { it[matchRate] = v }
 
     // ---------- ouverture : image et son désactivables séparément ----------
     private val introImage = booleanPreferencesKey("intro_image")

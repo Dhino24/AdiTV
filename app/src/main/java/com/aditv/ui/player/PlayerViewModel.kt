@@ -62,6 +62,8 @@ class PlayerViewModel(
     var engineChoice by mutableStateOf(EngineChoice.AUTO); private set
     /** Bascule automatique effectuée (affichée, jamais silencieuse). */
     var engineNote by mutableStateOf<String?>(null); private set
+    /** Cadence de la vidéo en cours (images/s), pour adapter la fréquence de l'écran. */
+    var videoFps by mutableStateOf<Float?>(null); private set
     var turbo by mutableStateOf(false); private set
     var versions by mutableStateOf<List<VersionOption>>(emptyList()); private set
     var isFavorite by mutableStateOf(false); private set
@@ -88,6 +90,10 @@ class PlayerViewModel(
     private val choiceKey get() = currentItem?.variantKey ?: request?.contentId ?: contentId
 
     private val events = object : EngineEvents {
+        override fun onFrameRate(fps: Float) {
+            videoFps = fps
+            com.aditv.core.CrashReporter.event("Cadence vidéo : ${"%.3f".format(fps).trimEnd('0').trimEnd('.')} i/s")
+        }
         override fun onError(message: String, retryable: Boolean, formatProblem: Boolean) {
             val current = engine?.kind ?: EngineKind.MEDIA3
             lastError = message

@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,6 +93,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     val c = LocalContainer.current
     val vm: PlayerViewModel = viewModel(key = "player-$contentId") { PlayerViewModel(c, session, contentId, fromStart, liveList) }
     val engine = vm.engine
+    DisplayRateMatcher(vm.videoFps)
     var controlsVisible by remember { mutableStateOf(true) }
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var panel by remember { mutableStateOf(Panel.NONE) }
@@ -572,6 +574,32 @@ private fun SleepPanel(active: Boolean, programmeEnd: Long?, contentEnd: Long?, 
             items(listOf(15, 30, 60, 90, 120)) { m -> SheetOption("Dans $m min", { onPick(now + m * 60_000L) }, detail = fmt.format(java.util.Date(now + m * 60_000L))) }
             if (programmeEnd != null) item { SheetOption("Fin du programme", { onPick(programmeEnd) }, detail = fmt.format(java.util.Date(programmeEnd))) }
             if (contentEnd != null) item { SheetOption("Fin de la lecture", { onPick(contentEnd) }, detail = fmt.format(java.util.Date(contentEnd))) }
+        }
+    }
+}
+
+
+/**
+ * Règle l'écran sur la cadence du flux (50 Hz pour le sport européen, 24 Hz pour un film), puis rend la main
+ * au mode d'origine en quittant le lecteur. Le téléviseur peut afficher un écran noir 1 à 2 s au changement.
+ */
+@androidx.compose.runtime.Composable
+private fun DisplayRateMatcher(fps: Float?) {
+    val c = LocalContainer.current
+    val enabled by c.prefs.matchFrameRate.collectAsStateWithLifecycle(true)
+    val activity = androidx.activity.compose.LocalActivity.current ?: return
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { runCatching { activity.window.attributes = activity.window.attributes.apply { preferredDisplayModeId = 0 } } }
+    }
+    LaunchedEffect(fps, enabled) {
+        if (fps == null || !enabled) return@LaunchedEffect
+        runCatching {
+            @Suppress("DEPRECATION") val display = activity.windowManager.defaultDisplay
+            val toMode = { m: android.view.Display.Mode -> com.aditv.playback.FrameRateMatch.Mode(m.modeId, m.physicalWidth, m.physicalHeight, m.refreshRate) }
+            val target = com.aditv.playback.FrameRateMatch.pick(display.supportedModes.map(toMode), toMode(display.mode), fps) ?: return@runCatching
+            if (activity.window.attributes.preferredDisplayModeId == target.id) return@runCatching
+            com.aditv.core.CrashReporter.event("Écran réglé sur ${target.refresh} Hz")
+            activity.window.attributes = activity.window.attributes.apply { preferredDisplayModeId = target.id }
         }
     }
 }

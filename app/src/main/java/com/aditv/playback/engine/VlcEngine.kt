@@ -49,6 +49,7 @@ class VlcEngine(
     private var wantPlay = true
     /** Après release(), plus aucun appel natif : un objet VLC libéré peut faire planter le processus. */
     @Volatile private var released = false
+    @Volatile private var fpsReported = false
     override var stalls = 0; private set
     override var startupMs: Long? = null; private set
 
@@ -56,7 +57,18 @@ class VlcEngine(
         mp.media = media
         mp.setEventListener { e ->
             when (e.type) {
-                MediaPlayer.Event.Playing -> { buffering = false; if (!started) { started = true; startupMs = System.currentTimeMillis() - openedAt }; events?.onPlayingChanged(true) }
+                MediaPlayer.Event.Playing -> {
+                    buffering = false
+                    if (!started) { started = true; startupMs = System.currentTimeMillis() - openedAt }
+                    events?.onPlayingChanged(true)
+                    // Cadence déclarée par VLC (piste vidéo), pour adapter la fréquence de l'écran.
+                    if (!fpsReported) main.postDelayed({
+                        if (released || fpsReported) return@postDelayed
+                        val v = runCatching { mp.currentVideoTrack }.getOrNull()
+                        v?.takeIf { it.frameRateDen > 0 }?.let { com.aditv.playback.FrameRateMatch.normalize(it.frameRateNum.toFloat() / it.frameRateDen) }
+                            ?.let { fpsReported = true; events?.onFrameRate(it) }
+                    }, 1_500)
+                }
                 MediaPlayer.Event.Paused -> events?.onPlayingChanged(false)
                 MediaPlayer.Event.Buffering -> {
                     val wasBuffering = buffering

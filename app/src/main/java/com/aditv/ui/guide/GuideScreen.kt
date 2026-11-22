@@ -180,7 +180,7 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
     }
 
     companion object {
-        const val ALL_MAX = 200
+        val ALL_MAX = com.aditv.core.DeviceProfile.guideAllMax
         private val FRENCH = Regex("""(?i)^\s*(fr|france|french|français)\b|\bfr\s*[|:]|\bfrance\b""")
         fun isFrenchCategory(name: String) = FRENCH.containsMatchIn(name)
 

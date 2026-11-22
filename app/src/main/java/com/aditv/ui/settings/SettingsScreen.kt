@@ -153,6 +153,7 @@ fun SettingsScreen(session: Session.Active) {
         Section("Plantages") { CrashSection() }
         Section("Application") {
             Fact("Version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (build de test)" else "")
+            Fact("Appareil", com.aditv.core.DeviceProfile.label + " · Android " + android.os.Build.VERSION.RELEASE)
             Fact("Confidentialité", "Aucune télémétrie. Accès chiffrés (Android Keystore), exclus des sauvegardes et des journaux.")
             Fact("Lecture", "Moteurs Media3 et VLC (LibVLC 3), choix Auto par défaut")
             Fact("Licences", "Polices Outfit et Inter (OFL), LibVLC (LGPL 2.1), Media3 et ZXing (Apache 2.0) : détail dans docs/VERSIONS_ET_LICENCES.md")
@@ -258,6 +259,13 @@ private fun PlaybackPrefsSection() {
         AditvButton("Flux adaptatifs : débit max", { scope.launch { c.prefs.setForceHighestBitrate(true) } }, secondaryText = if (force) "●" else null)
         AditvButton("Adapté au réseau", { scope.launch { c.prefs.setForceHighestBitrate(false) } }, secondaryText = if (!force) "●" else null)
     }
+    val matchRate by c.prefs.matchFrameRate.collectAsStateWithLifecycle(true)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        AditvButton("Fréquence de l'écran : adaptée au flux", { scope.launch { c.prefs.setMatchFrameRate(true) } }, secondaryText = if (matchRate) "●" else null)
+        AditvButton("Fréquence fixe", { scope.launch { c.prefs.setMatchFrameRate(false) } }, secondaryText = if (!matchRate) "●" else null)
+    }
+    Text("Fréquence adaptée : l'écran passe en 50 Hz pour un match européen et en 24 Hz pour un film (mouvements plus fluides) ; un écran noir d'1 à 2 s est normal au changement. Sur Samsung, activez aussi « Signal d'entrée plus » pour la prise HDMI de la Fire TV.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
     Text("La langue et la qualité sont celles annoncées dans les titres du fournisseur ; le flux réel peut différer. En cas de coupures en qualité max, essayez « Adapté au réseau » ou une limite plus basse. Le lecteur sélectionne aussi l'audio français quand le flux en contient.",
         style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
 }
@@ -365,7 +373,7 @@ private fun EngineSection() {
             com.aditv.ui.design.FilterChip(e.label, engineDefault == e, { c.engineStore.defaultChoice = e; engineDefault = e })
         }
     }
-    Text("Turbo : réserve de lecture étendue (60 à 120 s, 96 Mo au plus), synchronisation et enrichissement en pause pendant la lecture. Aucun gain de débit n'est promis : comparez les interruptions ci-dessous.",
+    Text("Turbo : réserve de lecture étendue (60 à ${com.aditv.core.DeviceProfile.turboMaxBufferMs / 1000} s, ${com.aditv.core.DeviceProfile.turboTargetBytes / 1048576} Mo au plus), synchronisation et enrichissement en pause pendant la lecture. Aucun gain de débit n'est promis : comparez les interruptions ci-dessous.",
         style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         com.aditv.ui.design.FilterChip("Turbo désactivé", !turbo, { c.engineStore.turboDefault = false; turbo = false })

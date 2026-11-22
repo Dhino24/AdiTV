@@ -8,11 +8,19 @@
 
 ## Compiler
 ```bash
-./gradlew assembleDebug          # APK : app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest      # tests unitaires + parcours UI Robolectric (captures dans design/captures-app/)
-sha256sum app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleStickDebug     # Fire TV Stick 4K 1re gén. : app/build/outputs/apk/stick/debug/app-stick-debug.apk
+./gradlew assembleCubeDebug      # Fire TV Cube 3e gén. (64 bits, Android 9+) : app/build/outputs/apk/cube/debug/app-cube-debug.apk
+./gradlew testStickDebugUnitTest # tests unitaires + parcours UI Robolectric (API 25 et 35 ; captures dans design/captures-app/)
+./gradlew lintStickDebug lintCubeDebug
+sha256sum app/build/outputs/apk/*/debug/*.apk
 ```
 L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.4.1-debug` : il peut cohabiter avec un futur build release.
+
+## Deux versions
+- **stick** : Fire TV Stick 4K 1re génération (Fire OS 6, 32 bits) ; réglages prudents.
+- **cube** : Fire TV Cube 3e génération (Fire OS 7+, 64 bits) ; réglages étendus (Turbo 180 s / 200 Mo, cache d'images 25 %, grilles par 480, « Toutes » 600 chaînes, démarrage des tâches de fond à 4 s). Même identifiant d'appli : installer la bonne version sur chaque appareil.
+
+Sur la TV Samsung : Paramètres → Général → Gestionnaire de périphériques externes → **Signal d'entrée plus** activé pour la prise HDMI de la Fire TV (4K HDR à 60 Hz), et **Anynet+ (HDMI-CEC)**.
 
 ## Installer sur la Fire TV Stick (une seule fois : activer le débogage)
 1. Sur la Stick 4K 1re génération (Fire OS 6), le menu **Options pour les développeurs** est déjà visible dans **Paramètres → Mon Fire TV**. (Sur les Fire OS plus récents : **À propos**, sélectionner 7 fois le nom de l'appareil.)
