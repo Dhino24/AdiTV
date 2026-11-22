@@ -50,8 +50,6 @@ fun vodDueDays(lastSuccess: Long?, now: Long, snoozedUntil: Long, running: Boole
     return days.takeIf { it >= VOD_UPDATE_DAYS }
 }
 
-/** Inactivité à la télécommande avant de mettre à jour le guide TV. */
-const val EPG_IDLE_MS = 90_000L
 
 /** Injection manuelle : pas de framework DI pour un seul module. */
 class AppContainer(context: Context) {
@@ -134,10 +132,10 @@ class AppContainer(context: Context) {
         var s = accounts.session.value as? Session.Active ?: return
         // Guide (le plus lourd) : attend que l'on ne navigue plus depuis 90 s, ou qu'ADITV soit en arrière-plan.
         if (!force && !s.isDemo) {
-            while (com.aditv.AditvApp.inForeground && !com.aditv.core.UserActivity.idleFor(EPG_IDLE_MS)) kotlinx.coroutines.delay(15_000)
+            while (com.aditv.AditvApp.inForeground && !com.aditv.core.UserActivity.idleFor(com.aditv.core.DeviceProfile.epgIdleMs)) kotlinx.coroutines.delay(15_000)
             s = accounts.session.value as? Session.Active ?: return
         }
-        if (playback.activeSessions.value > 0 && !force) return
+        if (playback.activeSessions.value > 0 && !force && !com.aditv.core.DeviceProfile.backgroundDuringPlayback) return
         epg.ensureProviderSource(s.account.id, if (s.isDemo) "Guide démo (fictif)" else "Guide du fournisseur")
         val last = epg.lastRefresh(s.account.id)
         if (force || last == null || System.currentTimeMillis() - last > 11 * 3_600_000L) tracked("Guide TV") { epg.refresh(s.account.id, s.adapter, s.account.serverTimezone) }
@@ -154,12 +152,12 @@ class AppContainer(context: Context) {
 
     /** Enrichissement TMDB des ajouts récents, après synchronisation, si une clé est configurée. */
     /** Turbo pendant une lecture : synchronisation et enrichissement attendent la fin de la session. */
-    val backgroundPaused: Boolean get() = playback.turbo.value && playback.activeSessions.value > 0
+    val backgroundPaused: Boolean get() = !com.aditv.core.DeviceProfile.backgroundDuringPlayback && playback.turbo.value && playback.activeSessions.value > 0
 
     fun enrichInBackground(): Job = appScope.launch {
         val s = accounts.session.value as? Session.Active ?: return@launch
         if (backgroundPaused) return@launch
-        if (tmdbKey.get() != null && playback.activeSessions.value == 0) tracked("Enrichissement TMDB") { trending.refreshIfStale(); metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
+        if (tmdbKey.get() != null && (playback.activeSessions.value == 0 || com.aditv.core.DeviceProfile.backgroundDuringPlayback)) tracked("Enrichissement TMDB") { trending.refreshIfStale(); metadata.refreshMissingLogos(s.account.id); metadata.enrichRecent(s.account.id) }
     }
 
     /** Après la mise à jour 0.3 : calcule les variantes des éléments déjà en cache (par lots, hors interface). */

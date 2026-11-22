@@ -373,7 +373,7 @@ private fun EngineSection() {
             com.aditv.ui.design.FilterChip(e.label, engineDefault == e, { c.engineStore.defaultChoice = e; engineDefault = e })
         }
     }
-    Text("Turbo : réserve de lecture étendue (60 à ${com.aditv.core.DeviceProfile.turboMaxBufferMs / 1000} s, ${com.aditv.core.DeviceProfile.turboTargetBytes / 1048576} Mo au plus), synchronisation et enrichissement en pause pendant la lecture. Aucun gain de débit n'est promis : comparez les interruptions ci-dessous.",
+    Text("Turbo : réserve de lecture étendue (60 à ${com.aditv.core.DeviceProfile.turboMaxBufferMs / 1000} s, ${com.aditv.core.DeviceProfile.turboTargetBytes / 1048576} Mo au plus)${if (com.aditv.core.DeviceProfile.backgroundDuringPlayback) "" else ", synchronisation et enrichissement en pause pendant la lecture"}. Aucun gain de débit n'est promis : comparez les interruptions ci-dessous.",
         style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         com.aditv.ui.design.FilterChip("Turbo désactivé", !turbo, { c.engineStore.turboDefault = false; turbo = false })

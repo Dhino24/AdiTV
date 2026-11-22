@@ -22,6 +22,12 @@ object DeviceProfile {
     val guideAllMax: Int get() = if (highEnd) 600 else 200
     /** Grilles : titres chargés par morceau. */
     val gridPage: Int get() = if (highEnd) 480 else 240
+    /** Grandes images de fond TMDB : pleine qualité sur le Cube (55 pouces), 1280 px sur la Stick. */
+    val backdropSize: String get() = if (highEnd) "original" else "w1280"
+    /** Guide TV : attendre que l'on ne touche plus la télécommande (Stick) ou mettre à jour tout de suite (Cube). */
+    val epgIdleMs: Long get() = if (highEnd) 0L else 90_000L
+    /** Mises à jour de fond (catalogue, guide, TMDB) pendant une lecture : en pause sur la Stick, permises sur le Cube. */
+    val backgroundDuringPlayback: Boolean get() = highEnd
     /** Délai avant les tâches de fond au démarrage. */
     val startupGraceMs: Long get() = if (highEnd) 4_000 else 12_000
 }

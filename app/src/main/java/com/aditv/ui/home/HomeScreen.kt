@@ -206,7 +206,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         ).joinToString(" · ")
         return HeroItem(
             itemId = card.id, playId = card.id, fromStart = false, title = m?.title ?: card.title,
-            logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(m?.backdropPath, "w1280"), poster = tmdbImage(card.tmdbPoster, "w500") ?: card.imageUrl,
+            logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(m?.backdropPath, com.aditv.core.DeviceProfile.backdropSize), poster = tmdbImage(card.tmdbPoster, "w500") ?: card.imageUrl,
             meta = metaLine, overview = m?.overview, resumeLabel = null, kicker = "Nouveau dans votre abonnement",
             metaParts = listOfNotNull(
                 (m?.releaseDate?.take(4) ?: card.year?.toString()),
@@ -223,7 +223,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         val left = (r.durationMs - r.positionMs).coerceAtLeast(0) / 60_000
         return HeroItem(
             itemId = r.itemId, playId = r.contentId, fromStart = false, title = m?.title ?: r.title,
-            logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(r.tmdbBackdrop, "w1280"), poster = tmdbImage(r.tmdbPoster, "w500") ?: r.imageUrl,
+            logo = tmdbImage(m?.logoPath, "w500"), backdrop = tmdbImage(r.tmdbBackdrop, com.aditv.core.DeviceProfile.backdropSize), poster = tmdbImage(r.tmdbPoster, "w500") ?: r.imageUrl,
             meta = listOfNotNull(r.episodeLabel, "reste $left min").joinToString(" · "), overview = m?.overview, resumeLabel = "Reprendre", kicker = "Reprendre la lecture",
             metaParts = listOfNotNull(m?.releaseDate?.take(4), m?.genres?.split(", ")?.firstOrNull(), r.episodeLabel),
             progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),

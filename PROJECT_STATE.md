@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.9.4) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.9.5) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,10 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.9.5 (22/11/2026) — demandes d'Adama sur le Cube + icône trop petite
+- Cube : grandes images de fond TMDB en **pleine qualité** (original, ramenées à la taille de l'écran au décodage) ; **guide TV mis à jour tout de suite** (sans attendre 90 s d'inactivité) ; **mises à jour de fond permises pendant la lecture** (catalogue, guide, TMDB, Turbo compris). Stick inchangée.
+- Icône et bannière : logo agrandi au maximum sans recadrage (bannière : 94 % de la largeur ; icône carrée : toute la largeur) ; bannière déclarée aussi sur l'activité principale (lanceur Fire TV).
 
 ### 0.9.4 (22/11/2026) — Cube identifié par adb : Fire OS 7 (API 28), abilist armeabi-v7a,armeabi
 - Version Cube : ARMv7 seulement (arm64 retiré, inutile) → APK ≈ 58 Mo.

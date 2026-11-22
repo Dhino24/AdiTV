@@ -173,7 +173,7 @@ fun DetailScreen(
         if (versionsOpen) sheetWasOpen = true
         else if (sheetWasOpen) { sheetWasOpen = false; repeat(10) { androidx.compose.runtime.withFrameNanos { }; if (runCatching { primary.requestFocus() }.getOrDefault(false)) return@LaunchedEffect } }
     }
-    val backdrop = tmdbImage(meta?.backdropPath, "w1280")
+    val backdrop = tmdbImage(meta?.backdropPath, com.aditv.core.DeviceProfile.backdropSize)
     val poster = tmdbImage(meta?.posterPath, "w500") ?: it.imageUrl
     val chosen = siblings.firstOrNull { s -> s.id == playId }
     Box(Modifier.fillMaxSize()) {
