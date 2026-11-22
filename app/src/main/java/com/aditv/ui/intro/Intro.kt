@@ -32,8 +32,8 @@ object IntroGate {
     @Volatile var played = false
     /** Les tests d'interface la désactivent pour piloter l'application immédiatement. */
     @Volatile var enabled = true
-    /** Durée du son d'ouverture (4,36 s) : l'animation dure exactement autant que lui. */
-    const val DURATION_MS = 4_360
+    /** Durée du son d'ouverture (4,39 s) : l'animation dure exactement autant que lui. */
+    const val DURATION_MS = 4_390
     /** Durée réellement utilisée au dernier lancement (diagnostic). */
     @Volatile var lastDurationMs = 0
 }

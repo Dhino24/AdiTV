@@ -26,4 +26,4 @@ Données TMDB : usage personnel non commercial avec attribution (« This product
 
 LibVLC (LGPL 2.1+) : usage personnel. Si l'APK était un jour distribué, fournir la licence LGPL et le moyen d'obtenir le code source de LibVLC (bibliothèque non modifiée, remplaçable).
 
-Logo ADI TV et son d'ouverture : fournis par Adama (propriétaire), intégrés sans modification du dessin (redimensionnement seulement) ; son : volume ajusté et fondu final.
+Logo ADI TV et son d'ouverture : fournis par Adama (propriétaire), intégrés sans modification du dessin (redimensionnement seulement) ; son : intégré tel quel (réencodé en Ogg).
