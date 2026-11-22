@@ -130,6 +130,7 @@ data class HeroItem(
     val quality: Int? = null,
     val progress: Float? = null,
     val remaining: String? = null,
+    val trailer: String? = null,
 )
 
 data class HomeState(
@@ -214,7 +215,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
                 (if (card.type == "SERIES") "Série · " else "") + (m?.genres?.split(", ")?.firstOrNull() ?: card.genre ?: if (card.type == "SERIES") "" else "Film").trimEnd(' ', '·'),
                 m?.runtimeMin?.takeIf { it > 0 }?.let { if (it >= 60) "${it / 60} h ${"%02d".format(it % 60)}" else "$it min" },
             ).filter { it.isNotBlank() },
-            lang = card.lang, quality = card.quality,
+            lang = card.lang, quality = card.quality, trailer = m?.trailerKey,
         )
     }
 
@@ -229,6 +230,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
             metaParts = listOfNotNull(m?.releaseDate?.take(4), m?.genres?.split(", ")?.firstOrNull(), r.episodeLabel),
             progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
             remaining = listOfNotNull(r.episodeLabel, if (left >= 60) "${left / 60} h ${"%02d".format(left % 60)} restantes" else "$left min restantes").joinToString(" · "),
+            trailer = m?.trailerKey,
         )
     }
 
@@ -306,7 +308,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
     }
     val onSpot: (com.aditv.ui.design.Spot) -> Unit = { focusedCard = null; focusedSpot = it }
     val heroSpot = hero?.let { h ->
-        com.aditv.ui.design.Spot(h.itemId, h.title, h.kicker, h.metaParts.ifEmpty { listOf(h.meta) }, h.overview, h.backdrop, h.poster, h.logo, h.lang, h.quality)
+        com.aditv.ui.design.Spot(h.itemId, h.title, h.kicker, h.metaParts.ifEmpty { listOf(h.meta) }, h.overview, h.backdrop, h.poster, h.logo, h.lang, h.quality, trailer = h.trailer)
     }
     val shown = if (heroFocused || focusedSpot == null) heroSpot else focusedSpot
     Box(Modifier.fillMaxSize()) {

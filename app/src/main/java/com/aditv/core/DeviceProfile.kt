@@ -30,6 +30,8 @@ object DeviceProfile {
     val backgroundDuringPlayback: Boolean get() = highEnd
     /** Direct : aperçu vidéo réel de la chaîne sélectionnée (accord d'Adama ; utilise une connexion de l'abonnement). */
     val livePreview: Boolean get() = highEnd
+    /** Bande-annonce muette en fond (accueil, Films/Séries, fiche) après 3 s sur un titre : Cube seulement. */
+    val trailerBackground: Boolean get() = highEnd
     /** Délai avant les tâches de fond au démarrage. */
     val startupGraceMs: Long get() = if (highEnd) 4_000 else 12_000
 }

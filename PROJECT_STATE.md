@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.12.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.13.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,14 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.13.0 (23/11/2026) — chaînes reclassées, Ligue des champions, bandes-annonces intégrées, son plus grave, icône
+- **Direct par familles** (maquette validée par Adama) : ★ Favoris, **Ligue des champions**, Sport France, Cinéma France, Divertissement France, Info France, Jeunesse France, Documentaires France, **Sénégal**, Afrique, puis Autres pays (francophones d'abord). Chaînes **groupées par diffuseur** (beIN SPORTS 1, 2, 3…), français d'abord. Classement automatique (préfixe pays, noms connus, catégorie fournisseur), calculé en arrière-plan ; **Menu ≡ → Déplacer vers…** pour corriger (mémorisé). Zapping ↑/↓ dans la même famille et le même ordre.
+- **Ligue des champions** : matchs du guide (8 jours, en cours compris) sur la meilleure chaîne (française d'abord) — OK pour regarder, ou pour un rappel s'il est à venir ; puis les diffuseurs 2026-2027 : **Canal+** (France ; finale aussi sur M6), **Canal+ Afrique** et **New World TV** (Afrique francophone).
+- **Logos** : repli sur les logos du guide TV quand le fournisseur n'en donne pas ; nom de chaîne en grand sinon.
+- **Bandes-annonces TMDB dans ADI TV** (lecteur YouTube officiel) : plein écran depuis la fiche (OK pause, Retour), et **fond muet en boucle sur le Cube** après 3 s sur un titre (accueil, Films/Séries, fiche). Vidéo non intégrable : appli YouTube.
+- **Son de navigation** plus grave et plus rond (≈ 500 Hz + corps grave ; validation ≈ 300 Hz).
+- **Icône** : carré plein et opaque (plus de coins transparents → plus de bandes grises dans la tuile Fire TV) ; bannière sur le même fond.
 
 ### 0.12.0 (22/11/2026) — nouvelle direction « cinéma » demandée par Adama (interface jugée trop « IPTV classique »)
 Choix d'Adama : directement dans l'appli ; aperçu vidéo réel du direct ; textes « Grand ».

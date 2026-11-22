@@ -72,6 +72,16 @@ class AppPrefs(private val context: Context) {
     val vodUpdateSnoozedUntil: Flow<Long> = context.dataStore.data.map { it[vodSnooze] ?: 0L }
     suspend fun snoozeVodUpdate(until: Long) = context.dataStore.edit { it[vodSnooze] = until }
 
+    /** Chaînes déplacées à la main dans une autre famille du Direct (identifiant de chaîne → famille). */
+    private val familyOverrides = androidx.datastore.preferences.core.stringSetPreferencesKey("channel_family_overrides")
+    val channelFamilyOverrides: Flow<Map<String, String>> = context.dataStore.data.map { p ->
+        p[familyOverrides].orEmpty().mapNotNull { e -> e.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
+    }
+    suspend fun setChannelFamily(itemId: String, family: String?) = context.dataStore.edit { p ->
+        val rest = p[familyOverrides].orEmpty().filterNot { it.startsWith(itemId + "\t") }.toSet()
+        p[familyOverrides] = if (family == null) rest else rest + (itemId + "\t" + family)
+    }
+
     /** Dernier filtre choisi dans le Direct (catégorie, favoris, sport), par compte. */
     fun guideFilter(accountId: String): Flow<String?> = context.dataStore.data.map { it[stringPreferencesKey("guide_filter_$accountId")] }
     suspend fun setGuideFilter(accountId: String, key: String) = context.dataStore.edit { it[stringPreferencesKey("guide_filter_$accountId")] = key }

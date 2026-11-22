@@ -189,8 +189,10 @@ fun Shell(session: Session.Active) {
                             onPlay = { pid, fs -> if (pid.contains("|LIVE|")) playLive(pid, "all") else play(pid, fs) },
                             onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
                             onMapGuide = { nav.navigate("epgmap/" + Uri.encode(it)) },
+                            onTrailer = { nav.navigate("trailer/" + Uri.encode(it)) },
                         )
                     }
+                    composable("trailer/{key}") { e -> com.aditv.ui.detail.TrailerScreen(Uri.decode(e.arguments?.getString("key").orEmpty()), onClose = { nav.popBackStack() }) }
                     composable("match/{id}") { e -> com.aditv.ui.match.MatchScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
                     composable(
                         "play/{id}?start={start}&list={list}",

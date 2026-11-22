@@ -1,6 +1,6 @@
 # ADI TV — Spécifications de l'application
 
-Version décrite : **0.11.0** (22 novembre 2026)
+Version décrite : **0.13.0** (23 novembre 2026) — voir aussi `PROJECT_STATE.md` pour les évolutions 0.12 (direction cinéma) et 0.13 (familles de chaînes, Ligue des champions, bandes-annonces intégrées)
 Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Adama.
 
 > ADI TV **ne fournit aucun contenu**. Elle lit l'abonnement IPTV de l'utilisateur (protocole Xtream Codes) et l'enrichit : métadonnées TMDB, guide TV, sport.

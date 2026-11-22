@@ -29,6 +29,6 @@ suspend fun AppContainer.spotFor(card: CatalogCard, kicker: String?): Spot {
         backdrop = tmdbImage(m?.backdropPath ?: card.tmdbBackdrop, DeviceProfile.backdropSize),
         poster = tmdbImage(card.tmdbPoster, "w500") ?: card.imageUrl,
         logo = tmdbImage(m?.logoPath ?: card.tmdbLogo, "w500"),
-        lang = card.lang, quality = card.quality,
+        lang = card.lang, quality = card.quality, trailer = m?.trailerKey,
     )
 }

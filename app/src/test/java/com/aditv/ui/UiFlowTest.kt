@@ -188,9 +188,16 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         key(Key.DirectionLeft, 2)
         assertFocused("En direct")
         key(Key.DirectionCenter)
+        // Familles à gauche (Ligue des champions, Sport France…), chaînes au centre, programme à droite.
+        waitText("Ligue des champions")
+        // Démo : chaînes fictives sans pays → « Autres pays ».
+        var k = 0
+        while (k++ < 6 && rule.onAllNodes(hasText("Autres pays") and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionDown)
+        key(Key.DirectionCenter)
         waitText("fictif n°")
         waitText("Guide TV")
         shot("07_direct")
+        key(Key.DirectionRight)
         key(Key.DirectionRight)
         assertFocused("Regarder")
         key(Key.DirectionRight)

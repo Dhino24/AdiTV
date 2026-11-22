@@ -73,6 +73,18 @@ interface LiveDao {
     suspend fun programmesIn(accountId: String, channelIds: List<String>, from: Long, to: Long): List<ProgrammeEntity>
 
     /** IDs de guide ayant au moins un programme à venir ou en cours (couverture). */
+    /** Logos des chaînes fournis par le guide (repli quand le fournisseur n'en donne pas). */
+    @Query("SELECT * FROM epg_channels WHERE accountId = :accountId AND iconUrl IS NOT NULL")
+    suspend fun epgChannelsWithIcon(accountId: String): List<EpgChannelEntity>
+
+    /** Programmes à venir ou en cours dont le titre ou la catégorie contient l'un des mots (Ligue des champions…). */
+    @Query(
+        """SELECT * FROM programmes WHERE accountId = :accountId AND endUtc > :now AND startUtc < :until
+           AND (title LIKE '%champions%' OR category LIKE '%champions%' OR title LIKE '%UCL%' OR title LIKE '%LDC%')
+           ORDER BY startUtc LIMIT 400"""
+    )
+    suspend fun championsProgrammes(accountId: String, now: Long, until: Long): List<ProgrammeEntity>
+
     @Query("SELECT DISTINCT channelId FROM programmes WHERE accountId = :accountId AND endUtc > :now")
     suspend fun coveredChannelIds(accountId: String, now: Long): List<String>
 

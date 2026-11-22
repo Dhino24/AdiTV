@@ -15,6 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,8 @@ data class Spot(
     val lang: String? = null,
     val quality: Int? = null,
     val live: Boolean = false,
+    /** Clé YouTube de la bande-annonce TMDB (fond vidéo muet sur le Cube). */
+    val trailer: String? = null,
 )
 
 /** Fond plein écran de la vedette, en fondu enchaîné ; voiles à gauche et en bas pour la lisibilité. */
@@ -61,6 +66,7 @@ fun CinemaBackdrop(spot: Spot?, reduced: Boolean, dim: Float = 0f) {
                 }
             }
         }
+        TrailerBackground(spot?.trailer, spot?.key)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg, 0.28f to Aditv.Bg.copy(alpha = 0.82f), 0.55f to Aditv.Bg.copy(alpha = 0.25f), 0.8f to Color.Transparent)))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 0.62f to Aditv.Bg.copy(alpha = 0.7f), 0.85f to Aditv.Bg)))
         if (dim > 0f) Box(Modifier.fillMaxSize().background(Aditv.Bg.copy(alpha = dim)))
@@ -86,3 +92,25 @@ fun SpotInfo(spot: Spot?, modifier: Modifier = Modifier) {
         }
     }
 }
+
+
+/**
+ * Bande-annonce muette en boucle derrière la vedette (Cube) : démarre après 3 s sur le même titre, apparaît en fondu
+ * quand la lecture a réellement commencé ; rien si la vidéo refuse l'intégration.
+ */
+@Composable
+fun TrailerBackground(trailer: String?, spotKey: String?) {
+    if (!com.aditv.core.DeviceProfile.trailerBackground || trailer == null) return
+    var ready by androidx.compose.runtime.remember(spotKey) { androidx.compose.runtime.mutableStateOf(false) }
+    var visible by androidx.compose.runtime.remember(spotKey) { androidx.compose.runtime.mutableStateOf(false) }
+    var failed by androidx.compose.runtime.remember(spotKey) { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(spotKey, trailer) { ready = false; kotlinx.coroutines.delay(3_000); ready = true }
+    val alpha by androidx.compose.animation.core.animateFloatAsState(if (visible) 1f else 0f, tween(700), label = "bande-annonce")
+    if (ready && !failed) com.aditv.ui.common.TrailerEmbed(
+        trailer, muted = true, loop = true,
+        modifier = Modifier.fillMaxSize().androidx_alpha(alpha),
+        onPlaying = { visible = true }, onError = { failed = true },
+    )
+}
+
+private fun Modifier.androidx_alpha(a: Float) = this.then(androidx.compose.ui.Modifier.graphicsLayer { alpha = a })

@@ -1,5 +1,8 @@
 package com.aditv.ui.live
 
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -79,94 +82,94 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class LiveFilter(val key: String, val label: String)
 data class LiveRow(val channel: CatalogCard, val now: Programme?, val next: Programme?)
 
+/** Élément de la liste centrale : intertitre de diffuseur, chaîne, ou match de Ligue des champions. */
+sealed interface LiveItem {
+    val key: String
+    data class Header(val text: String) : LiveItem { override val key = "h:$text" }
+    data class Channel(val row: LiveRow) : LiveItem { override val key = row.channel.id }
+    data class Match(val match: ChampionsMatch) : LiveItem { override val key = "m:${match.channel.id}:${match.startUtc}" }
+}
+
 /**
- * En direct (maquette validée) : liste des chaînes à gauche (programme en cours et sa progression),
- * aperçu du programme à droite avec « Regarder » et « Guide TV ». Le filtre choisi est partagé avec le guide.
+ * En direct : familles à gauche (Favoris, Ligue des champions, Sport France, Cinéma France, Divertissement France…,
+ * Sénégal, puis le reste du monde), chaînes au centre groupées par diffuseur, programme en grand à droite.
  */
 class LiveViewModel(private val c: AppContainer, private val accountId: String) : ViewModel() {
-    var filters by mutableStateOf<List<LiveFilter>>(emptyList()); private set
-    var filter by mutableStateOf<LiveFilter?>(null); private set
-    var rows by mutableStateOf<List<LiveRow>?>(null); private set
+    var families by mutableStateOf<List<FamilyEntry>>(emptyList()); private set
+    var family by mutableStateOf<FamilyEntry?>(null); private set
+    var items by mutableStateOf<List<LiveItem>?>(null); private set
     var favorites by mutableStateOf<Set<String>>(emptySet()); private set
-    var truncated by mutableStateOf<Int?>(null); private set
     private var loadJob: kotlinx.coroutines.Job? = null
 
     init {
         viewModelScope.launch {
-            val favs = c.db.live().favorites(accountId).first()
-            val cats = c.db.catalog().categories(accountId, "LIVE").first()
-            filters = buildList {
-                if (favs.isNotEmpty()) add(LiveFilter("fav", "Favoris"))
-                add(LiveFilter("sport", "Sport"))
-                add(LiveFilter("all", "Toutes"))
-                cats.forEach { add(LiveFilter("cat:${it.id}", it.name)) }
-            }
+            families = withContext(Dispatchers.Default) { LiveCatalog.families(c, accountId) }
             val last = c.prefs.guideFilter(accountId).first()
-            // Jamais « Toutes » à l'ouverture (trop lourd sur la Stick) : dernier filtre, sinon Favoris, sinon catégorie française.
-            filter = filters.firstOrNull { it.key == last && it.key != "all" }
-                ?: filters.firstOrNull { it.key == "fav" }
-                ?: cats.firstOrNull { GuideViewModel.isFrenchCategory(it.name) }?.let { f -> filters.first { it.key == "cat:${f.id}" } }
-                ?: cats.firstOrNull()?.let { f -> filters.first { it.key == "cat:${f.id}" } }
-                ?: filters.first { it.key == "sport" }
+            family = families.firstOrNull { it.key == last } ?: families.firstOrNull { it.key == "fam:SPORT_FR" } ?: families.firstOrNull()
             reload()
         }
         viewModelScope.launch { c.db.live().favoriteIds(accountId).collect { favorites = it.toSet() } }
-        // Programmes en cours rafraîchis au début de chaque minute.
-        viewModelScope.launch { while (true) { delay(60_000 - System.currentTimeMillis() % 60_000 + 500); if (rows != null) reload() } }
+        viewModelScope.launch { while (true) { delay(60_000 - System.currentTimeMillis() % 60_000 + 500); if (items != null) reload() } }
     }
 
-    fun select(f: LiveFilter) {
-        if (f == filter) return
-        filter = f; rows = null
+    fun select(f: FamilyEntry) {
+        if (f == family) return
+        family = f; items = null
         viewModelScope.launch { c.prefs.setGuideFilter(accountId, f.key) }
         reload()
     }
 
-    private fun reload() {
-        val f = filter ?: return
+    fun reload(refreshFamilies: Boolean = false) {
+        val f = family ?: return
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            val (list, cut) = withContext(Dispatchers.Default) { compute(f) }
-            rows = list; truncated = cut
+            if (refreshFamilies) families = withContext(Dispatchers.Default) { LiveCatalog.families(c, accountId) }
+            items = withContext(Dispatchers.Default) { compute(f.key) }
         }
     }
 
-    private suspend fun compute(f: LiveFilter): Pair<List<LiveRow>, Int?> {
-        val prefs = c.prefs.variantPrefs.first()
-        val raw = when {
-            f.key == "fav" -> c.db.live().favorites(accountId).first()
-            f.key == "sport" -> {
-                val names = c.db.catalog().categories(accountId, "LIVE").first().associate { it.id to it.name }
-                c.db.catalog().allChannels(accountId).filter { ch -> com.aditv.data.sport.SportMatcher.isSportChannel(ch.title, ch.categoryId?.let(names::get)) }
-                    .sortedBy { ch -> if (ch.lang == "fr") 0 else 1 }
-            }
-            f.key.startsWith("cat:") -> c.db.catalog().cardsInCategory(accountId, "LIVE", f.key.removePrefix("cat:")).first()
-            else -> c.db.catalog().allChannels(accountId)
-        }
-        val all = raw.collapsed(prefs).map { it.first }.distinctBy { it.id }
-        val max = DeviceProfile.guideAllMax
-        val channels = if (f.key == "all") all.take(max) else all
+    private suspend fun compute(key: String): List<LiveItem> {
+        val placed = LiveCatalog.channels(c, accountId, key).take(if (DeviceProfile.highEnd) 800 else 300)
         val now = System.currentTimeMillis()
-        val progs = c.epg.programmesFor(accountId, channels.map { it.id to it.epgChannelId }, now, now + 6 * 3_600_000L)
-        return channels.map { ch ->
-            val list = progs[ch.id].orEmpty()
-            val cur = list.firstOrNull { it.isLive(now) }
-            LiveRow(ch, cur, list.firstOrNull { it.startUtc >= (cur?.endUtc ?: now) })
-        } to (if (f.key == "all" && all.size > max) all.size else null)
+        val progs = c.epg.programmesFor(accountId, placed.map { it.first.id to it.first.epgChannelId }, now, now + 6 * 3_600_000L)
+        return buildList {
+            if (key == LiveCatalog.UCL) {
+                val matches = LiveCatalog.championsMatches(c, accountId)
+                if (matches.isNotEmpty()) { add(LiveItem.Header("Matchs")); matches.forEach { add(LiveItem.Match(it)) } }
+            }
+            var group: String? = null
+            placed.forEach { (ch, place) ->
+                val g = if (place.family == com.aditv.data.live.Family.MONDE) "${place.country ?: "Autres"} · ${place.broadcaster}" else place.broadcaster
+                if (g != group) { group = g; add(LiveItem.Header(g)) }
+                val list = progs[ch.id].orEmpty()
+                val cur = list.firstOrNull { it.isLive(now) }
+                add(LiveItem.Channel(LiveRow(ch, cur, list.firstOrNull { it.startUtc >= (cur?.endUtc ?: now) })))
+            }
+        }
     }
 
     fun toggleFavorite(id: String) = viewModelScope.launch {
         if (id in favorites) c.db.live().removeFavorite(accountId, id)
         else c.db.live().addFavorite(com.aditv.data.db.FavoriteChannelEntity(accountId, id, System.currentTimeMillis()))
+        LiveCatalog.invalidate(); reload(refreshFamilies = true)
     }
 
-    val listKey: String? get() = filter?.key
+    /** Correction manuelle : la chaîne change de famille (mémorisé). */
+    fun moveTo(id: String, f: com.aditv.data.live.Family) = viewModelScope.launch {
+        c.prefs.setChannelFamily(id, f.name); LiveCatalog.invalidate(); reload(refreshFamilies = true)
+    }
+
+    fun remindOrNull(m: ChampionsMatch) = viewModelScope.launch {
+        c.sport.toggleReminder(accountId, m.title, m.startUtc, m.endUtc, m.channel.id, m.channel.title)
+    }
+
+    val listKey: String? get() = family?.key
 }
 
 private val timeFmt = SimpleDateFormat("HH:mm", Locale.FRANCE)
+private val dayFmt = SimpleDateFormat("EEE d MMM", Locale.FRANCE)
 private fun progressOf(p: Programme?, now: Long) = p?.takeIf { it.isLive(now) }?.let { ((now - it.startUtc).toFloat() / (it.endUtc - it.startUtc)).coerceIn(0f, 1f) }
 
 @Composable
@@ -174,51 +177,127 @@ fun LiveScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, o
     val c = LocalContainer.current
     val vm: LiveViewModel = viewModel(key = "live-${session.account.id}") { LiveViewModel(c, session.account.id) }
     var selected by remember { mutableStateOf<LiveRow?>(null) }
+    var moving by remember { mutableStateOf<CatalogCard?>(null) }
     val firstChannel = remember { FocusRequester() }
+    val railFocus = remember { FocusRequester() }
     val entry = com.aditv.ui.LocalScreenEntry.current
-    val rows = vm.rows
+    val items = vm.items
+    val rows = items?.filterIsInstance<LiveItem.Channel>()?.map { it.row }
     val shown = rows?.firstOrNull { it.channel.id == selected?.channel?.id } ?: rows?.firstOrNull()
-    com.aditv.ui.common.InitialFocus(firstChannel, key = rows?.isNotEmpty() == true, enabled = rows?.isNotEmpty() == true)
+    com.aditv.ui.common.InitialFocus(railFocus, key = vm.families.isNotEmpty(), enabled = vm.families.isNotEmpty())
 
     Box(Modifier.fillMaxSize()) {
-        // Fond : la chaîne sélectionnée en vidéo, sans le son (Cube), sinon son logo mis en scène.
         shown?.let { LiveBackground(it.channel, session) }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg.copy(alpha = 0.97f), 0.36f to Aditv.Bg.copy(alpha = 0.88f), 0.6f to Aditv.Bg.copy(alpha = 0.2f), 0.85f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg.copy(alpha = 0.97f), 0.45f to Aditv.Bg.copy(alpha = 0.9f), 0.66f to Aditv.Bg.copy(alpha = 0.25f), 0.88f to Color.Transparent)))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Aditv.Bg.copy(alpha = 0.92f))))
 
-        Row(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 58.dp, bottom = 18.dp)) {
-            // ---------- colonne des chaînes ----------
-            Column(Modifier.width(330.dp).fillMaxHeight()) {
-                Text("En direct", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, color = Aditv.Text)
+        Row(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 56.dp, bottom = 16.dp)) {
+            // ---------- familles ----------
+            Column(Modifier.width(196.dp).fillMaxHeight()) {
+                Text("En direct", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, color = Aditv.Text)
                 Spacer(Modifier.height(8.dp))
-                LazyRow(Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp)) {
-                    items(vm.filters.distinctBy { it.key }, key = { it.key }) { f -> FilterChip(f.label, f == vm.filter, { vm.select(f) }) }
+                LazyColumn(Modifier.fillMaxSize().focusRestorer(railFocus), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 3.dp)) {
+                    items(vm.families, key = { it.key }) { f ->
+                        FamilyItem(f, f == vm.family, { vm.select(f) },
+                            if (f == vm.families.first()) Modifier.focusRequester(railFocus).focusRequester(entry) else Modifier)
+                    }
                 }
-                Spacer(Modifier.height(8.dp))
+            }
+            Spacer(Modifier.width(16.dp))
+            // ---------- chaînes groupées par diffuseur ----------
+            Column(Modifier.width(300.dp).fillMaxHeight().padding(top = 36.dp)) {
                 when {
-                    rows == null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { repeat(5) { Box(Modifier.fillMaxWidth().height(64.dp).background(Aditv.Surface1, RoundedCornerShape(10.dp))) } }
-                    rows.isEmpty() -> StateBox(R.drawable.ic_star_outline, "Aucune chaîne", "Choisissez un autre filtre, ou ajoutez des favoris.")
-                    else -> LazyColumn(
-                        Modifier.fillMaxSize().focusRestorer(firstChannel), verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp),
-                    ) {
-                        items(rows, key = { it.channel.id }) { r ->
-                            ChannelRow(
-                                r, r.channel.id in vm.favorites,
-                                onFocus = { selected = r },
-                                onClick = { onPlayLive(r.channel.id, vm.listKey) },
-                                modifier = if (r === rows.first()) Modifier.focusRequester(firstChannel).focusRequester(entry) else Modifier,
-                            )
+                    items == null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { repeat(5) { Box(Modifier.fillMaxWidth().height(56.dp).background(Aditv.Surface1, RoundedCornerShape(10.dp))) } }
+                    items.isEmpty() -> StateBox(R.drawable.ic_star_outline, "Aucune chaîne", "Rien dans cette famille pour l'instant.")
+                    else -> LazyColumn(Modifier.fillMaxSize().focusRestorer(), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)) {
+                        items(items, key = { it.key }) { it ->
+                            when (it) {
+                                is LiveItem.Header -> Text(it.text.uppercase(), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 9.sp),
+                                    color = Aditv.TextTertiary, modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp))
+                                is LiveItem.Channel -> ChannelRow(
+                                    it.row, it.row.channel.id in vm.favorites,
+                                    onFocus = { selected = it.row },
+                                    onClick = { onPlayLive(it.row.channel.id, vm.listKey) },
+                                    onMenu = { moving = it.row.channel },
+                                    modifier = Modifier,
+                                )
+                                is LiveItem.Match -> MatchRow(it.match, onClick = {
+                                    if (System.currentTimeMillis() >= it.match.startUtc) onPlayLive(it.match.channel.id, vm.listKey) else vm.remindOrNull(it.match)
+                                })
+                            }
                         }
-                        vm.truncated?.let { n -> item(key = "cut") { Text("${DeviceProfile.guideAllMax} premières chaînes sur $n : choisissez une catégorie pour les autres.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary, modifier = Modifier.padding(4.dp)) } }
                     }
                 }
             }
             Spacer(Modifier.weight(1f))
-            // ---------- programme, en grand, en bas à droite ----------
-            Column(Modifier.width(470.dp).fillMaxHeight(), verticalArrangement = Arrangement.Bottom) {
+            Column(Modifier.width(400.dp).fillMaxHeight(), verticalArrangement = Arrangement.Bottom) {
                 if (shown != null) ProgrammeInfo(shown, shown.channel.id in vm.favorites,
                     onWatch = { onPlayLive(shown.channel.id, vm.listKey) }, onGuide = onGuide, onFavorite = { vm.toggleFavorite(shown.channel.id) })
+            }
+        }
+        moving?.let { ch -> MoveDialog(ch, onPick = { vm.moveTo(ch.id, it); moving = null }, onClose = { moving = null }) }
+    }
+}
+
+@Composable
+private fun FamilyItem(f: FamilyEntry, current: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val shape = RoundedCornerShape(10.dp)
+    Surface(
+        onClick = onClick,
+        modifier = (modifier.fillMaxWidth().height(40.dp)).navSound(),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (current) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f), contentColor = if (current) Aditv.Text else Aditv.TextSecondary,
+            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+        ),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp)),
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(f.label, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(f.count.toString(), style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp), modifier = Modifier.graphicsLayer { alpha = 0.6f })
+        }
+    }
+}
+
+@Composable
+private fun MatchRow(m: ChampionsMatch, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    val now = System.currentTimeMillis()
+    val live = now in m.startUtc until m.endUtc
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(56.dp).navSound(),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp)),
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.width(62.dp)) {
+                if (live) LiveTag() else Text(timeFmt.format(Date(m.startUtc)), style = MaterialTheme.typography.titleMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold))
+                Text(if (live) "en cours" else dayFmt.format(Date(m.startUtc)), style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp), modifier = Modifier.graphicsLayer { alpha = 0.7f })
+            }
+            Column(Modifier.weight(1f)) {
+                Text(m.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(com.aditv.data.live.ChannelFamilies.cleanName(m.channel.title) + if (live) " · OK pour regarder" else " · OK pour un rappel", style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.5.sp), maxLines = 1, modifier = Modifier.graphicsLayer { alpha = 0.7f })
+            }
+        }
+    }
+}
+
+/** Menu ≡ sur une chaîne : la déplacer dans une autre famille (correction du classement automatique). */
+@Composable
+private fun MoveDialog(ch: CatalogCard, onPick: (com.aditv.data.live.Family) -> Unit, onClose: () -> Unit) {
+    val first = remember { FocusRequester() }
+    com.aditv.ui.common.InitialFocus(first)
+    androidx.activity.compose.BackHandler { onClose() }
+    Box(Modifier.fillMaxSize().background(Color(0xB0030508)), contentAlignment = Alignment.Center) {
+        Column(Modifier.width(380.dp).background(Color(0xF0141A22), RoundedCornerShape(14.dp)).padding(22.dp)) {
+            Text("Déplacer « ${com.aditv.data.live.ChannelFamilies.cleanName(ch.title)} »", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Aditv.Text, maxLines = 2)
+            Spacer(Modifier.height(10.dp))
+            com.aditv.data.live.Family.entries.sortedBy { it.order }.forEachIndexed { i, f ->
+                com.aditv.ui.design.SheetOption(f.label, { onPick(f) }, if (i == 0) Modifier.focusRequester(first) else Modifier)
             }
         }
     }
@@ -261,7 +340,7 @@ private fun LiveBackground(channel: CatalogCard, session: Session.Active) {
         // Logo en grand à droite (visible tant que la vidéo n'a pas démarré).
         Box(Modifier.fillMaxHeight(0.42f).fillMaxWidth(0.34f).padding(end = 70.dp), contentAlignment = Alignment.Center) {
             if (channel.imageUrl != null) RemoteImage(channel.imageUrl, channel.title, Modifier.fillMaxSize(), ContentScale.Fit, fallbackTitle = false)
-            else Text(channel.title, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 2)
+            else Text(com.aditv.data.live.ChannelFamilies.cleanName(channel.title), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, lineHeight = 40.sp, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
         val p = player
         if (p != null) androidx.compose.ui.viewinterop.AndroidView(
@@ -273,12 +352,13 @@ private fun LiveBackground(channel: CatalogCard, session: Session.Active) {
 }
 
 @Composable
-private fun ChannelRow(r: LiveRow, favorite: Boolean, onFocus: () -> Unit, onClick: () -> Unit, modifier: Modifier) {
+private fun ChannelRow(r: LiveRow, favorite: Boolean, onFocus: () -> Unit, onClick: () -> Unit, onMenu: () -> Unit, modifier: Modifier) {
     val shape = RoundedCornerShape(10.dp)
     val now = System.currentTimeMillis()
     Surface(
         onClick = onClick,
-        modifier = (modifier.fillMaxWidth().height(64.dp).onFocusChanged { if (it.isFocused) onFocus() }).navSound(),
+        modifier = (modifier.fillMaxWidth().height(56.dp).onFocusChanged { if (it.isFocused) onFocus() }
+            .onPreviewKeyEvent { ev -> if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && ev.key == androidx.compose.ui.input.key.Key.Menu) { onMenu(); true } else false }).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight),
@@ -286,13 +366,13 @@ private fun ChannelRow(r: LiveRow, favorite: Boolean, onFocus: () -> Unit, onCli
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             // Logo en grand sur une plaque sobre.
-            Box(Modifier.width(84.dp).height(48.dp).clip(RoundedCornerShape(7.dp)).background(Brush.verticalGradient(listOf(Color(0xFF2B323C), Color(0xFF191E25)))).padding(horizontal = 7.dp, vertical = 5.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(76.dp).height(42.dp).clip(RoundedCornerShape(7.dp)).background(Brush.verticalGradient(listOf(Color(0xFF2B323C), Color(0xFF191E25)))).padding(horizontal = 7.dp, vertical = 5.dp), contentAlignment = Alignment.Center) {
                 if (r.channel.imageUrl != null) RemoteImage(r.channel.imageUrl, r.channel.title, Modifier.fillMaxSize(), ContentScale.Fit, fallbackTitle = false)
-                else Text(r.channel.title, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 12.sp, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                else Text(com.aditv.data.live.ChannelFamilies.cleanName(r.channel.title), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 12.sp, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(r.channel.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(com.aditv.data.live.ChannelFamilies.cleanName(r.channel.title), style = MaterialTheme.typography.titleMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(r.now?.title ?: "Programme non communiqué", style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.graphicsLayer { alpha = 0.75f })
                 progressOf(r.now, now)?.let { f ->
                     Box(Modifier.padding(top = 4.dp).fillMaxWidth(0.8f).height(2.dp).background(Color.Gray.copy(alpha = 0.35f), RoundedCornerShape(1.dp))) {

@@ -256,6 +256,11 @@ class PlayerViewModel(
     // ---------- direct : liste de zapping, favoris, guide ----------
 
     private suspend fun loadChannelList() {
+        // Familles du Direct (et Ligue des champions) : même ordre que l'écran En direct.
+        if (liveList != null && (liveList.startsWith("fam:") || liveList == com.aditv.ui.live.LiveCatalog.UCL || liveList == com.aditv.ui.live.LiveCatalog.FAV)) {
+            channels = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { com.aditv.ui.live.LiveCatalog.channels(c, accountId, liveList).map { it.first } }
+            updatePosition(); return
+        }
         val raw = when {
             liveList == "fav" -> c.db.live().favorites(accountId).first()
             // Chaînes de sport françaises (rangée « Sport en direct ») : zapping entre elles.

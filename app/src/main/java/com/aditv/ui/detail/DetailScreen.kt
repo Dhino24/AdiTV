@@ -101,6 +101,7 @@ fun DetailScreen(
     onOpen: (String) -> Unit,
     onCorrect: (String) -> Unit,
     onMapGuide: (String) -> Unit = {},
+    onTrailer: (String) -> Unit = {},
 ) {
     val c = LocalContainer.current
     val scope = rememberCoroutineScope()
@@ -185,6 +186,8 @@ fun DetailScreen(
             }
             else -> SideBackdrop(0.62f) { ComposedArt(title, poster, Modifier.fillMaxSize(), showTitle = false) }
         }
+        // Cube : bande-annonce muette en fond après 3 s sur la fiche.
+        if (it.type != "LIVE") com.aditv.ui.design.TrailerBackground(meta?.trailerKey, it.id)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg, 0.26f to Aditv.Bg.copy(alpha = 0.9f), 0.55f to Aditv.Bg.copy(alpha = 0.35f), 0.75f to Aditv.Bg.copy(alpha = 0.1f))))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 0.62f to Aditv.Bg.copy(alpha = 0.6f), 0.98f to Aditv.Bg)))
 
@@ -221,7 +224,7 @@ fun DetailScreen(
                             } ?: PillButton(if (episodesError != null) "Épisodes indisponibles" else "Chargement…", {}, first, icon = null)
                         }
                         if (it.type != "LIVE") {
-                            if (canTrailer && meta?.trailerKey != null) PillButton("Bande-annonce", { com.aditv.ui.common.Trailer.open(context, meta!!.trailerKey!!) }, icon = R.drawable.ic_trailer, primary = false)
+                            if (meta?.trailerKey != null) PillButton("Bande-annonce", { onTrailer(meta!!.trailerKey!!) }, icon = R.drawable.ic_trailer, primary = false)
                             RoundButton(if (inList) R.drawable.ic_check else R.drawable.ic_plus, if (inList) "Dans Ma liste" else "Ajouter à Ma liste",
                                 { scope.launch { c.library.toggleWatchlist(accountId, id, !inList) } }, active = inList)
                             if (siblings.size > 1) RoundButton(R.drawable.ic_layers, "Versions", { versionsOpen = true })
