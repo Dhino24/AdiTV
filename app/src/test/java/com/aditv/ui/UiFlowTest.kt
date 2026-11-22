@@ -91,6 +91,13 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         if (focused.isEmpty()) throw AssertionError("« $text » n'a pas le focus") else Unit
     } catch (e: AssertionError) { shot("echec_focus_" + text.take(12)); throw AssertionError("Focus actuel : " + focusedDump(), e) }
 
+    /** ↑ jusqu'à ce que l'élément portant ce texte ait le focus (8 essais au plus). */
+    private fun upUntil(text: String) {
+        var n = 0
+        while (n++ < 8 && rule.onAllNodes(hasText(text) and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionUp)
+        assertFocused(text)
+    }
+
     private fun waitGone(text: String) = rule.waitUntil(5_000) {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50))
         rule.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty()
@@ -110,7 +117,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitText("Renseignez l'identifiant")
 
         press("Essayer le mode démo")
-        waitText("Votre soirée commence ici")
+        waitText("Regarder")
         // Focus initial sur l'action principale du carrousel.
         assertFocused("Regarder")
         shot("02_accueil")
@@ -131,6 +138,11 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         key(Key.DirectionRight)
         assertFocused("Films")
         key(Key.DirectionCenter)
+        // Direction cinéma : vedette en haut, une rangée par catégorie ; ↑ « Tout parcourir » ouvre la grille.
+        waitText("Ajouts récents")
+        shot("04_films")
+        upUntil("Tout parcourir")
+        key(Key.DirectionCenter)
         waitText("Tous les films")
         assertFocused("Tous les films")
         waitText("Les Grands Fleuves") // le plus récent en premier
@@ -138,7 +150,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         assertFocused("Thrillers")
         key(Key.DirectionCenter)
         waitText("Fjord noir")
-        shot("04_films")
+        shot("04b_films_grille")
 
         // Grille → fiche.
         key(Key.DirectionDown)
@@ -159,9 +171,10 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitGone("Lecture indisponible (démo)")
         waitText("Fjord noir")
 
-        // ↑ ↑ : puces puis barre (sur Films) ; → Séries, En direct, Recherche, Ma liste (signet).
-        key(Key.DirectionUp, 2)
-        assertFocused("Films")
+        // Retour : grille → Films ; ↑ jusqu'à la barre (sur Films) ; → Séries, En direct, Recherche, Ma liste (signet).
+        back()
+        waitText("Ajouts récents")
+        upUntil("Films")
         key(Key.DirectionRight, 4)
         // Icône « signet » : libellé porté par la description (pas de texte affiché).
         assertEquals(1, rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Ma liste") and androidx.compose.ui.test.isFocused(), useUnmergedTree = false).fetchSemanticsNodes().size
@@ -202,7 +215,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitText("Saisissez au moins 2 caractères")
         listOf("i", "n", "f", "o").forEach { press(it) }
         waitText("Info 24 (démo)")
-        assertEquals("variantes regroupées", 1, rule.onAllNodesWithText("Info 24 (démo)", substring = true).fetchSemanticsNodes().size)
+        assertEquals("variantes regroupées", 1, rule.onAllNodes(hasText("Info 24 (démo)", substring = true) and androidx.compose.ui.test.hasClickAction()).fetchSemanticsNodes().size)
         shot("09_recherche")
 
         // Réglages : ↑ vers la barre, → → (Ma liste, puis réglages).
@@ -215,8 +228,10 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
 
         // Retour : barre → Accueil → barre → « Quitter ADITV ? » ; Retour referme la question.
         back(); back()
-        waitText("Votre soirée commence ici")
-        back(); back()
+        waitText("Accueil")
+        // Retour jusqu'à la question (contenu → barre → « Quitter ADI TV ? »).
+        var tries = 0
+        while (tries++ < 4 && rule.onAllNodesWithText("Quitter ADI TV ?").fetchSemanticsNodes().isEmpty()) back()
         waitText("Quitter ADI TV ?")
         shot("11_quitter")
         back()
@@ -274,7 +289,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
     @Test fun sportSettings() {
         waitText("Connectez votre abonnement")
         press("Essayer le mode démo")
-        waitText("Votre soirée commence ici")
+        waitText("Regarder")
         key(Key.DirectionUp)
         key(Key.DirectionRight, 6)
         key(Key.DirectionCenter)
@@ -292,13 +307,13 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
     @Test fun seriesDetailWithEpisodes() {
         waitText("Connectez votre abonnement")
         press("Essayer le mode démo")
-        waitText("Votre soirée commence ici")
+        waitText("Regarder")
         key(Key.DirectionUp)
         key(Key.DirectionRight, 2)
         assertFocused("Séries")
         key(Key.DirectionCenter)
-        waitText("Toutes les séries")
-        key(Key.DirectionDown)
+        waitText("Ajouts récents")
+        rule.waitUntil(5_000) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50)); rule.onAllNodes(androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().any { it.boundsInRoot.top > 500f } }
         key(Key.DirectionCenter)
         waitText("SÉRIE")
         waitText("Saison 1")

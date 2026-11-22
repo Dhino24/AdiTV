@@ -103,6 +103,9 @@ class PlaybackController(private val context: Context, private val streamClient:
         return p
     }
 
+    /** Libère la session seulement si c'est encore celle-ci (un aperçu ne coupe jamais la lecture qui l'a remplacé). */
+    fun releaseIf(req: PlaybackRequest) { if (request === req) release() }
+
     fun release() {
         engine?.let { it.release(); engine = null }
         turbo.value = false

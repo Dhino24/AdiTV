@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -176,122 +177,156 @@ fun LiveScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, o
     val firstChannel = remember { FocusRequester() }
     val entry = com.aditv.ui.LocalScreenEntry.current
     val rows = vm.rows
-    // Aperçu : chaîne sélectionnée, sinon la première ; mis à jour avec les programmes de la minute.
     val shown = rows?.firstOrNull { it.channel.id == selected?.channel?.id } ?: rows?.firstOrNull()
     com.aditv.ui.common.InitialFocus(firstChannel, key = rows?.isNotEmpty() == true, enabled = rows?.isNotEmpty() == true)
 
-    Row(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 62.dp, bottom = 16.dp)) {
-        // ---------- colonne des chaînes ----------
-        Column(Modifier.width(300.dp).fillMaxHeight()) {
-            Text("En direct", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, color = Aditv.Text)
-            Spacer(Modifier.height(10.dp))
-            LazyRow(Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp)) {
-                items(vm.filters.distinctBy { it.key }, key = { it.key }) { f -> FilterChip(f.label, f == vm.filter, { vm.select(f) }) }
-            }
-            Spacer(Modifier.height(10.dp))
-            when {
-                rows == null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { repeat(5) { Box(Modifier.fillMaxWidth().height(58.dp).background(Aditv.Surface1, RoundedCornerShape(8.dp))) } }
-                rows.isEmpty() -> StateBox(R.drawable.ic_star_outline, "Aucune chaîne", "Choisissez un autre filtre, ou ajoutez des favoris (☆ sur une chaîne).")
-                else -> LazyColumn(
-                    Modifier.fillMaxSize().focusRestorer(firstChannel), verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 3.dp),
-                ) {
-                    items(rows, key = { it.channel.id }) { r ->
-                        ChannelRow(
-                            r, r.channel.id in vm.favorites,
-                            onFocus = { selected = r },
-                            onClick = { onPlayLive(r.channel.id, vm.listKey) },
-                            modifier = if (r === rows.first()) Modifier.focusRequester(firstChannel).focusRequester(entry) else Modifier,
-                        )
+    Box(Modifier.fillMaxSize()) {
+        // Fond : la chaîne sélectionnée en vidéo, sans le son (Cube), sinon son logo mis en scène.
+        shown?.let { LiveBackground(it.channel, session) }
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg.copy(alpha = 0.97f), 0.36f to Aditv.Bg.copy(alpha = 0.88f), 0.6f to Aditv.Bg.copy(alpha = 0.2f), 0.85f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Aditv.Bg.copy(alpha = 0.92f))))
+
+        Row(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 58.dp, bottom = 18.dp)) {
+            // ---------- colonne des chaînes ----------
+            Column(Modifier.width(330.dp).fillMaxHeight()) {
+                Text("En direct", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, color = Aditv.Text)
+                Spacer(Modifier.height(8.dp))
+                LazyRow(Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp)) {
+                    items(vm.filters.distinctBy { it.key }, key = { it.key }) { f -> FilterChip(f.label, f == vm.filter, { vm.select(f) }) }
+                }
+                Spacer(Modifier.height(8.dp))
+                when {
+                    rows == null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { repeat(5) { Box(Modifier.fillMaxWidth().height(64.dp).background(Aditv.Surface1, RoundedCornerShape(10.dp))) } }
+                    rows.isEmpty() -> StateBox(R.drawable.ic_star_outline, "Aucune chaîne", "Choisissez un autre filtre, ou ajoutez des favoris.")
+                    else -> LazyColumn(
+                        Modifier.fillMaxSize().focusRestorer(firstChannel), verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp),
+                    ) {
+                        items(rows, key = { it.channel.id }) { r ->
+                            ChannelRow(
+                                r, r.channel.id in vm.favorites,
+                                onFocus = { selected = r },
+                                onClick = { onPlayLive(r.channel.id, vm.listKey) },
+                                modifier = if (r === rows.first()) Modifier.focusRequester(firstChannel).focusRequester(entry) else Modifier,
+                            )
+                        }
+                        vm.truncated?.let { n -> item(key = "cut") { Text("${DeviceProfile.guideAllMax} premières chaînes sur $n : choisissez une catégorie pour les autres.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary, modifier = Modifier.padding(4.dp)) } }
                     }
-                    vm.truncated?.let { n -> item(key = "cut") { Text("${DeviceProfile.guideAllMax} premières chaînes sur $n : choisissez une catégorie pour les autres.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary, modifier = Modifier.padding(4.dp)) } }
                 }
             }
+            Spacer(Modifier.weight(1f))
+            // ---------- programme, en grand, en bas à droite ----------
+            Column(Modifier.width(470.dp).fillMaxHeight(), verticalArrangement = Arrangement.Bottom) {
+                if (shown != null) ProgrammeInfo(shown, shown.channel.id in vm.favorites,
+                    onWatch = { onPlayLive(shown.channel.id, vm.listKey) }, onGuide = onGuide, onFavorite = { vm.toggleFavorite(shown.channel.id) })
+            }
         }
-        Spacer(Modifier.width(24.dp))
-        // ---------- aperçu ----------
-        Column(Modifier.weight(1f).fillMaxHeight().padding(top = 4.dp)) {
-            if (shown != null) Preview(shown, shown.channel.id in vm.favorites,
-                onWatch = { onPlayLive(shown.channel.id, vm.listKey) }, onGuide = onGuide, onFavorite = { vm.toggleFavorite(shown.channel.id) })
+    }
+}
+
+/**
+ * Fond du Direct. Cube : vraie vidéo de la chaîne, muette, qualité limitée à 720p, lancée 0,7 s après que la sélection
+ * s'arrête (une connexion de l'abonnement est utilisée). Stick et mode démo : logo de la chaîne en grand.
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+private fun LiveBackground(channel: CatalogCard, session: Session.Active) {
+    val c = LocalContainer.current
+    var player by remember { mutableStateOf<androidx.media3.exoplayer.ExoPlayer?>(null) }
+    var request by remember { mutableStateOf<com.aditv.playback.PlaybackRequest?>(null) }
+    var showing by remember { mutableStateOf(false) }
+    var starts by remember { mutableStateOf(0) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { starts++ }
+    if (DeviceProfile.livePreview) LaunchedEffect(channel.id, starts) {
+        showing = false
+        delay(700)
+        val item = c.db.catalog().observeItem(channel.id).first() ?: return@LaunchedEffect
+        val url = runCatching { session.adapter.streamUrl(com.aditv.data.provider.StreamTarget.Live(item.providerId)) }.getOrNull() ?: return@LaunchedEffect
+        val req = com.aditv.playback.PlaybackRequest(url, item.title, "APERÇU", true, null, null, "LIVE", null)
+        val p = c.playback.open(req, com.aditv.playback.PlaybackController.TrackPrefs(listOf("fr"), false, 2, false))
+        p.volume = 0f
+        p.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onRenderedFirstFrame() { showing = true }
+        })
+        request = req; player = p
+        com.aditv.core.CrashReporter.event("Aperçu vidéo du direct")
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { request?.let { c.playback.releaseIf(it) } } }
+    // ADI TV en arrière-plan : l'aperçu s'arrête (pas de connexion ni de réseau utilisés pour rien).
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+        request?.let { c.playback.releaseIf(it) }; player = null; request = null; showing = false
+    }
+
+    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF232C37), Aditv.Bg))), contentAlignment = Alignment.CenterEnd) {
+        // Logo en grand à droite (visible tant que la vidéo n'a pas démarré).
+        Box(Modifier.fillMaxHeight(0.42f).fillMaxWidth(0.34f).padding(end = 70.dp), contentAlignment = Alignment.Center) {
+            if (channel.imageUrl != null) RemoteImage(channel.imageUrl, channel.title, Modifier.fillMaxSize(), ContentScale.Fit, fallbackTitle = false)
+            else Text(channel.title, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 2)
         }
+        val p = player
+        if (p != null) androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx -> androidx.media3.ui.PlayerView(ctx).apply { useController = false; resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM; setShutterBackgroundColor(android.graphics.Color.TRANSPARENT) } },
+            update = { it.player = p },
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = if (showing) 1f else 0f },
+        )
     }
 }
 
 @Composable
 private fun ChannelRow(r: LiveRow, favorite: Boolean, onFocus: () -> Unit, onClick: () -> Unit, modifier: Modifier) {
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(10.dp)
     val now = System.currentTimeMillis()
     Surface(
         onClick = onClick,
-        modifier = (modifier.fillMaxWidth().height(58.dp).onFocusChanged { if (it.isFocused) onFocus() }).navSound(),
+        modifier = (modifier.fillMaxWidth().height(64.dp).onFocusChanged { if (it.isFocused) onFocus() }).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Aditv.Surface1, contentColor = Aditv.Text, focusedContainerColor = Aditv.Surface2, focusedContentColor = Aditv.Text),
-        border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(0.75.dp, Color.White.copy(alpha = 0.10f)), shape = shape),
-            focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape),
-        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp)),
     ) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(58.dp).fillMaxHeight().padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Logo en grand sur une plaque sobre.
+            Box(Modifier.width(84.dp).height(48.dp).clip(RoundedCornerShape(7.dp)).background(Brush.verticalGradient(listOf(Color(0xFF2B323C), Color(0xFF191E25)))).padding(horizontal = 7.dp, vertical = 5.dp), contentAlignment = Alignment.Center) {
                 if (r.channel.imageUrl != null) RemoteImage(r.channel.imageUrl, r.channel.title, Modifier.fillMaxSize(), ContentScale.Fit, fallbackTitle = false)
-                else Text(r.channel.title.take(4).uppercase(), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = Aditv.Text, maxLines = 1)
+                else Text(r.channel.title, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 12.sp, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            Box(Modifier.padding(horizontal = 9.dp).width(0.75.dp).height(30.dp).background(Color.White.copy(alpha = 0.14f)))
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(r.channel.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(r.now?.title ?: "Programme non communiqué", style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp), color = Aditv.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(r.now?.title ?: "Programme non communiqué", style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.graphicsLayer { alpha = 0.75f })
                 progressOf(r.now, now)?.let { f ->
-                    Box(Modifier.padding(top = 5.dp).width(120.dp).height(2.dp).background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(1.dp))) {
+                    Box(Modifier.padding(top = 4.dp).fillMaxWidth(0.8f).height(2.dp).background(Color.Gray.copy(alpha = 0.35f), RoundedCornerShape(1.dp))) {
                         Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(Aditv.Accent, RoundedCornerShape(1.dp)))
                     }
                 }
             }
-            Icon(painterResource(if (favorite) R.drawable.ic_star else R.drawable.ic_star_outline), contentDescription = if (favorite) "Favori" else null,
-                tint = if (favorite) Aditv.Accent else Aditv.TextTertiary, modifier = Modifier.size(12.dp))
+            if (favorite) Icon(painterResource(R.drawable.ic_star), contentDescription = "Favori", tint = Aditv.Accent, modifier = Modifier.size(12.dp))
         }
     }
 }
 
 @Composable
-private fun Preview(r: LiveRow, favorite: Boolean, onWatch: () -> Unit, onGuide: () -> Unit, onFavorite: () -> Unit) {
+private fun ProgrammeInfo(r: LiveRow, favorite: Boolean, onWatch: () -> Unit, onGuide: () -> Unit, onFavorite: () -> Unit) {
     val now = System.currentTimeMillis()
     val p = r.now
-    // Visuel : logo de la chaîne sur un fond sombre (aucune image du programme n'est fournie par le guide).
-    Box(
-        Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(10.dp))
-            .background(Brush.radialGradient(listOf(Color(0xFF243241), Color(0xFF0E141B)))),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (r.channel.imageUrl != null) RemoteImage(r.channel.imageUrl, r.channel.title, Modifier.fillMaxWidth(0.42f).fillMaxHeight(0.42f), ContentScale.Fit, fallbackTitle = false)
-        else Text(r.channel.title.uppercase(), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, letterSpacing = 2.sp, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 2)
-        if (p != null) LiveTag(Modifier.align(Alignment.TopStart).padding(12.dp))
-    }
-    Spacer(Modifier.height(12.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(r.channel.title, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, color = Aditv.Text, maxLines = 1)
-        if (p != null) {
-            Box(Modifier.padding(horizontal = 10.dp).width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.35f)))
-            Text(p.title, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-        }
+        if (p != null) { LiveTag(); Spacer(Modifier.width(10.dp)) }
+        Text(r.channel.title.uppercase(), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp), color = Aditv.TextSecondary, maxLines = 1)
     }
+    Spacer(Modifier.height(6.dp))
+    Text(p?.title ?: r.channel.title, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 32.sp, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
     if (p != null) {
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         Text(timeFmt.format(Date(p.startUtc)) + " – " + timeFmt.format(Date(p.endUtc)) + (p.category?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
         progressOf(p, now)?.let { f ->
-            Box(Modifier.padding(top = 7.dp).fillMaxWidth(0.62f).height(3.dp).background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(2.dp))) {
+            Box(Modifier.padding(top = 8.dp).fillMaxWidth(0.7f).height(3.dp).background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(2.dp))) {
                 Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(Aditv.Accent, RoundedCornerShape(2.dp)))
             }
         }
+        p.description?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.Text.copy(alpha = 0.85f), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp)) }
         r.next?.let { n ->
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("À suivre  " + timeFmt.format(Date(n.startUtc)), style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
-                Box(Modifier.padding(horizontal = 7.dp).size(3.dp).background(Aditv.TextTertiary, CircleShape))
-                Text(n.title, style = MaterialTheme.typography.bodyLarge, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+            Text("À suivre · " + timeFmt.format(Date(n.startUtc)) + "  " + n.title, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
         }
-        p.description?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp)) }
     } else {
         Spacer(Modifier.height(4.dp))
         Text("Programme non communiqué par le guide.", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
@@ -300,6 +335,6 @@ private fun Preview(r: LiveRow, favorite: Boolean, onWatch: () -> Unit, onGuide:
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         PillButton("Regarder", onWatch)
         PillButton("Guide TV", onGuide, icon = R.drawable.ic_guide, primary = false)
-        PillButton(if (favorite) "Favori" else "Ajouter aux favoris", onFavorite, icon = if (favorite) R.drawable.ic_star else R.drawable.ic_star_outline, primary = false)
+        com.aditv.ui.design.RoundButton(if (favorite) R.drawable.ic_star else R.drawable.ic_star_outline, if (favorite) "Favori" else "Ajouter aux favoris", onFavorite, active = favorite)
     }
 }

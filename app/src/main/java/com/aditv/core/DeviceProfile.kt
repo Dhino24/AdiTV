@@ -28,6 +28,8 @@ object DeviceProfile {
     val epgIdleMs: Long get() = if (highEnd) 0L else 90_000L
     /** Mises à jour de fond (catalogue, guide, TMDB) pendant une lecture : en pause sur la Stick, permises sur le Cube. */
     val backgroundDuringPlayback: Boolean get() = highEnd
+    /** Direct : aperçu vidéo réel de la chaîne sélectionnée (accord d'Adama ; utilise une connexion de l'abonnement). */
+    val livePreview: Boolean get() = highEnd
     /** Délai avant les tâches de fond au démarrage. */
     val startupGraceMs: Long get() = if (highEnd) 4_000 else 12_000
 }

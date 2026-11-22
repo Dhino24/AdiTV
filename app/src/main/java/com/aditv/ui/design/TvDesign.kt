@@ -118,7 +118,7 @@ fun PillButton(
         enabled = enabled,
         modifier = (modifier.height(if (small) 27.dp else 32.dp)).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.04f),
@@ -315,7 +315,7 @@ fun WideCard(
             onClick = onClick,
             modifier = (modifier.width(width).height(width / aspect).onFocusChanged { focused = it.isFocused }).navSound(),
             shape = CardDefaults.shape(shape),
-            scale = CardDefaults.scale(focusedScale = 1.06f),
+            scale = CardDefaults.scale(focusedScale = 1.09f),
             glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),
             colors = CardDefaults.colors(containerColor = Aditv.Surface2),
             border = CardDefaults.border(
@@ -376,7 +376,7 @@ fun PosterTile(title: String, subtitle: String?, posterUrl: String?, onClick: ()
             onClick = onClick,
             modifier = (modifier.width(width).height(width * 1.5f).onFocusChanged { focused = it.isFocused }).navSound(),
             shape = CardDefaults.shape(shape),
-            scale = CardDefaults.scale(focusedScale = 1.06f),
+            scale = CardDefaults.scale(focusedScale = 1.09f),
             glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),
             colors = CardDefaults.colors(containerColor = Aditv.Surface2),
             border = CardDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Text), shape = shape)),
@@ -404,7 +404,7 @@ fun ChannelTile(name: String, logoUrl: String?, detail: String?, onClick: () -> 
             onClick = onClick,
             modifier = (modifier.width(width).height(width * 9f / 16f).onFocusChanged { focused = it.isFocused }).navSound(),
             shape = CardDefaults.shape(shape),
-            scale = CardDefaults.scale(focusedScale = 1.06f),
+            scale = CardDefaults.scale(focusedScale = 1.09f),
             glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),
             colors = CardDefaults.colors(containerColor = Aditv.Surface2, focusedContainerColor = Aditv.Surface3),
             border = CardDefaults.border(
@@ -412,9 +412,10 @@ fun ChannelTile(name: String, logoUrl: String?, detail: String?, onClick: () -> 
                 focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Text), shape = shape),
             ),
         ) {
-            Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF22303E), Color(0xFF10161D)))).padding(12.dp), contentAlignment = Alignment.Center) {
+            // Plaque sobre et logo en grand (plus de dégradé générique ni de logo minuscule).
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF2B323C), Color(0xFF191E25)))).padding(horizontal = 10.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
                 if (logoUrl != null) RemoteImage(logoUrl, name, Modifier.fillMaxSize(), ContentScale.Fit, fallbackTitle = false)
-                else Text(name.uppercase(), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.8.sp, color = Aditv.Text, textAlign = TextAlign.Center, maxLines = 2)
+                else Text(name, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 16.sp, color = Aditv.Text, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (favorite) Icon(painterResource(R.drawable.ic_star), contentDescription = "Favori", tint = Aditv.Accent, modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-6).dp).size(9.dp))
             }
         }
@@ -430,7 +431,7 @@ fun ChannelTile(name: String, logoUrl: String?, detail: String?, onClick: () -> 
 fun RowTitle(text: String, hint: String? = null, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.Bottom) {
         Text(text, style = MaterialTheme.typography.titleLarge, color = Aditv.Text)
-        if (hint != null) { Spacer(Modifier.width(8.dp)); Text(hint, style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary, modifier = Modifier.padding(bottom = 1.dp)) }
+        // Direction cinéma : pas de sous-titre gris à côté des rangées (écran moins chargé).
     }
 }
 
@@ -538,7 +539,7 @@ fun CardFrame(onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 20
         onClick = onClick,
         modifier = (modifier.width(width).height(width / aspect)).navSound(),
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.06f),
+        scale = CardDefaults.scale(focusedScale = 1.09f),
         glow = CardDefaults.glow(glow = Glow.None, focusedGlow = Halo),
         colors = CardDefaults.colors(containerColor = Aditv.Surface2),
         border = CardDefaults.border(

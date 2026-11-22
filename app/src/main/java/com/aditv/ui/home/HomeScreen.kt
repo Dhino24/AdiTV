@@ -1,5 +1,6 @@
 package com.aditv.ui.home
 
+import com.aditv.ui.cinema.spotFor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -231,6 +232,8 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         )
     }
 
+    suspend fun spotFor(card: CatalogCard, kicker: String? = null) = c.spotFor(card, kicker)
+
     // ---------- sport et Top 10 ----------
     val sportChannels: StateFlow<List<CatalogCard>> = dao.observeSyncStates(accountId).throttleLatest(3_000)
         .mapLatest { c.sport.frenchSportChannels(accountId) }.flowOn(Dispatchers.Default)
@@ -289,15 +292,34 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
 
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val vodDue by remember(accountId) { c.vodUpdateDue(accountId) }.collectAsStateWithLifecycle(null)
+    // Direction cinéma : la vedette (fond plein écran + grand titre) suit l'élément sélectionné.
+    var focusedSpot by remember { mutableStateOf<com.aditv.ui.design.Spot?>(null) }
+    var focusedCard by remember { mutableStateOf<Pair<CatalogCard, String?>?>(null) }
+    LaunchedEffect(focusedCard) {
+        val (card, kicker) = focusedCard ?: return@LaunchedEffect
+        delay(140) // pas de recalcul pendant un défilement rapide
+        focusedSpot = vm.spotFor(card, kicker)
+    }
+    val onCard: (CatalogCard, String?) -> Unit = { card, kicker ->
+        focusedSpot = com.aditv.ui.cinema.quickSpot(card, kicker)
+        focusedCard = card to kicker
+    }
+    val onSpot: (com.aditv.ui.design.Spot) -> Unit = { focusedCard = null; focusedSpot = it }
+    val heroSpot = hero?.let { h ->
+        com.aditv.ui.design.Spot(h.itemId, h.title, h.kicker, h.metaParts.ifEmpty { listOf(h.meta) }, h.overview, h.backdrop, h.poster, h.logo, h.lang, h.quality)
+    }
+    val shown = if (heroFocused || focusedSpot == null) heroSpot else focusedSpot
     Box(Modifier.fillMaxSize()) {
-        HeroBackground(hero, dim = !atTop)
+        com.aditv.ui.design.CinemaBackdrop(shown, reduced)
+        if (state.loaded && (state.hero.isNotEmpty() || state.rows.isNotEmpty())) com.aditv.ui.design.SpotInfo(shown, Modifier.padding(start = 48.dp, top = 66.dp))
 
         if (state.loaded && state.hero.isEmpty() && state.rows.isEmpty() && state.resume.isEmpty()) {
             EmptyCatalog(progress, state.syncErrors)
         } else if (!state.loaded) {
             HomeSkeleton()
         } else {
-            LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 30.dp)) {
+            // Une rangée à la fois sous la vedette : la liste ne défile que dans la moitié basse de l'écran.
+            LazyColumn(Modifier.fillMaxSize().padding(top = 278.dp), state = listState, contentPadding = PaddingValues(bottom = 40.dp)) {
                 item(key = "hero") {
                     if (hero != null) HeroBlock(
                         hero, heroIndex, state.hero.size, inList = hero.itemId in state.watchlist,
@@ -307,12 +329,12 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                         onInfo = { onOpen(hero.itemId) },
                         onPage = { d -> if (state.hero.size > 1) heroIndex = (heroIndex + d + state.hero.size) % state.hero.size },
                         modifier = Modifier.onFocusChanged { heroFocused = it.hasFocus },
-                    ) else Spacer(Modifier.height(80.dp))
+                    ) else Spacer(Modifier.height(10.dp))
                 }
                 // Films et séries : mise à jour proposée toutes les 3 semaines (jamais à chaque ouverture).
                 vodDue?.let { days -> item(key = "vodupdate") { VodUpdatePrompt(days, onUpdate = { c.syncVodNow() }, onLater = { scope.launch { c.snoozeVodUpdate() } }) } }
                 // Demandé par Adama : les chaînes de sport françaises tout de suite à l'écran.
-                if (sportChannels.isNotEmpty()) item(key = "sportfr") { SportChannelsRow(accountId, sportChannels) { onPlayLive(it, "sport") } }
+                if (sportChannels.isNotEmpty()) item(key = "sportfr") { SportChannelsRow(accountId, sportChannels, onSpot) { onPlayLive(it, "sport") } }
                 if (matches.isNotEmpty()) item(key = "matches") {
                     Column(Modifier.padding(top = 10.dp)) {
                         RowTitle("Matchs à venir", "vos équipes · d'après le guide TV", Modifier.padding(start = 48.dp, bottom = 3.dp))
@@ -323,10 +345,10 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                         }
                     }
                 }
-                if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay) }
-                if (topMovies.isNotEmpty()) item(key = "top-movies") { TopRow("Top 10 des films du moment", topMovies, onOpen) }
-                if (topSeries.isNotEmpty()) item(key = "top-series") { TopRow("Top 10 des séries du moment", topSeries, onOpen) }
-                items(state.rows.distinctBy { it.title }, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive) }
+                if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay, onSpot) }
+                if (topMovies.isNotEmpty()) item(key = "top-movies") { TopRow("Top 10 des films du moment", topMovies, onOpen) { onCard(it, "Top 10 des films") } }
+                if (topSeries.isNotEmpty()) item(key = "top-series") { TopRow("Top 10 des séries du moment", topSeries, onOpen) { onCard(it, "Top 10 des séries") } }
+                items(state.rows.distinctBy { it.title }, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive, onCard, onSpot) }
                 if (state.syncErrors.isNotEmpty()) item(key = "sync") {
                     Row(Modifier.padding(start = 48.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         StatusDot(Aditv.Warn); Spacer(Modifier.width(6.dp))
@@ -387,18 +409,8 @@ private fun HeroBlock(
 ) {
     var firstFocused by remember { mutableStateOf(false) }
     var lastFocused by remember { mutableStateOf(false) }
-    Box(modifier.fillMaxWidth().height(370.dp)) {
-        Column(Modifier.padding(start = 48.dp, top = 88.dp).width(440.dp)) {
-            Kicker(hero.kicker)
-            Spacer(Modifier.height(8.dp))
-            DisplayTitle(hero.title, hero.logo)
-            Spacer(Modifier.height(9.dp))
-            MetaLine(hero.metaParts.ifEmpty { listOf(hero.meta) })
-            hero.overview?.let {
-                Spacer(Modifier.height(7.dp))
-                Text(it, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp, lineHeight = 17.sp), color = Aditv.Text.copy(alpha = 0.92f), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(400.dp))
-            }
-            Spacer(Modifier.height(16.dp))
+    Box(modifier.fillMaxWidth().height(96.dp)) {
+        Column(Modifier.padding(start = 48.dp, top = 4.dp)) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically,
                 // ← sur le premier bouton / → sur le dernier : page précédente / suivante du carrousel.
@@ -435,7 +447,10 @@ private fun HeroBlock(
 private fun preferWide(cards: List<CatalogCard>) = cards.count { it.tmdbBackdrop != null } * 2 >= cards.size
 
 @Composable
-private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit, onPlayLive: (String, String?) -> Unit) {
+private fun ContentRow(
+    accountId: String, row: HomeRow, onOpen: (String) -> Unit, onPlayLive: (String, String?) -> Unit,
+    onCard: (CatalogCard, String?) -> Unit, onSpot: (com.aditv.ui.design.Spot) -> Unit,
+) {
     val nowPlaying = if (row.type == MediaType.LIVE) com.aditv.ui.common.rememberNowPlaying(accountId, row.cards.map { it.first }) else emptyMap()
     val wide = remember(row.cards) { preferWide(row.cards.map { it.first }) }
     Column(Modifier.padding(top = 10.dp)) {
@@ -444,14 +459,19 @@ private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit
             items(row.cards.distinctBy { it.first.id }, key = { it.first.id }) { (card, versions) ->
                 val badge = variantBadge(card.lang, card.quality)
                 val extra = if (versions > 1) "$versions versions" else null
+                val focusSpot = Modifier.onFocusChanged { f ->
+                    if (!f.isFocused) return@onFocusChanged
+                    if (card.type == "LIVE") onSpot(com.aditv.ui.design.Spot(card.id, card.title, "En direct", listOfNotNull(nowPlaying[card.id]), poster = card.imageUrl, live = true))
+                    else onCard(card, row.title)
+                }
                 when {
-                    card.type == "LIVE" -> ChannelTile(card.title, card.imageUrl, nowPlaying[card.id] ?: listOfNotNull(badge, extra).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, row.liveList) })
+                    card.type == "LIVE" -> ChannelTile(card.title, card.imageUrl, nowPlaying[card.id] ?: listOfNotNull(badge, extra).joinToString(" · ").ifEmpty { null }, { onPlayLive(card.id, row.liveList) }, focusSpot, width = 170.dp)
                     wide -> WideCard(
                         card.title, listOfNotNull(card.genre?.substringBefore(',')?.trim(), card.year?.toString(), badge).joinToString(" · ").ifEmpty { null },
                         tmdbImage(card.tmdbBackdrop, "w780"), tmdbImage(card.tmdbPoster, "w342") ?: card.imageUrl, { onOpen(card.id) },
-                        logoUrl = tmdbImage(card.tmdbLogo, "w300"),
+                        focusSpot, width = 260.dp, logoUrl = tmdbImage(card.tmdbLogo, "w300"),
                     )
-                    else -> PosterTile(card.title, listOfNotNull(card.year?.toString(), badge).joinToString(" · ").ifEmpty { null }, tmdbImage(card.tmdbPoster, "w342") ?: card.imageUrl, { onOpen(card.id) })
+                    else -> PosterTile(card.title, listOfNotNull(card.year?.toString(), badge).joinToString(" · ").ifEmpty { null }, tmdbImage(card.tmdbPoster, "w342") ?: card.imageUrl, { onOpen(card.id) }, focusSpot, width = 116.dp)
                 }
             }
         }
@@ -459,7 +479,7 @@ private fun ContentRow(accountId: String, row: HomeRow, onOpen: (String) -> Unit
 }
 
 @Composable
-private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Unit) {
+private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Unit, onSpot: (com.aditv.ui.design.Spot) -> Unit) {
     Column(Modifier.padding(top = 4.dp)) {
         RowTitle("Reprendre", modifier = Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -470,8 +490,9 @@ private fun ResumeRowView(rows: List<ResumeRow>, onPlay: (String, Boolean) -> Un
                     r.title, listOfNotNull(r.episodeLabel, leftLabel).joinToString(" · "),
                     tmdbImage(r.tmdbBackdrop, "w780") ?: r.imageUrl?.takeIf { r.kind == "EPISODE" },
                     tmdbImage(r.tmdbPoster, "w342") ?: r.imageUrl, { onPlay(r.contentId, false) },
-                    // Format 16:9, 4 cartes par ligne, comme la maquette.
-                    aspect = 16f / 9f, width = 207.dp,
+                    Modifier.onFocusChanged { f -> if (f.isFocused) onSpot(com.aditv.ui.design.Spot(r.contentId, r.title, "Reprendre", listOfNotNull(r.episodeLabel, leftLabel),
+                        backdrop = tmdbImage(r.tmdbBackdrop, com.aditv.core.DeviceProfile.backdropSize), poster = tmdbImage(r.tmdbPoster, "w500") ?: r.imageUrl)) },
+                    aspect = 16f / 9f, width = 240.dp,
                     progress = ProgressPolicy.fraction(r.positionMs, r.durationMs),
                 )
             }
@@ -509,24 +530,27 @@ private fun EmptyCatalog(progress: SyncProgress, errors: List<String>) {
 }
 
 @Composable
-private fun SportChannelsRow(accountId: String, channels: List<CatalogCard>, onPlay: (String) -> Unit) {
+private fun SportChannelsRow(accountId: String, channels: List<CatalogCard>, onSpot: (com.aditv.ui.design.Spot) -> Unit, onPlay: (String) -> Unit) {
     val nowPlaying = com.aditv.ui.common.rememberNowPlaying(accountId, channels)
     Column(Modifier.padding(top = 6.dp)) {
         RowTitle("Sport en direct", "chaînes françaises · ↑/↓ dans le lecteur pour passer de l'une à l'autre", Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(channels.distinctBy { it.id }, key = { it.id }) { ch -> ChannelTile(ch.title, ch.imageUrl, nowPlaying[ch.id] ?: "Programme non communiqué", { onPlay(ch.id) }) }
+            items(channels.distinctBy { it.id }, key = { it.id }) { ch ->
+                ChannelTile(ch.title, ch.imageUrl, nowPlaying[ch.id] ?: "Programme non communiqué", { onPlay(ch.id) },
+                    Modifier.onFocusChanged { f -> if (f.isFocused) onSpot(com.aditv.ui.design.Spot(ch.id, ch.title, "Sport en direct", listOfNotNull(nowPlaying[ch.id]), poster = ch.imageUrl, live = true)) }, width = 170.dp)
+            }
         }
     }
 }
 
 @Composable
-private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, onOpen: (String) -> Unit) {
+private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, onOpen: (String) -> Unit, onCard: (CatalogCard) -> Unit) {
     Column(Modifier.padding(top = 10.dp)) {
         RowTitle(title, "tendances TMDB de la semaine, disponibles dans votre abonnement", Modifier.padding(start = 48.dp, bottom = 3.dp))
         LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(entries.distinctBy { it.card.id }, key = { it.card.id }) { e ->
-                RankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
-                    tmdbImage(e.poster, "w342") ?: tmdbImage(e.card.tmdbPoster, "w342") ?: e.card.imageUrl, { onOpen(e.card.id) })
+                Box(Modifier.onFocusChanged { if (it.hasFocus) onCard(e.card) }) { RankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
+                    tmdbImage(e.poster, "w342") ?: tmdbImage(e.card.tmdbPoster, "w342") ?: e.card.imageUrl, { onOpen(e.card.id) }) }
             }
         }
     }

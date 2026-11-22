@@ -37,6 +37,9 @@ import java.util.Locale
 
 val LocalContainer = staticCompositionLocalOf<AppContainer> { error("AppContainer absent") }
 
+/** Textes agrandis pour un téléviseur regardé à plusieurs mètres (demande d'Adama : « Grand », environ +30 %). */
+const val BASE_TEXT_SCALE = 1.3f
+
 /** Élément principal de l'écran courant : cible du focus quand on valide une rubrique du menu. */
 val LocalScreenEntry = staticCompositionLocalOf { androidx.compose.ui.focus.FocusRequester() }
 
@@ -61,7 +64,7 @@ fun Root() {
     CompositionLocalProvider(
         com.aditv.ui.design.LocalReducedMotion provides reduced,
         // Accessibilité : taille du texte choisie dans Réglages (agrandit les textes, pas la mise en page).
-        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, density.fontScale * textScale / 100f),
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, density.fontScale * BASE_TEXT_SCALE * textScale / 100f),
     ) {
         Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent {
             if (showIntro) { if (it.type == KeyEventType.KeyDown) endIntro(); true }

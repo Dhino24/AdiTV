@@ -176,8 +176,9 @@ fun Shell(session: Session.Active) {
                     composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }
                     composable("live") { Entry(entries, "live") { com.aditv.ui.live.LiveScreen(session, onPlayLive = playLive, onGuide = { nav.navigate("guide") }) } }
                     composable("guide") { com.aditv.ui.guide.GuideScreen(session, onPlayLive = playLive, onPlay = play, onOpen = openItem) }
-                    composable("movies") { Entry(entries, "movies") { BrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onPlayLive = playLive) } }
-                    composable("series") { Entry(entries, "series") { BrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onPlayLive = playLive) } }
+                    composable("movies") { Entry(entries, "movies") { com.aditv.ui.cinema.CinemaBrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onBrowseAll = { nav.navigate("grid/MOVIE") }) } }
+                    composable("series") { Entry(entries, "series") { com.aditv.ui.cinema.CinemaBrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onBrowseAll = { nav.navigate("grid/SERIES") }) } }
+                    composable("grid/{type}") { e -> BrowseScreen(accountId, MediaType.valueOf(e.arguments?.getString("type") ?: "MOVIE"), onOpen = openItem, onPlayLive = playLive) }
                     composable("channels") { BrowseScreen(accountId, MediaType.LIVE, onOpen = openItem, onPlayLive = playLive) }
                     composable("epgmap/{id}") { e -> com.aditv.ui.guide.EpgMapScreen(Uri.decode(e.arguments?.getString("id").orEmpty()), onDone = { nav.popBackStack() }) }
                     composable("mylist") { Entry(entries, "mylist") { com.aditv.ui.library.MyListScreen(accountId, onOpen = openItem, onPlayLive = playLive, onBrowse = { go(it) }) } }
@@ -306,7 +307,9 @@ private fun NavTab(label: String, isSelected: Boolean, onClick: () -> Unit, modi
     ) {
         Column(Modifier.fillMaxHeight().padding(horizontal = 11.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium, fontSize = 12.sp), maxLines = 1)
-            if (isSelected && !focused) Box(Modifier.padding(top = 3.dp).width(22.dp).height(2.dp).background(Aditv.Text, RoundedCornerShape(1.dp)))
+            // Soulignement animé : il s'étire sous la rubrique active.
+            val bar by androidx.compose.animation.core.animateDpAsState(if (isSelected && !focused) 24.dp else 0.dp, androidx.compose.animation.core.tween(220), label = "souligne")
+            if (bar > 0.dp) Box(Modifier.padding(top = 3.dp).width(bar).height(2.5.dp).background(Aditv.Accent, RoundedCornerShape(2.dp)))
         }
     }
 }

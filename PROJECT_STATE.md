@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.11.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.12.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,15 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.12.0 (22/11/2026) — nouvelle direction « cinéma » demandée par Adama (interface jugée trop « IPTV classique »)
+Choix d'Adama : directement dans l'appli ; aperçu vidéo réel du direct ; textes « Grand ».
+- **Textes ≈ +30 %** partout (échelle de base 1,3 en plus du réglage d'accessibilité).
+- **Accueil cinéma** : fond plein écran qui **suit l'élément sélectionné** (fondu enchaîné), grand titre / logo-titre, infos et résumé TMDB fixes en haut ; **une rangée à la fois** dans la moitié basse ; cartes plus grandes ; sous-titres gris des rangées supprimés.
+- **Films / Séries** : même vedette plein écran ; **une rangée par catégorie** (titres chargés à l'apparition de la rangée), « Ajouts récents » en tête ; **Tout parcourir** ouvre la grille complète (filtres, tri).
+- **En direct** : **aperçu vidéo réel, muet, plein écran de la chaîne sélectionnée sur le Cube** (720p max, 0,7 s après l'arrêt de la sélection, une connexion de l'abonnement ; arrêté en quittant l'écran ou en arrière-plan, jamais à la place de la lecture lancée) ; Stick : logo en grand. Liste des chaînes sur voile sombre, **logos en grand sur plaques**, programme en grand en bas à droite.
+- **Chaînes** partout : plaque sobre, logo en grand, nom en grand sans logo (plus de dégradé générique).
+- **Navigation** : soulignement turquoise animé de la rubrique active, agrandissement plus marqué des cartes au focus.
 
 ### 0.11.0 (22/11/2026) — interface retravaillée d'après les 4 maquettes d'Adama + son de navigation
 - **Barre du haut** : logo à gauche, Accueil · Films · Séries · En direct (rubrique active soulignée), à droite Recherche, Ma liste (signet), Réglages.
