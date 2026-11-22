@@ -22,14 +22,14 @@ android {
         applicationId = "com.aditv.app"
         minSdk = 25
         targetSdk = 34
-        versionCode = 22
-        versionName = "0.9.3"
+        versionCode = 23
+        versionName = "0.9.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Deux versions de l'appli, mêmes sources :
     // - stick : Fire TV Stick 4K 1re génération (Fire OS 6.7.1.1 = Android 7.1, API 25, espace utilisateur 32 bits ARMv7) ;
-    // - cube  : Fire TV Cube 3e génération (Fire OS 7 ou plus = Android 9+ ; système 32 bits sur processeur 64 bits, ARMv7 + arm64 embarqués) — réglages moins bridés.
+    // - cube  : Fire TV Cube 3e génération (Fire OS 7 = Android 9, API 28 ; système 32 bits) — réglages moins bridés.
     flavorDimensions += "device"
     productFlavors {
         create("stick") {
@@ -43,9 +43,9 @@ android {
             dimension = "device"
             minSdk = 28
             versionNameSuffix = "-cube"
-            // Fire OS du Cube 3e génération : processeur 64 bits mais système 32 bits (installation refusée avec arm64 seul,
-            // INSTALL_FAILED_NO_MATCHING_ABIS). Les deux sont embarqués : Fire OS choisit celui qu'il gère.
-            ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
+            // Cube 3e génération d'Adama, relevé par adb : Fire OS 7 (API 28), ro.product.cpu.abilist = armeabi-v7a,armeabi
+            // (processeur 64 bits, système 32 bits) : ARMv7 seulement, comme la Stick.
+            ndk { abiFilters += listOf("armeabi-v7a") }
             buildConfigField("boolean", "HIGH_END", "true")
         }
     }
