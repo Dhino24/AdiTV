@@ -168,8 +168,8 @@ fun Shell(session: Session.Active) {
                 // Transitions courtes : opacité seulement, pas de recalcul de mise en page.
                 NavHost(
                     nav, startDestination = "home",
-                    enterTransition = { fadeIn(tween(180)) }, exitTransition = { fadeOut(tween(120)) },
-                    popEnterTransition = { fadeIn(tween(180)) }, popExitTransition = { fadeOut(tween(120)) },
+                    enterTransition = { fadeIn(tween(120)) }, exitTransition = { fadeOut(tween(80)) },
+                    popEnterTransition = { fadeIn(tween(120)) }, popExitTransition = { fadeOut(tween(80)) },
                 ) {
                     composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive) } }
                     composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }

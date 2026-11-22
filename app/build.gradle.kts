@@ -22,8 +22,8 @@ android {
         applicationId = "com.aditv.app"
         minSdk = 25
         targetSdk = 34
-        versionCode = 25
-        versionName = "0.10.0"
+        versionCode = 26
+        versionName = "0.10.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -72,6 +72,17 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Sans keystore.properties : APK non signé (vérification de la compilation R8 uniquement).
             signingConfig = signingConfigs.findByName("release")
+        }
+        // Version « rapide » : optimisée comme une version finale (R8, sans débogage, profils de démarrage Compose),
+        // mais signée et identifiée comme la version de test : elle s'installe par-dessus sans perdre compte ni réglages.
+        // Compose est 2 à 3 fois plus fluide qu'en version de test (debug).
+        create("rapide") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-rapide"
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
         }
     }
     // Bibliothèques natives compressées dans l'APK (LibVLC en double sur le Cube) : téléchargement et copie plus légers.
@@ -160,4 +171,4 @@ dependencies {
 
 // Tests Robolectric : sources communes, exécutés sur la version Stick (API 25 et API 35).
 // La version Cube (minSdk 28) ne peut pas charger les tests épinglés sur l'API 25 ; elle est vérifiée par compilation + lint.
-tasks.matching { it.name.startsWith("testCube") && it.name.endsWith("UnitTest") }.configureEach { enabled = false }
+tasks.matching { (it.name.startsWith("testCube") || it.name.contains("Rapide")) && it.name.endsWith("UnitTest") }.configureEach { enabled = false }

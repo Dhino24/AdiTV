@@ -366,7 +366,7 @@ private fun VodUpdatePrompt(days: Int, onUpdate: () -> Unit, onLater: () -> Unit
 
 @Composable
 private fun HeroBackground(hero: HeroItem?, dim: Boolean) {
-    val dimAlpha by animateFloatAsState(if (dim) 0.55f else 0f, tween(400), label = "dim")
+    val dimAlpha by animateFloatAsState(if (dim) 0.55f else 0f, tween(250), label = "dim")
     Box(Modifier.fillMaxWidth().height(465.dp)) {
         when {
             hero?.backdrop != null -> RemoteImage(hero.backdrop, hero.title, Modifier.fillMaxSize(), fallbackTitle = false)

@@ -10,6 +10,7 @@
 ```bash
 ./gradlew assembleStickDebug     # Fire TV Stick 4K 1re gén. : app/build/outputs/apk/stick/debug/app-stick-debug.apk
 ./gradlew assembleCubeDebug      # Fire TV Cube 3e gén. (64 bits, Android 9+) : app/build/outputs/apk/cube/debug/app-cube-debug.apk
+./gradlew assembleCubeRapide       # version optimisée à installer au quotidien (même identifiant que la version de test)
 ./gradlew testStickDebugUnitTest # tests unitaires + parcours UI Robolectric (API 25 et 35 ; captures dans design/captures-app/)
 ./gradlew lintStickDebug lintCubeDebug
 sha256sum app/build/outputs/apk/*/debug/*.apk
