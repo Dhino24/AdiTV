@@ -259,7 +259,7 @@ private fun TopNav(
             .padding(horizontal = 48.dp),
     ) {
         Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.logo_full), contentDescription = "ADITV", modifier = Modifier.height(19.dp))
+            Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.height(28.dp))
             if (isDemo) { Spacer(Modifier.width(8.dp)); Text("DÉMO", fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Aditv.OnLight, modifier = Modifier.background(Aditv.Accent, RoundedCornerShape(50)).padding(horizontal = 5.dp, vertical = 1.5.dp)) }
         }
         Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -25,3 +25,5 @@ SDK : `compileSdk` 37.2, `targetSdk` 34, `minSdk` 25 = Fire OS 6.7.1.1 de la Sti
 Données TMDB : usage personnel non commercial avec attribution (« This product uses the TMDB API but is not endorsed or certified by TMDB. »), affichée dans les fiches et les paramètres. Clé personnelle de l'utilisateur, jamais embarquée.
 
 LibVLC (LGPL 2.1+) : usage personnel. Si l'APK était un jour distribué, fournir la licence LGPL et le moyen d'obtenir le code source de LibVLC (bibliothèque non modifiée, remplaçable).
+
+Logo ADI TV et son d'ouverture : fournis par Adama (propriétaire), intégrés sans modification du dessin (redimensionnement seulement) ; son : volume ajusté et fondu final.

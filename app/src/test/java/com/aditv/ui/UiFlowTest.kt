@@ -217,11 +217,14 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         com.aditv.ui.intro.IntroGate.enabled = true
         rule.mainClock.autoAdvance = false
         rule.activityRule.scenario.recreate()
-        // Horloge de composition pilotée : capture à mi-animation (nom en cours de dévoilement, reflet).
-        repeat(26) { rule.mainClock.advanceTimeBy(50); shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50)) }
-        if (screenshots) {
-            val bmp = rule.onRoot().captureToImage().asAndroidBitmap()
-            File(outDir, "00_ouverture.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        // Horloge de composition pilotée : étapes de l'ouverture (montée, impact, reflet, fin) calées sur le son de 4,36 s.
+        var t = 0
+        listOf(250 to "00_ouverture_1_montee", 850 to "00_ouverture", 1_700 to "00_ouverture_3_reflet", 3_700 to "00_ouverture_4_fin").forEach { (at, name) ->
+            while (t < at) { rule.mainClock.advanceTimeBy(50); shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50)); t += 50 }
+            if (screenshots) {
+                val bmp = rule.onRoot().captureToImage().asAndroidBitmap()
+                File(outDir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
         }
         rule.mainClock.autoAdvance = true
         waitText("Connectez votre abonnement")
