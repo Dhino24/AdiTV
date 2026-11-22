@@ -18,7 +18,7 @@ L'APK debug s'identifie comme `com.aditv.app.debug`, version `0.4.1-debug` : il 
 
 ## Deux versions
 - **stick** : Fire TV Stick 4K 1re génération (Fire OS 6, 32 bits) ; réglages prudents.
-- **cube** : Fire TV Cube 3e génération (Fire OS 7+, 64 bits) ; réglages étendus (Turbo 180 s / 200 Mo, cache d'images 25 %, grilles par 480, « Toutes » 600 chaînes, démarrage des tâches de fond à 4 s). Même identifiant d'appli : installer la bonne version sur chaque appareil.
+- **cube** : Fire TV Cube 3e génération (Fire OS 7+ ; système 32 bits sur processeur 64 bits : les deux jeux de bibliothèques sont embarqués) ; réglages étendus (Turbo 180 s / 200 Mo, cache d'images 25 %, grilles par 480, « Toutes » 600 chaînes, démarrage des tâches de fond à 4 s). Même identifiant d'appli : installer la bonne version sur chaque appareil.
 
 Sur la TV Samsung : Paramètres → Général → Gestionnaire de périphériques externes → **Signal d'entrée plus** activé pour la prise HDMI de la Fire TV (4K HDR à 60 Hz), et **Anynet+ (HDMI-CEC)**.
 
