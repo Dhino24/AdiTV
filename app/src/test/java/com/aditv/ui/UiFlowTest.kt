@@ -205,10 +205,10 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         back(); back()
         waitText("Votre soirée commence ici")
         back(); back()
-        waitText("Quitter ADITV ?")
+        waitText("Quitter ADI TV ?")
         shot("11_quitter")
         back()
-        waitGone("Quitter ADITV ?")
+        waitGone("Quitter ADI TV ?")
     }
 
     /** Ouverture : logo animé au démarrage à froid, puis l'application (sans attendre le réseau). */

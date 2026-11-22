@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logo ADI TV (pack « ADI_TV_Logo_Pack_Claude », 01_svg/ADI_TV_primary_color.svg) : tracés repris tels quels,
+     même cadre pour chaque calque (superposables pour l'animation d'ouverture). Ne pas modifier la forme ni les couleurs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1150dp" android:height="291dp"
+    android:viewportWidth="1150" android:viewportHeight="291">
+    <group android:translateX="-265" android:translateY="-297">
+        <path android:fillColor="#FFF5F5F6" android:fillType="evenOdd" android:pathData="M1000,327 L999,328 L999,560 L1001,562 L1065,562 L1066,561 L1066,328 L1065,327 Z M675,328 L675,539 L690,561 L859,561 L873,559 L899,551 L917,542 L937,527 L956,504 L967,481 L971,466 L973,450 L971,422 L962,396 L948,375 L933,360 L921,351 L891,336 L858,328 L848,328 L847,327 L679,327 Z M737,384 L738,383 L851,383 L862,385 L879,392 L886,397 L898,409 L908,429 L909,455 L906,466 L901,476 L896,483 L884,494 L874,500 L852,506 L738,506 L737,505 Z M295,560 L295,562 L369,562 L485,394 L488,392 L606,562 L674,562 L675,561 L679,562 L641,505 L527,341 L511,328 L496,323 L479,323 L471,325 L459,331 L448,341 Z"/>
+        <path android:fillColor="#FFE91327" android:fillType="evenOdd" android:pathData="M462,465 L462,536 L464,539 L466,540 L472,539 L528,508 L532,503 L531,497 L524,492 L470,462 L465,462 Z"/>
+        <path android:fillColor="#FFF5F5F6" android:fillType="evenOdd" android:pathData="M1097,482 L1097,493 L1100,500 L1108,508 L1116,511 L1323,511 L1333,508 L1340,504 L1349,495 L1355,484 L1357,474 L1383,390 L1382,375 L1375,366 L1370,363 L1362,361 L1156,361 L1148,363 L1138,368 L1130,376 L1125,385 L1103,465 Z M1166,481 L1184,414 L1157,414 L1156,413 L1160,396 L1163,391 L1164,392 L1165,391 L1256,391 L1259,396 L1270,451 L1275,445 L1306,395 L1310,391 L1334,391 L1336,393 L1276,482 L1253,482 L1251,480 L1236,414 L1209,414 L1192,480 L1190,482 L1167,482 Z"/>
+        <path android:fillColor="#FF008D53" android:fillType="evenOdd" android:pathData="M1121,548 L1180,548 L1187,534 L1129,534 Z"/>
+        <path android:fillColor="#FFF2C600" android:fillType="evenOdd" android:pathData="M1192,548 L1250,548 L1258,534 L1199,534 Z"/>
+        <path android:fillColor="#FFE91327" android:fillType="evenOdd" android:pathData="M1263,548 L1321,548 L1329,534 L1270,534 Z"/>
+    </group>
+</vector>

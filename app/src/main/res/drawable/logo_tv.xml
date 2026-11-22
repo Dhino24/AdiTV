@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logo ADI TV (pack « ADI_TV_Logo_Pack_Claude », 01_svg/ADI_TV_primary_color.svg) : tracés repris tels quels,
+     même cadre pour chaque calque (superposables pour l'animation d'ouverture). Ne pas modifier la forme ni les couleurs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1150dp" android:height="291dp"
+    android:viewportWidth="1150" android:viewportHeight="291">
+    <group android:translateX="-265" android:translateY="-297">
+        <path android:fillColor="#FFF5F5F6" android:fillType="evenOdd" android:pathData="M1097,482 L1097,493 L1100,500 L1108,508 L1116,511 L1323,511 L1333,508 L1340,504 L1349,495 L1355,484 L1357,474 L1383,390 L1382,375 L1375,366 L1370,363 L1362,361 L1156,361 L1148,363 L1138,368 L1130,376 L1125,385 L1103,465 Z M1166,481 L1184,414 L1157,414 L1156,413 L1160,396 L1163,391 L1164,392 L1165,391 L1256,391 L1259,396 L1270,451 L1275,445 L1306,395 L1310,391 L1334,391 L1336,393 L1276,482 L1253,482 L1251,480 L1236,414 L1209,414 L1192,480 L1190,482 L1167,482 Z"/>
+    </group>
+</vector>

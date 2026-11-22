@@ -50,10 +50,10 @@ object CrashReporter {
             write(
                 if (fatal != null) "Erreur fatale (rapport incomplet) : ${fatal.substringAfter(' ').substringAfter(' ')}" else "Fermeture inattendue sans erreur Java",
                 (fatal?.let { "Erreur Java au moment de la fermeture, rapport complet impossible (manque de mémoire probable) : $it\n\n" }
-                    ?: "ADITV était à l'écran et s'est fermée sans erreur Java : plantage natif (VLC, décodeur vidéo), " +
+                    ?: "ADI TV était à l'écran et s'est fermée sans erreur Java : plantage natif (VLC, décodeur vidéo), " +
                         "blocage de l'interface (Fire OS ferme une appli figée) ou mémoire reprise par Fire OS.\n\n") +
                     (blocked?.let { "Interface bloquée avant la fermeture :\n$it\n\n" } ?: "") +
-                    "Dernier état connu :\n$last\n\nJournal système d'ADITV :\n${systemLog()}",
+                    "Dernier état connu :\n$last\n\nJournal système d'ADI TV :\n${systemLog()}",
             )
             marker.delete(); File(dir, "fatal.txt").delete()
         }
@@ -157,7 +157,7 @@ object CrashReporter {
     @Volatile var extraState: () -> String? = { null }
 
     private fun snapshot(): String = buildString {
-        appendLine("ADITV ${BuildConfig.VERSION_NAME} · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+        appendLine("ADI TV ${BuildConfig.VERSION_NAME} · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         appendLine(runCatching { memory() }.getOrDefault("Mémoire : N/D"))
         runCatching { extraState() }.getOrNull()?.let { appendLine(it) }
         appendLine("Derniers événements :")

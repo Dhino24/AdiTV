@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -62,7 +63,7 @@ fun Root() {
         Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent { if (showIntro) { if (it.type == KeyEventType.KeyDown) endIntro(); true } else false }) {
             when (val s = session) {
                 Session.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Image(painterResource(R.drawable.logo_full), contentDescription = "ADITV", modifier = Modifier.width(220.dp))
+                    Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.width(220.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))
                 }
                 is Session.SignedOut -> LoginScreen(s.notice)
                 is Session.Active -> Shell(s)

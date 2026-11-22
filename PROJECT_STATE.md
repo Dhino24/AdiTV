@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.9.5) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.10.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.10.0 (22/11/2026) — nouveau logo officiel (pack « ADI_TV_Logo_Pack_Claude ») et nom « ADI TV »
+- Logo : tracés du SVG du pack convertis tels quels en dessins vectoriels Android (nets en 1080p et 4K, quelques Ko), en calques superposables : ADI, play rouge, TV, trois traits. En-tête ≈ 160 px de large en 1080p (charte : 135–190 px).
+- Icône : emblème carré du pack (A + play + traits) ; bannière : logo complet sur noir #050505.
+- Ouverture : scénario du pack (souffle, ADI se dévoile avec le play, TV, trois traits discrets, stabilisation, fondu, sans étincelles) étiré sur le son validé (4,39 s), fin synchronisée avec le son ; animations réduites : logo fixe.
+- Nom affiché : « ADI TV » (appli, textes, page téléphone). Identifiant technique inchangé.
 
 ### 0.9.5 (22/11/2026) — demandes d'Adama sur le Cube + icône trop petite
 - Cube : grandes images de fond TMDB en **pleine qualité** (original, ramenées à la taille de l'écran au décodage) ; **guide TV mis à jour tout de suite** (sans attendre 90 s d'inactivité) ; **mises à jour de fond permises pendant la lecture** (catalogue, guide, TMDB, Turbo compris). Stick inchangée.

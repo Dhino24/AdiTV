@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -67,12 +68,12 @@ fun LoginScreen(notice: String?) {
     Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize().background(Aditv.Bg)) {
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 64.dp, end = 32.dp), verticalArrangement = Arrangement.Center) {
-            Image(painterResource(R.drawable.logo_full), contentDescription = "ADITV", modifier = Modifier.width(300.dp))
+            Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.width(300.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))
             Spacer(Modifier.height(28.dp))
             Text("Connectez votre abonnement", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
             Spacer(Modifier.height(12.dp))
             Text(
-                "ADITV ne fournit aucun contenu. Saisissez l'adresse, l'identifiant et le mot de passe donnés par votre fournisseur. " +
+                "ADI TV ne fournit aucun contenu. Saisissez l'adresse, l'identifiant et le mot de passe donnés par votre fournisseur. " +
                     "Le mot de passe est chiffré sur l'appareil et n'apparaît jamais dans les journaux.",
                 style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary,
             )
@@ -155,7 +156,7 @@ private fun CleartextWarning(host: String, vm: LoginViewModel, requester: FocusR
         Spacer(Modifier.height(8.dp))
         Text(
             "Avec http://, votre identifiant, votre mot de passe et les flux transitent en clair sur le réseau. " +
-                "ADITV n'autorisera HTTP que vers $host. Préférez https:// si votre fournisseur le propose.",
+                "ADI TV n'autorisera HTTP que vers $host. Préférez https:// si votre fournisseur le propose.",
             style = MaterialTheme.typography.bodyMedium, color = Aditv.Text,
         )
         Spacer(Modifier.height(14.dp))

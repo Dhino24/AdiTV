@@ -123,7 +123,7 @@ fun MatchDialog(m: UpcomingMatch, reminded: Boolean, leadMinutes: Int, onToggleR
             Text(m.title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
             Text(matchWhen(m.startUtc) + " – " + timeFmt.format(Date(m.endUtc)) + " · " + m.channelName, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
             Text(
-                if (reminded) "Rappel programmé $leadMinutes min avant le début : bandeau dans ADITV (même pendant une lecture), notification sinon."
+                if (reminded) "Rappel programmé $leadMinutes min avant le début : bandeau dans ADI TV (même pendant une lecture), notification sinon."
                 else "Horaires du guide : le coup d'envoi réel peut différer de quelques minutes.",
                 style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary,
             )

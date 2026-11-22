@@ -60,7 +60,7 @@ class LoginViewModel(private val c: AppContainer) : ViewModel() {
                 LoginPhase.Tested(status)
             } catch (e: ProviderError) {
                 val hint = if (ok.schemeWasAssumed && (e is ProviderError.Tls || e is ProviderError.Unreachable || e is ProviderError.Timeout))
-                    "Aucun schéma saisi : ADITV a essayé https://. Si votre fournisseur indique http://, saisissez-le explicitement." else null
+                    "Aucun schéma saisi : ADI TV a essayé https://. Si votre fournisseur indique http://, saisissez-le explicitement." else null
                 LoginPhase.Failed(e.message ?: "Erreur", hint)
             } catch (e: Exception) {
                 LoginPhase.Failed("Erreur inattendue (${e.javaClass.simpleName}).")

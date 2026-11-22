@@ -240,7 +240,7 @@ private object Html {
 
     fun page(title: String, body: String) = """<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer"><title>ADITV · ${esc(title)}</title>
+<meta name="referrer" content="no-referrer"><title>ADI TV · ${esc(title)}</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#07090D;color:#F5F7FA;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px 20px}
 main{max-width:460px;margin:0 auto}.brand{font-weight:700;letter-spacing:.14em;color:#00D7D7;font-size:13px}
@@ -251,7 +251,7 @@ input:focus{outline:none;border-color:#00D7D7;box-shadow:0 0 0 3px rgba(0,215,21
 button{width:100%;margin-top:22px;padding:15px;border:0;border-radius:999px;background:#F5F7FA;color:#07090D;font-size:17px;font-weight:600}
 .pin{letter-spacing:.5em;text-align:center;font-size:26px}.err{color:#FF4D5E}.ok{color:#00D7D7;font-size:20px;font-weight:600}
 .note{font-size:13px;color:#7D8896;margin-top:22px}
-</style></head><body><main><div class="brand">ADITV</div><h1>${esc(title)}</h1>
+</style></head><body><main><div class="brand">ADI TV</div><h1>${esc(title)}</h1>
 $body
 <p class="note">Page servie par votre TV sur votre réseau local, sans passer par Internet. Elle se ferme après l'envoi.</p>
 </main></body></html>"""

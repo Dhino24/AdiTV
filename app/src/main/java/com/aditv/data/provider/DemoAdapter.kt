@@ -41,8 +41,8 @@ class DemoAdapter : ProviderAdapter {
         val slot = 30 * 60_000L
         val start0 = nowMs - nowMs % slot - 4 * slot
         val titles = listOf("Journal fictif", "Magazine fictif", "Documentaire fictif", "Série fictive", "Film fictif", "Débat fictif")
-        val sb = StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><tv generator-info-name=\"ADITV démo\">")
-        sb.append("<channel id=\"aditv.demo\"><display-name lang=\"fr\">ADITV Démo</display-name></channel>")
+        val sb = StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><tv generator-info-name=\"ADI TV démo\">")
+        sb.append("<channel id=\"aditv.demo\"><display-name lang=\"fr\">ADI TV Démo</display-name></channel>")
         sb.append("<channel id=\"info24.demo\"><display-name lang=\"fr\">Info 24 (démo)</display-name></channel>")
         for (ch in listOf("aditv.demo", "info24.demo")) for (i in 0 until 40) {
             val s = start0 + i * slot * (if (ch == "aditv.demo") 2 else 1)
@@ -63,7 +63,7 @@ class DemoAdapter : ProviderAdapter {
         val base = 1_763_500_000L // novembre 2025, dates d'ajout fictives
         val src: List<Triple<String, String, String?>> = when (type) {
             MediaType.LIVE -> listOf(
-                Triple("ADITV Démo", "l1", "aditv.demo"), Triple("Info 24 (démo)", "l1", "info24.demo"), Triple("Info 24 HD (démo)", "l1", "info24.demo"), Triple("FR| Sport Plus SD (démo)", "l2", null),
+                Triple("ADI TV Démo", "l1", "aditv.demo"), Triple("Info 24 (démo)", "l1", "info24.demo"), Triple("Info 24 HD (démo)", "l1", "info24.demo"), Triple("FR| Sport Plus SD (démo)", "l2", null),
                 Triple("FR| Sport Plus FHD (démo)", "l2", null), Triple("FR| Sport Plus 4K (démo)", "l2", null), Triple("Kids Doux (démo)", "l3", null), Triple("Doc Kultur (démo)", "l4", null),
                 Triple("Atlantique TV (démo)", "l4", null),
             )

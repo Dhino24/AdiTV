@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -259,7 +260,7 @@ private fun TopNav(
             .padding(horizontal = 48.dp),
     ) {
         Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.height(28.dp))
+            Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.height(20.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))
             if (isDemo) { Spacer(Modifier.width(8.dp)); Text("DÉMO", fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Aditv.OnLight, modifier = Modifier.background(Aditv.Accent, RoundedCornerShape(50)).padding(horizontal = 5.dp, vertical = 1.5.dp)) }
         }
         Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -332,7 +333,7 @@ private fun ExitDialog(onStay: () -> Unit, onQuit: () -> Unit) {
                 Icon(painterResource(R.drawable.ic_power), contentDescription = null, tint = Aditv.Accent, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.height(12.dp))
-            Text("Quitter ADITV ?", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Aditv.Text)
+            Text("Quitter ADI TV ?", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Aditv.Text)
             Spacer(Modifier.height(7.dp))
             Text("Vous retrouverez votre position dans chaque rubrique au prochain lancement.", style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
             Spacer(Modifier.height(19.dp))

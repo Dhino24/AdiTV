@@ -103,7 +103,7 @@ fun SettingsScreen(session: Session.Active) {
                 })
                 if (run == null) s?.detail?.let { d -> Text("   import : $d", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary) }
             }
-            Text("Chaînes : actualisation automatique toutes les 12 h environ (réseau requis). Films et séries : importés automatiquement une seule fois. Les titres retirés par le fournisseur sont masqués, pas supprimés. Gardez ADITV ouvert pendant un premier import volumineux.",
+            Text("Chaînes : actualisation automatique toutes les 12 h environ (réseau requis). Films et séries : importés automatiquement une seule fois. Les titres retirés par le fournisseur sont masqués, pas supprimés. Gardez ADI TV ouvert pendant un premier import volumineux.",
                 style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
             val liveRunning = com.aditv.data.provider.MediaType.LIVE in running
             val vodRunning = com.aditv.data.provider.MediaType.MOVIE in running || com.aditv.data.provider.MediaType.SERIES in running
@@ -243,7 +243,7 @@ private fun PlaybackPrefsSection() {
     val preset by c.prefs.languagePresetKey.collectAsStateWithLifecycle("vf")
     val prefs by c.prefs.variantPrefs.collectAsStateWithLifecycle(com.aditv.data.variants.VariantPrefs())
     val force by c.prefs.forceHighestBitrate.collectAsStateWithLifecycle(true)
-    Text("Quand un film, une série ou une chaîne existe en plusieurs versions chez le fournisseur, ADITV affiche et lit d'abord :",
+    Text("Quand un film, une série ou une chaîne existe en plusieurs versions chez le fournisseur, ADI TV affiche et lit d'abord :",
         style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         listOf("vf" to "Français (VF)", "vostfr" to "VOSTFR", "vo" to "Version originale").forEach { (k, l) ->
