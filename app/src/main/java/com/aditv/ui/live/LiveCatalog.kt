@@ -105,5 +105,8 @@ object LiveCatalog {
         }.distinctBy { com.aditv.data.sport.SportMatcher.matchKey(it.title, it.startUtc) }.take(40)
     }
 
+    /** Toutes les chaînes rangées (pour FootAdi : retrouver qui diffuse un match). */
+    suspend fun placed(c: AppContainer, accountId: String): List<Pair<CatalogCard, ChannelPlace>> = index(c, accountId).placed
+
     fun invalidate() { cache = null }
 }

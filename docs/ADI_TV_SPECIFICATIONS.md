@@ -85,7 +85,7 @@ Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Ada
 ## 3. Navigation
 
 - **Barre du haut** :
-  - à gauche : le logo, puis **Accueil · Films · Séries · En direct** (rubrique active soulignée) ;
+  - à gauche : le logo, puis **Accueil · Films · Séries · En direct · FootAdi** (rubrique active soulignée) ;
   - à droite : heure, **Recherche**, **Ma liste** (signet), **Réglages**, et l'indicateur de mise à jour du catalogue.
 - La barre se masque au défilement.
   - **↑** depuis le haut d'un écran monte sur la rubrique active.
@@ -169,6 +169,12 @@ Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Ada
   - désactivable (Réglages → Lecture).
 - **Minuterie de veille** : 15 min à 2 h, fin du programme, fin du film. Avertissement 60 s avant ; une touche prolonge.
 
+### FootAdi (matchs de foot)
+- Jours (avant-hier → J+3) et **★ Mes équipes** ; ↓ va au premier match, ↑ revient sur le jour choisi.
+- Matchs groupés par compétition (Ligue des champions, grands championnats, Coupes d'Europe, Ligue 2, CAN, Sénégal, équipes de France et du Sénégal) : écussons, score et minute en direct, heure sinon, chaîne qui diffuse.
+- Panneau : compétition · journée, score ou compte à rebours, buteurs, **Où regarder dans votre abonnement** (chaînes du guide TV dont un programme cite les deux équipes autour du coup d'envoi, françaises d'abord ; sinon diffuseur habituel en France). **OK** lance la chaîne. « Me rappeler le match ».
+- Source : **API-Football** avec la clé gratuite de l'utilisateur (Réglages → FootAdi, ou QR code). Cache 5 min en direct / 30 min le jour même / 6 h sinon. Démo : matchs fictifs.
+
 ### Recherche
 - Clavier à l'écran. Résultats Films / Séries / Chaînes, une carte par contenu (versions regroupées).
 
@@ -183,6 +189,7 @@ Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Ada
 | Catalogue local | nombres d'éléments, mode d'import, erreurs ; synchroniser les chaînes / les films et séries |
 | Lecture | langue préférée (VF / VOSTFR / VO), qualité maximale (4K / 1080p / 720p), flux adaptatifs (débit max / adapté au réseau), fréquence de l'écran |
 | Moteur, Turbo et diagnostic | choix par défaut, Turbo par défaut, journal des 20 dernières sessions |
+| FootAdi | clé API-Football (aussi par QR code), test, suppression |
 | Sport | équipes et compétitions suivies, délai des rappels, liste des rappels |
 | Guide TV | sources XMLTV, actualisation, couverture, décalages |
 | Métadonnées TMDB | clé personnelle (aussi saisissable par QR code), cache |
@@ -262,7 +269,7 @@ Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Ada
 
 ## 8. Sécurité et confidentialité
 
-- Accès fournisseur et clé TMDB **chiffrés** (Android Keystore), exclus des sauvegardes et des journaux. Un `Redactor` masque les secrets partout.
+- Accès fournisseur, clé TMDB et clé API-Football **chiffrés** (Android Keystore), exclus des sauvegardes et des journaux. Un `Redactor` masque les secrets partout.
 - Aucune télémétrie, aucun envoi externe. Les rapports de plantage restent sur l'appareil.
 - L'export des préférences ne contient **aucun secret**.
 - HTTP en clair seulement après consentement explicite, et vers l'hôte saisi uniquement. Redirections vers un autre hôte refusées.

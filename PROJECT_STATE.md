@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.13.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.14.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.14.0 (23/11/2026) — FootAdi (matchs façon FotMob → chaîne qui diffuse)
+- **Nouvel onglet FootAdi** après En direct : jours (avant-hier → J+3) et **★ Mes équipes** ; matchs groupés par compétition (Ligue des champions, Ligue 1, Premier League, Liga, Serie A, Bundesliga, Europa League, Conference League, Ligue 2, CAN, Sénégal, équipes de France et du Sénégal) ; écussons, score en direct (minute), heure de coup d'envoi.
+- **Panneau du match** : compétition · journée, score/compte à rebours, buteurs, **« Où regarder dans votre abonnement »** : chaînes trouvées dans le guide TV (titre citant les deux équipes, −45 min / +30 min autour du coup d'envoi), françaises d'abord, sinon le diffuseur habituel en France (Canal+, beIN SPORTS, Ligue 1+/DAZN). **OK lance directement la chaîne** ; « Me rappeler le match ».
+- **Données** : API-Football (clé gratuite personnelle, chiffrée, saisie dans Réglages → FootAdi ou par QR code depuis le téléphone, testée à l'enregistrement) ; cache 5 min en direct, 30 min le jour même ; scores rafraîchis toutes les 5 min tant qu'un match est en cours. Mode démo : matchs fictifs.
+- Limite : l'offre gratuite d'API-Football peut restreindre certaines saisons/compétitions ; le message de l'API est alors affiché tel quel.
 
 ### 0.13.0 (23/11/2026) — chaînes reclassées, Ligue des champions, bandes-annonces intégrées, son plus grave, icône
 - **Direct par familles** (maquette validée par Adama) : ★ Favoris, **Ligue des champions**, Sport France, Cinéma France, Divertissement France, Info France, Jeunesse France, Documentaires France, **Sénégal**, Afrique, puis Autres pays (francophones d'abord). Chaînes **groupées par diffuseur** (beIN SPORTS 1, 2, 3…), français d'abord. Classement automatique (préfixe pays, noms connus, catégorie fournisseur), calculé en arrière-plan ; **Menu ≡ → Déplacer vers…** pour corriger (mémorisé). Zapping ↑/↓ dans la même famille et le même ordre.

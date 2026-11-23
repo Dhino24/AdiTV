@@ -131,6 +131,7 @@ fun SettingsScreen(session: Session.Active) {
             GuideSection(session)
         }
 
+        Section("FootAdi : matchs et scores") { FootballSection() }
         Section("Métadonnées TMDB") {
             TmdbSection()
         }
@@ -463,4 +464,47 @@ private fun CrashSection() {
         AditvButton("Voir sur mon téléphone (QR code)", { shown = reports.joinToString("\n\n==========\n\n") { it.text } })
         AditvButton("Effacer les rapports", { com.aditv.core.CrashReporter.clear(); reports = emptyList() })
     }
+}
+
+
+/** Clé API-Football (gratuite, 100 requêtes par jour) : chiffrée, testée avant enregistrement, saisissable par QR code. */
+@Composable
+private fun FootballSection() {
+    val c = LocalContainer.current
+    val scope = rememberCoroutineScope()
+    var configured by remember { mutableStateOf(c.footballKey.get() != null) }
+    var input by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var phoneEntry by remember { mutableStateOf(false) }
+    if (phoneEntry) androidx.compose.ui.window.Dialog(
+        onDismissRequest = { phoneEntry = false },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        com.aditv.ui.common.RemoteEntryPanel(com.aditv.net.RemoteEntryServer.Form.FOOTBALL,
+            onReceived = { v -> v["value"]?.trim()?.takeIf { it.isNotEmpty() }?.let { input = it; message = "Clé reçue du téléphone : choisissez « Enregistrer et tester »." } },
+            onClose = { phoneEntry = false })
+    }
+    Fact("État", if (configured) "Clé configurée (chiffrée sur l'appareil)" else "Aucune clé : FootAdi n'affiche pas de matchs", if (configured) Aditv.Text else Aditv.Warn)
+    Text("Créez un compte gratuit sur api-football.com et copiez votre clé (« API Key »). Matchs, écussons, scores et buteurs viennent de ce service ; les chaînes qui diffusent sont retrouvées dans votre guide TV.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+    com.aditv.ui.common.TvTextField("Clé API-Football", input, { input = it; message = null }, Modifier.widthIn(max = 640.dp), password = true, placeholder = if (configured) "•••••• (laisser vide pour conserver)" else "OK pour saisir")
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AditvButton(if (busy) "Vérification…" else "Enregistrer et tester", {
+            val key = input.trim()
+            if (key.isEmpty()) { message = "Saisissez une clé."; return@AditvButton }
+            busy = true
+            scope.launch {
+                message = try {
+                    val status = com.aditv.data.football.FootballClient(c.http.tmdb, { key }).check()
+                    c.footballKey.set(key); configured = true; input = ""
+                    status
+                } catch (e: com.aditv.data.football.FootballError) { e.message } catch (e: Exception) { "Erreur : ${e.javaClass.simpleName}" }
+                busy = false
+            }
+        }, enabled = !busy)
+        AditvButton("Depuis mon téléphone", { phoneEntry = true }, enabled = !busy)
+        if (configured) AditvButton("Supprimer la clé", { c.footballKey.clear(); configured = false; message = "Clé supprimée." })
+    }
+    message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
 }

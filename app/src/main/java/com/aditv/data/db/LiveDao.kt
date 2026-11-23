@@ -85,6 +85,10 @@ interface LiveDao {
     )
     suspend fun championsProgrammes(accountId: String, now: Long, until: Long): List<ProgrammeEntity>
 
+    /** Programmes qui commencent dans une fenêtre (pour retrouver la chaîne qui diffuse un match). */
+    @Query("SELECT * FROM programmes WHERE accountId = :accountId AND startUtc BETWEEN :from AND :to")
+    suspend fun programmesStarting(accountId: String, from: Long, to: Long): List<ProgrammeEntity>
+
     @Query("SELECT DISTINCT channelId FROM programmes WHERE accountId = :accountId AND endUtc > :now")
     suspend fun coveredChannelIds(accountId: String, now: Long): List<String>
 

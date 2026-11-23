@@ -175,7 +175,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         back()
         waitText("Ajouts récents")
         upUntil("Films")
-        key(Key.DirectionRight, 4)
+        key(Key.DirectionRight, 5)
         // Icône « signet » : libellé porté par la description (pas de texte affiché).
         assertEquals(1, rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Ma liste") and androidx.compose.ui.test.isFocused(), useUnmergedTree = false).fetchSemanticsNodes().size
             + rule.onAllNodes(androidx.compose.ui.test.isFocused() and androidx.compose.ui.test.hasAnyDescendant(androidx.compose.ui.test.hasContentDescription("Ma liste"))).fetchSemanticsNodes().size)
@@ -185,7 +185,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
 
         // En direct : liste des chaînes + aperçu (programmes fictifs de la démo) ; → Regarder → Guide TV.
         key(Key.DirectionUp)
-        key(Key.DirectionLeft, 2)
+        key(Key.DirectionLeft, 3)
         assertFocused("En direct")
         key(Key.DirectionCenter)
         // Familles à gauche (Ligue des champions, Sport France…), chaînes au centre, programme à droite.
@@ -217,6 +217,21 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         // Recherche : clavier à l'écran ; une seule carte par chaîne (variantes regroupées).
         back()
         assertFocused("En direct")
+        // FootAdi (démo : matchs fictifs) : jours, matchs par compétition, chaîne qui diffuse.
+        key(Key.DirectionRight)
+        assertFocused("FootAdi")
+        key(Key.DirectionCenter)
+        waitText("Aujourd'hui")
+        waitText("Lions de Paris")
+        waitText("OÙ REGARDER DANS VOTRE ABONNEMENT")
+        key(Key.DirectionDown)
+        assertFocused("Lions de Paris")
+        key(Key.DirectionUp)
+        assertFocused("Aujourd'hui")
+        key(Key.DirectionDown)
+        shot("17_footadi")
+        key(Key.DirectionUp, 2)
+        upUntil("FootAdi")
         key(Key.DirectionRight)
         key(Key.DirectionCenter)
         waitText("Saisissez au moins 2 caractères")
@@ -298,7 +313,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         press("Essayer le mode démo")
         waitText("Regarder")
         key(Key.DirectionUp)
-        key(Key.DirectionRight, 6)
+        key(Key.DirectionRight, 7)
         key(Key.DirectionCenter)
         waitText("COMPTE FOURNISSEUR")
         waitText("Sénégal")

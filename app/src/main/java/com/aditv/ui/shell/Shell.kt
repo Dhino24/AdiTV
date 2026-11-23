@@ -94,6 +94,7 @@ private val tabs = listOf(
     Tab("movies", "Films"),
     Tab("series", "Séries"),
     Tab("live", "En direct"),
+    Tab("foot", "FootAdi"),
 )
 /** À droite de la barre : Recherche, Ma liste (signet), Réglages. */
 private val topRoutes = tabs.map { it.route } + listOf("search", "mylist", "settings")
@@ -175,6 +176,7 @@ fun Shell(session: Session.Active) {
                     composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive) } }
                     composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }
                     composable("live") { Entry(entries, "live") { com.aditv.ui.live.LiveScreen(session, onPlayLive = playLive, onGuide = { nav.navigate("guide") }) } }
+                    composable("foot") { Entry(entries, "foot") { com.aditv.ui.foot.FootAdiScreen(session, onPlayLive = playLive, onSettings = { go("settings") }) } }
                     composable("guide") { com.aditv.ui.guide.GuideScreen(session, onPlayLive = playLive, onPlay = play, onOpen = openItem) }
                     composable("movies") { Entry(entries, "movies") { com.aditv.ui.cinema.CinemaBrowseScreen(accountId, MediaType.MOVIE, onOpen = openItem, onBrowseAll = { nav.navigate("grid/MOVIE") }) } }
                     composable("series") { Entry(entries, "series") { com.aditv.ui.cinema.CinemaBrowseScreen(accountId, MediaType.SERIES, onOpen = openItem, onBrowseAll = { nav.navigate("grid/SERIES") }) } }
