@@ -20,10 +20,29 @@ enum class Family(val label: String, val order: Int) {
 }
 
 /** Rangement d'une chaîne : famille, diffuseur (pour les regroupements), numéro dans la série, pays. */
-data class ChannelPlace(val family: Family, val broadcaster: String, val number: Int, val country: String?, val french: Boolean)
+data class ChannelPlace(val family: Family, val broadcaster: String, val number: Int, val country: String?, val french: Boolean, val ucl: Boolean = false)
 
 object ChannelFamilies {
-    private fun norm(s: String) = Normalizer.normalize(s, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase()
+    private val marks = Regex("\\p{M}+")
+    private fun norm(s: String): String {
+        // ASCII (la grande majorité des noms) : pas de décomposition Unicode.
+        if (s.all { it.code < 128 }) return s.lowercase()
+        return marks.replace(Normalizer.normalize(s, Normalizer.Form.NFD), "").lowercase()
+    }
+    private val spaces = Regex("""\s{2,}""")
+    private val trailingNumber = Regex("""\s*\d+\s*$""")
+    private val endNumber = Regex("""(\d+)\s*$""")
+    private val catFrance = Regex("""\b(france|french|francais|fr)\b""")
+    private val catSenegal = Regex("""\bsenegal""")
+    private val catAfrica = Regex("""\b(afrique|africa)\b""")
+    private val catCinema = Regex("""\b(cinema|films?)\b""")
+    private val catInfo = Regex("""\b(info|news|actualites?)\b""")
+    private val catKids = Regex("""\b(jeunesse|enfants?|kids)\b""")
+    private val catDocs = Regex("""\bdocumentaires?\b""")
+
+    /** Catégorie fournisseur normalisée + pays déduit : calculé une fois par catégorie (pas par chaîne). */
+    private class Cat(val norm: String, val country: String?)
+    private val catCache = java.util.concurrent.ConcurrentHashMap<String, Cat>()
 
     /** Préfixe pays fournisseur : « FR| », « FR: », « [FR] », « |FR| », « FR - ». */
     private val prefix = Regex("""^\s*[\[|(]?\s*([A-Za-z]{2,3})\s*[\]|):\-]\s*""")
@@ -37,6 +56,7 @@ object ChannelFamilies {
         "uk" to "Royaume-Uni", "gb" to "Royaume-Uni", "us" to "États-Unis", "usa" to "États-Unis", "es" to "Espagne", "it" to "Italie",
         "de" to "Allemagne", "pt" to "Portugal", "nl" to "Pays-Bas", "ar" to "Monde arabe", "tr" to "Turquie",
     )
+    private val countryNames by lazy { countries.values.distinct().map { norm(it) to it } }
     private val africa = setOf("Côte d'Ivoire", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Bénin", "Togo", "RD Congo", "Congo", "Gabon", "Nigeria", "Ghana", "Afrique")
 
     // Noms connus (sans accents, minuscules).
@@ -57,18 +77,19 @@ object ChannelFamilies {
     )
 
     /** Nom affichable sans préfixe pays ni mention de qualité. */
-    fun cleanName(raw: String): String = quality.replace(prefix.replace(raw, ""), "").replace(Regex("""\s{2,}"""), " ").trim(' ', '|', '-', ':')
+    fun cleanName(raw: String): String = quality.replace(prefix.replace(raw, ""), "").replace(spaces, " ").trim(' ', '|', '-', ':')
 
     fun place(rawTitle: String, categoryName: String?, lang: String?): ChannelPlace {
         val code = prefix.find(rawTitle)?.groupValues?.get(1)?.lowercase()
-        val name = norm(cleanName(rawTitle))
-        val cat = norm(categoryName.orEmpty())
-        val country = countries[code]
-            ?: Regex("""\b(france|french|francais|fr)\b""").find(cat)?.let { "France" }
-            ?: Regex("""\bsenegal""").find(cat)?.let { "Sénégal" }
-            ?: Regex("""\b(afrique|africa)\b""").find(cat)?.let { "Afrique" }
-            ?: countries.entries.firstOrNull { (_, v) -> norm(v) in cat }?.value
-            ?: if (lang == "fr") "France" else null
+        val clean = cleanName(rawTitle)
+        val name = norm(clean)
+        val c = catCache.getOrPut(categoryName.orEmpty()) {
+            val n = norm(categoryName.orEmpty())
+            Cat(n, catFrance.find(n)?.let { "France" } ?: catSenegal.find(n)?.let { "Sénégal" } ?: catAfrica.find(n)?.let { "Afrique" }
+                ?: countryNames.firstOrNull { (k, _) -> k in n }?.second)
+        }
+        val cat = c.norm
+        val country = countries[code] ?: c.country ?: if (lang == "fr") "France" else null
         val french = country == "France" || lang == "fr"
         val text = "$name $cat"
         val family = when {
@@ -76,16 +97,16 @@ object ChannelFamilies {
             country in africa -> Family.AFRIQUE
             !french -> Family.MONDE
             sportNames.containsMatchIn(name) || cat.contains("sport") -> Family.SPORT_FR
-            cinemaNames.containsMatchIn(name) || Regex("""\b(cinema|films?)\b""").containsMatchIn(cat) -> Family.CINEMA_FR
-            infoNames.containsMatchIn(name) || Regex("""\b(info|news|actualites?)\b""").containsMatchIn(cat) -> Family.INFO_FR
-            jeunesseNames.containsMatchIn(name) || Regex("""\b(jeunesse|enfants?|kids)\b""").containsMatchIn(cat) -> Family.JEUNESSE_FR
-            docsNames.containsMatchIn(name) || Regex("""\bdocumentaires?\b""").containsMatchIn(cat) -> Family.DOCS_FR
+            cinemaNames.containsMatchIn(name) || catCinema.containsMatchIn(cat) -> Family.CINEMA_FR
+            infoNames.containsMatchIn(name) || catInfo.containsMatchIn(cat) -> Family.INFO_FR
+            jeunesseNames.containsMatchIn(name) || catKids.containsMatchIn(cat) -> Family.JEUNESSE_FR
+            docsNames.containsMatchIn(name) || catDocs.containsMatchIn(cat) -> Family.DOCS_FR
             else -> Family.DIVERTISSEMENT_FR
         }
         val broadcaster = broadcasters.firstOrNull { (r, _) -> r.containsMatchIn(text) }?.second
-            ?: if (family == Family.MONDE) (country ?: "Autres") else cleanName(rawTitle).replace(Regex("""\s*\d+\s*$"""), "").ifBlank { cleanName(rawTitle) }
-        val number = Regex("""(\d+)\s*$""").find(cleanName(rawTitle))?.groupValues?.get(1)?.toIntOrNull() ?: 0
-        return ChannelPlace(family, broadcaster, number, country, french)
+            ?: if (family == Family.MONDE) (country ?: "Autres") else clean.replace(trailingNumber, "").ifBlank { clean }
+        val number = endNumber.find(clean)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        return ChannelPlace(family, broadcaster, number, country, french, uclBroadcasters.containsMatchIn(name))
     }
 
     /** Ligue des champions : programme du guide (titre ou catégorie). */

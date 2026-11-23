@@ -103,9 +103,13 @@ class LiveViewModel(private val c: AppContainer, private val accountId: String) 
     var favorites by mutableStateOf<Set<String>>(emptySet()); private set
     private var loadJob: kotlinx.coroutines.Job? = null
 
+    var error by mutableStateOf<String?>(null); private set
+
     init {
         viewModelScope.launch {
-            families = withContext(Dispatchers.Default) { LiveCatalog.families(c, accountId) }
+            families = try { withContext(Dispatchers.Default) { LiveCatalog.families(c, accountId) } }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Throwable) { android.util.Log.w("AdiTV", "Direct : familles", e); error = "Chaînes indisponibles (${e.javaClass.simpleName})."; items = emptyList(); return@launch }
             val last = c.prefs.guideFilter(accountId).first()
             family = families.firstOrNull { it.key == last } ?: families.firstOrNull { it.key == "fam:SPORT_FR" } ?: families.firstOrNull()
             reload()
@@ -125,8 +129,17 @@ class LiveViewModel(private val c: AppContainer, private val accountId: String) 
         val f = family ?: return
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            if (refreshFamilies) families = withContext(Dispatchers.Default) { LiveCatalog.families(c, accountId) }
-            items = withContext(Dispatchers.Default) { compute(f.key) }
+            try {
+                if (refreshFamilies) families = withContext(Dispatchers.Default) { LiveCatalog.families(c, accountId) }
+                items = withContext(Dispatchers.Default) { compute(f.key) }
+                error = null
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Throwable) {
+                // Jamais de chargement sans fin : on montre l'erreur (et ce qui était déjà affiché reste).
+                android.util.Log.w("AdiTV", "Direct : chargement", e)
+                error = "Chaînes indisponibles (${e.javaClass.simpleName})."
+                if (items == null) items = emptyList()
+            }
         }
     }
 
@@ -208,7 +221,7 @@ fun LiveScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, o
             Column(Modifier.width(300.dp).fillMaxHeight().padding(top = 36.dp)) {
                 when {
                     items == null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { repeat(5) { Box(Modifier.fillMaxWidth().height(56.dp).background(Aditv.Surface1, RoundedCornerShape(10.dp))) } }
-                    items.isEmpty() -> StateBox(R.drawable.ic_star_outline, "Aucune chaîne", "Rien dans cette famille pour l'instant.")
+                    items.isEmpty() -> StateBox(R.drawable.ic_star_outline, if (vm.error != null) "Chaînes indisponibles" else "Aucune chaîne", vm.error ?: "Rien dans cette famille pour l'instant.")
                     else -> LazyColumn(Modifier.fillMaxSize().focusRestorer(), verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)) {
                         items(items, key = { it.key }) { it ->
                             when (it) {

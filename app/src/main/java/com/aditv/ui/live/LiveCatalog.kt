@@ -66,7 +66,7 @@ object LiveCatalog {
         val idx = index(c, accountId)
         val favCount = c.db.live().favoriteIds(accountId).first().size
         val counts = idx.placed.groupingBy { it.second.family }.eachCount()
-        val ucl = idx.placed.count { ChannelFamilies.isChampionsLeagueBroadcaster(it.first.title) && it.second.family != Family.MONDE }
+        val ucl = idx.placed.count { it.second.ucl && it.second.family != Family.MONDE }
         return buildList {
             if (favCount > 0) add(FamilyEntry(FAV, "★ Favoris", favCount))
             add(FamilyEntry(UCL, "Ligue des champions", ucl))
@@ -83,7 +83,7 @@ object LiveCatalog {
                 sorted(idx.placed.filter { it.first.id in favs })
             }
             // Diffuseurs de la Ligue des champions : France (Canal+, M6) puis Afrique francophone (Canal+ Afrique, New World TV).
-            key == UCL -> sorted(idx.placed.filter { ChannelFamilies.isChampionsLeagueBroadcaster(it.first.title) && it.second.family != Family.MONDE })
+            key == UCL -> sorted(idx.placed.filter { it.second.ucl && it.second.family != Family.MONDE })
                 .sortedBy { if (it.second.french) 0 else 1 }
             key.startsWith("fam:") -> sorted(idx.placed.filter { it.second.family.name == key.removePrefix("fam:") })
             else -> sorted(idx.placed)
