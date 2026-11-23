@@ -116,18 +116,18 @@ fun PillButton(
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = (modifier.height(if (small) 27.dp else 32.dp)).navSound(),
+        modifier = (modifier.height(if (small) 27.dp else 32.dp).then(if (primary || !enabled) Modifier else Modifier.liquidGlass(shape, strength = 0.7f))).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.04f),
+            containerColor = if (primary) Color.White else Color.Transparent,
             contentColor = if (primary) Aditv.OnLight else Aditv.Text,
             focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
             disabledContainerColor = Glass.Idle.copy(alpha = 0.06f), disabledContentColor = Aditv.TextTertiary,
         ),
         border = ClickableSurfaceDefaults.border(
-            border = if (primary) Border.None else Border(BorderStroke(0.75.dp, Color.White.copy(alpha = 0.55f)), shape = shape),
+            border = Border.None,
             focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp),
         ),
     ) {
@@ -185,12 +185,12 @@ fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: M
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
-        modifier = (modifier.height(25.dp)).navSound(),
+        modifier = (modifier.height(25.dp).liquidGlass(shape, strength = if (selected) 1f else 0.6f)).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f),
+            containerColor = if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent,
             contentColor = if (selected) Aditv.Text else Aditv.TextSecondary,
             focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
         ),
@@ -516,7 +516,7 @@ fun SheetOption(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
 /** Panneau latéral en verre fumé (droite de l'écran). */
 @Composable
 fun SideSheet(title: String, lead: String?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(modifier.fillMaxHeight().width(320.dp).background(Glass.Panel).padding(horizontal = 30.dp, vertical = 40.dp)) {
+    Column(modifier.fillMaxHeight().width(320.dp).liquidGlass(RoundedCornerShape(topStart = 22.dp, bottomStart = 22.dp), strength = 1.6f).padding(horizontal = 30.dp, vertical = 40.dp)) {
         Text(title, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 20.sp), color = Aditv.Text)
         if (lead != null) { Spacer(Modifier.height(6.dp)); Text(lead, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 9.5.sp, lineHeight = 14.sp), color = Aditv.TextSecondary) }
         Spacer(Modifier.height(12.dp))

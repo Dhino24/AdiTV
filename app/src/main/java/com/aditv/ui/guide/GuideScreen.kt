@@ -1,5 +1,6 @@
 package com.aditv.ui.guide
 
+import com.aditv.ui.design.liquidGlass
 import androidx.compose.foundation.border
 import com.aditv.ui.common.navSound
 import androidx.compose.foundation.BorderStroke
@@ -444,7 +445,7 @@ private fun ProgrammePanel(
     val replay = !isDemo && catchupDays > 0 && p.endUtc < now && now - p.startUtc < catchupDays * 24 * HOUR
     Box(Modifier.fillMaxSize().background(Color(0x9E030508)), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.widthIn(max = 470.dp).background(Color(0xEB10151C), RoundedCornerShape(14.dp)).padding(horizontal = 28.dp, vertical = 24.dp),
+            Modifier.widthIn(max = 470.dp).liquidGlass(RoundedCornerShape(14.dp), strength = 1.6f).padding(horizontal = 28.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             com.aditv.ui.design.Kicker(ch.title)

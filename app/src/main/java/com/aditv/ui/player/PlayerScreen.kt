@@ -1,5 +1,6 @@
 package com.aditv.ui.player
 
+import com.aditv.ui.design.liquidGlass
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
@@ -245,7 +246,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
 
         sleepLeft?.takeIf { it < 60_000 }?.let { left ->
             Row(
-                Modifier.align(Alignment.TopCenter).padding(top = 30.dp).background(Color(0xEB10151C), RoundedCornerShape(12.dp)).padding(horizontal = 16.dp, vertical = 11.dp),
+                Modifier.align(Alignment.TopCenter).padding(top = 30.dp).liquidGlass(RoundedCornerShape(12.dp), strength = 1.6f).padding(horizontal = 16.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(painterResource(R.drawable.ic_power), contentDescription = null, tint = Aditv.Accent, modifier = Modifier.size(15.dp))
@@ -361,7 +362,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         vm.error?.let { msg ->
             Box(Modifier.fillMaxSize().background(Color(0x9E030508)), contentAlignment = Alignment.Center) {
                 Column(
-                    Modifier.widthIn(max = 450.dp).background(Color(0xEB10151C), RoundedCornerShape(14.dp)).padding(horizontal = 28.dp, vertical = 26.dp),
+                    Modifier.widthIn(max = 450.dp).liquidGlass(RoundedCornerShape(14.dp), strength = 1.6f).padding(horizontal = 28.dp, vertical = 26.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(Modifier.size(42.dp).background(Aditv.Live.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {
@@ -385,7 +386,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
 
         vm.nextUp?.let { n ->
             Column(
-                Modifier.align(Alignment.BottomEnd).padding(32.dp).widthIn(max = 300.dp).background(Color(0xEB10151C), RoundedCornerShape(12.dp)).padding(18.dp),
+                Modifier.align(Alignment.BottomEnd).padding(32.dp).widthIn(max = 300.dp).liquidGlass(RoundedCornerShape(12.dp), strength = 1.6f).padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 Kicker("Épisode suivant dans ${n.secondsLeft} s")

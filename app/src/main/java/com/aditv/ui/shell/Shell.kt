@@ -1,5 +1,10 @@
 package com.aditv.ui.shell
 
+import androidx.compose.ui.layout.layout
+import com.aditv.ui.design.liquidGlass
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.offset
 import com.aditv.ui.common.navSound
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -87,15 +92,18 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private data class Tab(val route: String, val label: String)
+private data class Tab(val route: String, val label: String, val icon: Int)
 
 private val tabs = listOf(
-    Tab("home", "Accueil"),
-    Tab("movies", "Films"),
-    Tab("series", "Séries"),
-    Tab("live", "En direct"),
-    Tab("foot", "FootAdi"),
+    Tab("home", "Accueil", R.drawable.ic_home),
+    Tab("movies", "Films", R.drawable.ic_movies),
+    Tab("series", "Séries", R.drawable.ic_tv),
+    Tab("live", "En direct", R.drawable.ic_live),
+    Tab("foot", "FootAdi", R.drawable.ic_ball),
 )
+/** Barre d'icônes (façon Fire TV) : Recherche, rubriques, puis Ma liste et Réglages. */
+private val navItems = listOf(Tab("search", "Rechercher", R.drawable.ic_search)) + tabs +
+    listOf(Tab("mylist", "Ma liste", R.drawable.ic_bookmark), Tab("settings", "Réglages", R.drawable.ic_settings))
 /** À droite de la barre : Recherche, Ma liste (signet), Réglages. */
 private val topRoutes = tabs.map { it.route } + listOf("search", "mylist", "settings")
 
@@ -266,13 +274,17 @@ private fun TopNav(
             .focusGroup()
             .padding(horizontal = 32.dp),
     ) {
-        // Logo à gauche, puis les rubriques alignées à sa suite (maquette validée).
+        // Logo à gauche, puis une capsule de verre avec les icônes ; le nom de l'icône sélectionnée apparaît dessous.
         Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.height(20.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))
             if (isDemo) { Spacer(Modifier.width(8.dp)); Text("DÉMO", fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Aditv.OnLight, modifier = Modifier.background(Aditv.Accent, RoundedCornerShape(50)).padding(horizontal = 5.dp, vertical = 1.5.dp)) }
-            Spacer(Modifier.width(40.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                tabs.forEach { t -> NavTab(t.label, t.route == selected, { onPick(t.route) }, Modifier.focusRequester(requesters.getValue(t.route))) }
+            Spacer(Modifier.width(28.dp))
+            Box {
+                // Le verre est dessiné derrière (découpé) ; les icônes et leur nom ne sont pas découpés.
+                Box(Modifier.matchParentSize().liquidGlass(RoundedCornerShape(50), strength = 0.8f))
+                Row(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    navItems.forEach { t -> NavItem(t.icon, t.label, t.route == selected, { onPick(t.route) }, Modifier.focusRequester(requesters.getValue(t.route))) }
+                }
             }
         }
         Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -283,54 +295,49 @@ private fun TopNav(
                     Text("Mise à jour · ${com.aditv.ui.home.typeLabel(r.type.name)} ${r.count}", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, maxLines = 1)
                 }
             }
-            Text(clock, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextTertiary)
-            NavIcon(R.drawable.ic_search, "Rechercher", selected == "search", { onPick("search") }, Modifier.focusRequester(requesters.getValue("search")))
-            NavIcon(R.drawable.ic_bookmark, "Ma liste", selected == "mylist", { onPick("mylist") }, Modifier.focusRequester(requesters.getValue("mylist")))
-            NavIcon(R.drawable.ic_settings, "Réglages", selected == "settings", { onPick("settings") }, Modifier.focusRequester(requesters.getValue("settings")))
+            Text(clock, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
         }
     }
 }
 
-private val NavHalo = Glow(elevationColor = Aditv.Accent.copy(alpha = 0.25f), elevation = 8.dp)
+private val NavHalo = Glow(elevationColor = Color.White.copy(alpha = 0.22f), elevation = 10.dp)
 
-/** Rubrique : texte seul ; active = blanc souligné ; sélectionnée à la télécommande = pastille blanche. */
+/**
+ * Icône de la barre (façon Fire TV) : au focus, carré blanc arrondi, icône sombre, nom dessous ;
+ * rubrique active hors focus : verre plus clair + point turquoise.
+ */
 @Composable
-private fun NavTab(label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun NavItem(icon: Int, label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     var focused by remember { mutableStateOf(false) }
-    Surface(
-        onClick = onClick,
-        modifier = (modifier.height(28.dp).onFocusChanged { focused = it.isFocused }).navSound(),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
-        glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
-            contentColor = if (isSelected) Aditv.Text else Aditv.TextSecondary,
-            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
-        ),
-    ) {
-        Column(Modifier.fillMaxHeight().padding(horizontal = 11.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium, fontSize = 12.sp), maxLines = 1)
-            // Soulignement animé : il s'étire sous la rubrique active.
-            val bar by androidx.compose.animation.core.animateDpAsState(if (isSelected && !focused) 24.dp else 0.dp, androidx.compose.animation.core.tween(220), label = "souligne")
-            if (bar > 0.dp) Box(Modifier.padding(top = 3.dp).width(bar).height(2.5.dp).background(Aditv.Accent, RoundedCornerShape(2.dp)))
+    val shape = RoundedCornerShape(10.dp)
+    Box {
+        Surface(
+            onClick = onClick,
+            modifier = (modifier.size(34.dp).onFocusChanged { focused = it.isFocused }
+                .semantics { contentDescription = label }).navSound(),
+            shape = ClickableSurfaceDefaults.shape(shape),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.14f),
+            glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent,
+                contentColor = if (isSelected) Aditv.Text else Aditv.Text.copy(alpha = 0.78f),
+                focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+            ),
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(17.dp))
+                if (isSelected && !focused) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).background(Aditv.Accent, CircleShape))
+            }
         }
+        // Nom sous l'icône sélectionnée à la télécommande (déborde de la capsule, sans la pousser).
+        if (focused) Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp,
+            shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.8f), blurRadius = 8f)), color = Aditv.Text, maxLines = 1,
+            // Taille nulle pour la mise en page : le nom est centré sous l'icône sans élargir la capsule.
+            modifier = Modifier.align(Alignment.BottomCenter).layout { m, _ ->
+                val p = m.measure(androidx.compose.ui.unit.Constraints())
+                layout(0, 0) { p.place(-p.width / 2, 12.dp.roundToPx()) }
+            })
     }
-}
-
-@Composable
-private fun NavIcon(icon: Int, label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
-    Surface(
-        onClick = onClick,
-        modifier = (modifier.size(28.dp)).navSound(),
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
-        glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (isSelected) Color.White.copy(alpha = 0.14f) else Color.Transparent,
-            contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
-        ),
-    ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(15.dp)) } }
 }
 
 /** « Quitter ADITV ? » : Rester (par défaut) ou Quitter. Retour ferme la question. */
@@ -341,7 +348,7 @@ private fun ExitDialog(onStay: () -> Unit, onQuit: () -> Unit) {
     BackHandler { onStay() }
     Box(Modifier.fillMaxSize().background(Color(0x9E030508)), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.widthIn(max = 410.dp).background(Color(0xEB10151C), RoundedCornerShape(14.dp)).padding(horizontal = 30.dp, vertical = 28.dp),
+            Modifier.widthIn(max = 410.dp).liquidGlass(RoundedCornerShape(14.dp), strength = 1.6f).padding(horizontal = 30.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(Modifier.size(42.dp).background(Aditv.Accent.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {

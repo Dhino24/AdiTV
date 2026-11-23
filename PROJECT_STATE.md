@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.14.3) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.15.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,10 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.15.0 (23/11/2026) — barre d'icônes façon Fire TV, « Liquid Glass »
+- **Barre du haut en icônes** (photo d'Adama) : Recherche · Accueil · Films · Séries · En direct · FootAdi · Ma liste · Réglages dans une capsule de verre ; au focus, carré blanc arrondi + nom dessous ; rubrique active : verre plus clair + point turquoise. Logo à gauche, heure à droite.
+- **Liquid Glass** (`LiquidGlass.kt`) : voile translucide, reflet en haut, arête lumineuse dégradée, lueur basse — sans flou temps réel (indisponible avant Android 12, trop coûteux sur Fire TV). Appliqué à la barre, aux boutons secondaires, aux puces, aux lignes et au panneau FootAdi, aux fenêtres (quitter, rappels, guide, lecteur) et aux panneaux latéraux.
 
 ### 0.14.3 (23/11/2026) — FootAdi économe (clé gratuite : 100 requêtes/jour)
 - Cache **sur disque** (survit au redémarrage) : une date = 1 requête ; jour passé terminé = jamais redemandé ; direct 5 min, aujourd'hui 30 min, à venir 6 h ; ménage après 10 jours.

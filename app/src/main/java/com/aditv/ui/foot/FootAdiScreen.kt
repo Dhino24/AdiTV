@@ -1,5 +1,6 @@
 package com.aditv.ui.foot
 
+import com.aditv.ui.design.liquidGlass
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -235,10 +236,10 @@ private fun FixtureRow(f: Fixture, b: Broadcast?, extra: Modifier, onFocus: () -
     val shape = RoundedCornerShape(12.dp)
     Surface(
         onClick = onClick,
-        modifier = extra.fillMaxWidth().height(52.dp).onFocusChanged { if (it.isFocused) onFocus() }.navSound(),
+        modifier = extra.fillMaxWidth().height(52.dp).liquidGlass(shape, strength = 0.5f).onFocusChanged { if (it.isFocused) onFocus() }.navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), contentColor = Aditv.Text, focusedContainerColor = Color.White.copy(alpha = 0.16f), focusedContentColor = Aditv.Text),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Aditv.Text, focusedContainerColor = Color.White.copy(alpha = 0.16f), focusedContentColor = Aditv.Text),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape)),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -275,7 +276,7 @@ private fun ScoreOrTime(f: Fixture, size: androidx.compose.ui.unit.TextUnit) {
 @Composable
 private fun MatchPanel(f: Fixture, broadcasts: List<Broadcast>, goals: List<Goal>, onWatch: (Broadcast) -> Unit, onRemind: () -> Unit) {
     Column(
-        Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF1C2B3D), Color(0xFF0E141C)))).padding(22.dp),
+        Modifier.fillMaxSize().liquidGlass(RoundedCornerShape(22.dp), strength = 1.2f).padding(22.dp),
     ) {
         Text(((FootballRepository.COMPETITIONS[f.competition.id] ?: f.competition.name) + (f.round?.let { " · $it" } ?: "")).uppercase(),
             style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.5.sp, fontSize = 9.sp), color = Aditv.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)

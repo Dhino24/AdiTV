@@ -1,5 +1,6 @@
 package com.aditv.ui.sport
 
+import com.aditv.ui.design.liquidGlass
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -118,7 +119,7 @@ fun MatchDialog(m: UpcomingMatch, reminded: Boolean, leadMinutes: Int, onToggleR
     InitialFocus(first, key = m.key)
     BackHandler { onClose() }
     Box(Modifier.fillMaxSize().background(Color(0x9E030508)), contentAlignment = Alignment.Center) {
-        Column(Modifier.widthIn(max = 470.dp).background(Color(0xEB10151C), RoundedCornerShape(14.dp)).padding(horizontal = 28.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(Modifier.widthIn(max = 470.dp).liquidGlass(RoundedCornerShape(14.dp), strength = 1.6f).padding(horizontal = 28.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Kicker(m.follows.joinToString(" · "))
             Text(m.title, style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
             Text(matchWhen(m.startUtc) + " – " + timeFmt.format(Date(m.endUtc)) + " · " + m.channelName, style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary)
@@ -142,7 +143,7 @@ fun MatchDialog(m: UpcomingMatch, reminded: Boolean, leadMinutes: Int, onToggleR
 fun ReminderBanner(title: String, channel: String, startUtc: Long, modifier: Modifier = Modifier) {
     val minutes = ((startUtc - System.currentTimeMillis()) / 60_000).coerceAtLeast(0)
     Row(
-        modifier.widthIn(max = 380.dp).background(Color(0xEB10151C), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier.widthIn(max = 380.dp).liquidGlass(RoundedCornerShape(12.dp), strength = 1.6f).padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(30.dp).background(Aditv.Accent.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
