@@ -236,10 +236,11 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         var c = 0
         while (c++ < 8 && rule.onAllNodes(hasText("Voir les compositions") and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionDown)
         key(Key.DirectionCenter)
-        waitText("Joueur 11 (démo)")
+        waitText("Joueur 11")
+        waitText("Entr. Coach Paris")
         shot("17b_compositions")
         back()
-        waitGone("Joueur 11 (démo)")
+        waitGone("Fermer")
         // Fermeture : retour sur la ligne du match.
         assertFocused("Lions de Paris")
         key(Key.DirectionUp, 2)

@@ -1,5 +1,6 @@
 package com.aditv.ui.foot
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.verticalScroll
 import com.aditv.ui.design.liquidGlass
 import androidx.compose.ui.focus.focusProperties
@@ -207,7 +208,10 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
                                 lastComp = f.competition.id
                                 item(key = "c${f.competition.id}-${f.id}") { CompetitionHeader(f) }
                             }
-                            item(key = f.id) { FixtureRow(f, vm.broadcasts[f.id].orEmpty().firstOrNull(), (if (f.id == list.first().id) Modifier.focusRequester(listFocus).focusProperties { up = selChip } else Modifier).focusRequester(rowFocus.getOrPut(f.id) { FocusRequester() }), onFocus = { focused = f }, onClick = {
+                            item(key = f.id) {
+                                val rf = remember { FocusRequester() }
+                                androidx.compose.runtime.DisposableEffect(f.id) { rowFocus[f.id] = rf; onDispose { rowFocus.remove(f.id) } }
+                                FixtureRow(f, vm.broadcasts[f.id].orEmpty().firstOrNull(), (if (f.id == list.first().id) Modifier.focusRequester(listFocus).focusProperties { up = selChip } else Modifier).focusRequester(rf), onFocus = { focused = f }, onClick = {
                                 vm.broadcasts[f.id]?.firstOrNull()?.let { b -> onPlayLive(b.channel.id, "fam:SPORT_FR") }
                             }) }
                         }
@@ -273,9 +277,10 @@ private fun FixtureRow(f: Fixture, b: Broadcast?, extra: Modifier, onFocus: () -
                 Text(f.away.name, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(8.dp))
-            Text(b?.name ?: "—", style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.5.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = if (b != null) Aditv.Text else Aditv.TextTertiary,
-                modifier = Modifier.width(96.dp).padding(start = 4.dp))
+            // Nom de chaîne en entier : colonne plus large, 2 lignes si besoin.
+            Text(b?.name ?: "—", style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp, lineHeight = 11.sp, fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                color = if (b != null) Aditv.Text else Aditv.TextTertiary, textAlign = TextAlign.End,
+                modifier = Modifier.width(150.dp).padding(start = 4.dp))
         }
     }
 }
@@ -356,50 +361,126 @@ private fun MatchPanel(
     }
 }
 
-/** Compositions plein écran : deux colonnes (titulaires numérotés, entraîneur, remplaçants). Retour ferme. */
+/** Compositions plein écran : terrain horizontal (domicile à gauche, extérieur à droite), photos, numéros, remplaçants. Retour ferme. */
 @Composable
 private fun LineupSheet(f: Fixture, lineups: List<com.aditv.data.football.Lineup>, onClose: () -> Unit) {
     androidx.activity.compose.BackHandler { onClose() }
     val close = remember { FocusRequester() }
     com.aditv.ui.common.InitialFocus(close)
+    val home = lineups.firstOrNull { it.teamId == f.home.id } ?: lineups.getOrNull(0)
+    val away = lineups.firstOrNull { it.teamId == f.away.id && it !== home } ?: lineups.getOrNull(1)
     Box(Modifier.fillMaxSize().background(Color(0xE0030508)), contentAlignment = Alignment.Center) {
-        Column(Modifier.width(860.dp).fillMaxHeight().padding(top = 66.dp, bottom = 30.dp).liquidGlass(RoundedCornerShape(24.dp), strength = 1.85f).padding(26.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 62.dp, bottom = 18.dp).liquidGlass(RoundedCornerShape(24.dp), strength = 1.85f).padding(horizontal = 20.dp, vertical = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Compositions · ${f.home.name} – ${f.away.name}", style = MaterialTheme.typography.headlineSmall.copy(fontSize = 17.sp), color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                TeamHead(f.home, home, Modifier.weight(1f), end = false)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ScoreOrTime(f, 18.sp)
+                }
+                TeamHead(f.away, away, Modifier.weight(1f), end = true)
+                Spacer(Modifier.width(14.dp))
                 PillButton("Fermer", onClose, Modifier.focusRequester(close), icon = null, primary = false, small = true)
             }
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                listOf(f.home, f.away).forEach { team ->
-                    val l = lineups.firstOrNull { it.teamId == team.id } ?: lineups.getOrNull(if (team == f.home) 0 else 1)
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Crest(team.logo, team.name, 30.dp); Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text(team.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Aditv.Text, maxLines = 1)
-                                Text(listOfNotNull(l?.formation, l?.coach?.let { "Entr. $it" }).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, maxLines = 1)
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        if (l == null) Text("Non communiquée.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
-                        else {
-                            l.startXI.forEach { p ->
-                                Row(Modifier.padding(vertical = 1.5.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(p.number?.toString() ?: "", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = Aditv.Accent, modifier = Modifier.width(24.dp))
-                                    Text(p.name, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                    Text(posFr(p.pos), style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
-                                }
-                            }
-                            if (l.substitutes.isNotEmpty()) {
-                                Spacer(Modifier.height(8.dp))
-                                Text("Remplaçants : " + l.substitutes.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
+            Spacer(Modifier.height(10.dp))
+            Pitch(home, away, Modifier.fillMaxWidth().weight(1f))
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                listOf(home, away).forEach { l ->
+                    Text(
+                        if (l == null) "Composition non communiquée."
+                        else listOfNotNull(l.coach?.let { "Entr. $it" }, l.substitutes.takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = "Remplaçants : ") { (it.number?.let { n -> "$n " } ?: "") + it.name }).joinToString("  ·  "),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.5.sp, lineHeight = 11.sp), color = Aditv.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
     }
 }
 
-private fun posFr(p: String?) = when (p) { "G" -> "Gardien"; "D" -> "Défenseur"; "M" -> "Milieu"; "F" -> "Attaquant"; else -> "" }
+@Composable
+private fun TeamHead(t: com.aditv.data.football.Team, l: com.aditv.data.football.Lineup?, modifier: Modifier, end: Boolean) =
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) {
+        val items: List<@Composable () -> Unit> = listOf(
+            { Crest(t.logo, t.name, 28.dp) },
+            { Spacer(Modifier.width(9.dp)) },
+            { Text(t.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            { Spacer(Modifier.width(9.dp)) },
+            { l?.formation?.let { Text(it, style = MaterialTheme.typography.labelLarge.copy(fontSize = 9.sp, fontWeight = FontWeight.SemiBold), color = Aditv.OnLight, modifier = Modifier.background(Aditv.Accent, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp)) } },
+        )
+        (if (end) items.reversed() else items).forEach { it() }
+        if (!end) Spacer(Modifier.width(12.dp))
+    }
+
+/** Rangée (1 = gardien) et colonne de chaque titulaire : « grid » de l'API, sinon déduites de la formation et de l'ordre. */
+private fun placeOnPitch(l: com.aditv.data.football.Lineup): List<Triple<com.aditv.data.football.LineupPlayer, Int, Int>> {
+    val fromGrid = l.startXI.mapNotNull { p -> p.grid?.split(':')?.let { g -> g.getOrNull(0)?.toIntOrNull()?.let { r -> g.getOrNull(1)?.toIntOrNull()?.let { c -> Triple(p, r, c) } } } }
+    if (fromGrid.size == l.startXI.size) return fromGrid
+    val rows = listOf(1) + (l.formation?.split('-')?.mapNotNull { it.toIntOrNull() } ?: listOf(4, 4, 2))
+    var i = 0
+    return rows.flatMapIndexed { r, n -> (1..n).mapNotNull { c -> l.startXI.getOrNull(i++)?.let { Triple(it, r + 1, c) } } }
+}
+
+private val PitchDark = Color(0xFF0C2A22)
+private val PitchLight = Color(0xFF113629)
+
+@Composable
+private fun Pitch(home: com.aditv.data.football.Lineup?, away: com.aditv.data.football.Lineup?, modifier: Modifier) {
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.clip(RoundedCornerShape(16.dp)).background(PitchDark)) {
+        val w = maxWidth; val h = maxHeight
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            // Bandes de tonte, puis lignes blanches discrètes.
+            val bands = 12
+            for (b in 0 until bands) if (b % 2 == 0) drawRect(PitchLight, topLeft = androidx.compose.ui.geometry.Offset(size.width * b / bands, 0f), size = androidx.compose.ui.geometry.Size(size.width / bands, size.height))
+            val line = Color.White.copy(alpha = 0.22f); val sw = 1.5.dp.toPx(); val m = 8.dp.toPx()
+            val st = androidx.compose.ui.graphics.drawscope.Stroke(sw)
+            drawRect(line, androidx.compose.ui.geometry.Offset(m, m), androidx.compose.ui.geometry.Size(size.width - 2 * m, size.height - 2 * m), style = st)
+            drawLine(line, androidx.compose.ui.geometry.Offset(size.width / 2, m), androidx.compose.ui.geometry.Offset(size.width / 2, size.height - m), sw)
+            drawCircle(line, size.height * 0.16f, center, style = st)
+            drawCircle(line, 2.5.dp.toPx(), center)
+            listOf(false, true).forEach { right ->
+                fun box(depth: Float, height: Float) {
+                    val x = if (right) size.width - m - depth else m
+                    drawRect(line, androidx.compose.ui.geometry.Offset(x, (size.height - height) / 2), androidx.compose.ui.geometry.Size(depth, height), style = st)
+                }
+                box(size.width * 0.12f, size.height * 0.56f); box(size.width * 0.045f, size.height * 0.28f)
+            }
+            // Léger halo turquoise au centre (identité ADI TV).
+            drawCircle(Brush.radialGradient(listOf(Aditv.Accent.copy(alpha = 0.10f), Color.Transparent), center, size.height * 0.6f), size.height * 0.6f, center)
+        }
+        listOf(home to false, away to true).forEach { (l, right) ->
+            l ?: return@forEach
+            val spots = placeOnPitch(l)
+            val rows = spots.maxOfOrNull { it.second } ?: 1
+            spots.forEach { (p, r, c) ->
+                val inRow = spots.count { it.second == r }
+                val fx = 0.05f + (r - 1).toFloat() / (rows - 1).coerceAtLeast(1) * 0.39f
+                val fy = c.toFloat() / (inRow + 1)
+                val x = if (right) 1f - fx else fx
+                val y = if (right) 1f - fy else fy
+                PitchPlayer(p, l.shirt, l.shirtNumber, Modifier.offset(x = w * x - 55.dp, y = h * y - 19.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PitchPlayer(p: com.aditv.data.football.LineupPlayer, shirt: Long?, shirtNumber: Long?, modifier: Modifier) {
+    val ring = shirt?.let { Color(0xFF000000 or it) } ?: Aditv.Accent
+    Column(modifier.width(110.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(28.dp).clip(CircleShape).background(ring).padding(1.5.dp).clip(CircleShape).background(Color(0xFF1B2430)), contentAlignment = Alignment.Center) {
+            Text(p.number?.toString() ?: "", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, color = Aditv.Text)
+            p.photo?.let { RemoteImage(it, p.name, Modifier.fillMaxSize(), ContentScale.Crop, fallbackTitle = false) }
+        }
+        Spacer(Modifier.height(2.dp))
+        Text((p.number?.takeIf { p.photo != null }?.let { "$it  " } ?: "") + shortName(p.name), style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Medium,
+            shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.7f), blurRadius = 6f)), color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+    }
+}
+
+/** « Caoimhin Kelleher » → « C. Kelleher » quand le nom est long (le terrain est étroit). */
+private fun shortName(n: String): String {
+    if (n.length <= 14) return n
+    val parts = n.trim().split(' ').filter { it.isNotBlank() }
+    return if (parts.size >= 2 && !parts[0].endsWith(".")) parts[0].first() + ". " + parts.drop(1).joinToString(" ") else n
+}
+

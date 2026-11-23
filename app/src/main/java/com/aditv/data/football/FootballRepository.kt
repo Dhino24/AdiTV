@@ -141,11 +141,13 @@ class FootballRepository(
     /** Démonstration : compositions fictives. */
     fun demoLineups(f: Fixture): List<Lineup> {
         if (!f.live && !f.finished && f.kickoff - clock() > 70 * 60_000L) return emptyList()
-        val pos = listOf("G", "D", "D", "D", "D", "M", "M", "M", "F", "F", "F")
-        fun team(t: Team, formation: String) = Lineup(t.id, t.name, formation, "Coach ${t.name.split(' ').last()}",
-            pos.mapIndexed { i, p -> LineupPlayer(if (i == 0) 1 else i + 1, "Joueur ${i + 1} (démo)", p) },
-            (12..18).map { LineupPlayer(it, "Remplaçant ${it - 11}", null) })
-        return listOf(team(f.home, "4-3-3"), team(f.away, "4-2-3-1"))
+        fun team(t: Team, formation: String, shirt: Long): Lineup {
+            val rows = listOf(1) + formation.split('-').map { it.toInt() }
+            var n = 0
+            val xi = rows.flatMapIndexed { r, count -> (1..count).map { c -> n++; LineupPlayer(n, "Joueur $n", if (r == 0) "G" else if (r == rows.lastIndex) "F" else if (r == 1) "D" else "M", 0, "${r + 1}:$c") } }
+            return Lineup(t.id, t.name, formation, "Coach ${t.name.split(' ').last()}", xi, (12..18).map { LineupPlayer(it, "Remplaçant ${it - 11}", null) }, shirt, 0xFFFFFF)
+        }
+        return listOf(team(f.home, "4-3-3", 0xC8102E), team(f.away, "4-2-3-1", 0x1D428A))
     }
 
     /** Démonstration (sans clé) : matchs fictifs, équipes inventées. */

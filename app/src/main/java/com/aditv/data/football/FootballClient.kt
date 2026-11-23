@@ -30,9 +30,16 @@ data class Goal(val minute: Int?, val player: String, val teamId: Long, val deta
 
 class FootballError(message: String) : Exception(message)
 
-data class LineupPlayer(val number: Int?, val name: String, val pos: String?)
-/** Composition d'une équipe (publiée environ 1 h avant le coup d'envoi). */
-data class Lineup(val teamId: Long, val team: String, val formation: String?, val coach: String?, val startXI: List<LineupPlayer>, val substitutes: List<LineupPlayer>)
+/** Joueur : [grid] = « rangée:colonne » sur le terrain (1 = gardien), donné par l'API pour les titulaires. */
+data class LineupPlayer(val number: Int?, val name: String, val pos: String?, val id: Long = 0, val grid: String? = null) {
+    /** Photo (serveur d'images d'API-Football, hors quota de requêtes). */
+    val photo get() = if (id > 0) "https://media.api-sports.io/football/players/$id.png" else null
+}
+/** Composition d'une équipe (publiée environ 1 h avant le coup d'envoi) ; couleurs du maillot si l'API les donne. */
+data class Lineup(
+    val teamId: Long, val team: String, val formation: String?, val coach: String?, val startXI: List<LineupPlayer>, val substitutes: List<LineupPlayer>,
+    val shirt: Long? = null, val shirtNumber: Long? = null,
+)
 /** Buts + compositions d'un match. */
 data class MatchDetails(val goals: List<Goal>, val lineups: List<Lineup>)
 
@@ -147,9 +154,12 @@ class FootballClient(private val http: OkHttpClient, private val key: () -> Stri
         val t = o["team"].obj() ?: return@mapNotNull null
         fun players(k: String) = (o[k] as? JsonArray).orEmpty().mapNotNull { pe ->
             val p = pe.obj()?.get("player").obj() ?: return@mapNotNull null
-            LineupPlayer((p["number"] as? JsonPrimitive)?.intOrNull, p["name"].str() ?: return@mapNotNull null, p["pos"].str())
+            LineupPlayer((p["number"] as? JsonPrimitive)?.intOrNull, p["name"].str() ?: return@mapNotNull null, p["pos"].str(),
+                (p["id"] as? JsonPrimitive)?.longOrNull ?: 0, p["grid"].str())
         }
-        Lineup((t["id"] as? JsonPrimitive)?.longOrNull ?: 0, t["name"].str() ?: "?", o["formation"].str(), o["coach"].obj()?.get("name").str(), players("startXI"), players("substitutes"))
+        fun color(k: String) = t["colors"].obj()?.get("player").obj()?.get(k).str()?.removePrefix("#")?.toLongOrNull(16)
+        Lineup((t["id"] as? JsonPrimitive)?.longOrNull ?: 0, t["name"].str() ?: "?", o["formation"].str(), o["coach"].obj()?.get("name").str(), players("startXI"), players("substitutes"),
+            color("primary"), color("number"))
     }.filter { it.startXI.isNotEmpty() }
 
     /** Vérifie la clé (statut du compte). */
