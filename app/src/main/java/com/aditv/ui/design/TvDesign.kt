@@ -94,7 +94,7 @@ fun systemReducedMotion(): Boolean {
     return remember { runCatching { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false) }
 }
 
-private val Halo = Glow(elevationColor = Aditv.Accent.copy(alpha = 0.32f), elevation = 10.dp)
+private val Halo = Glow(elevationColor = Aditv.AccentSoft.copy(alpha = 0.16f), elevation = 6.dp)
 private val Lift = Glow(elevationColor = Color.Black.copy(alpha = 0.6f), elevation = 14.dp)
 
 /**
@@ -121,9 +121,9 @@ fun PillButton(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
         glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (primary) Color.White else Color.Transparent,
+            containerColor = if (primary) Aditv.Text else Color.Transparent,
             contentColor = if (primary) Aditv.OnLight else Aditv.Text,
-            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+            focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight,
             disabledContainerColor = Glass.Idle.copy(alpha = 0.06f), disabledContentColor = Aditv.TextTertiary,
         ),
         border = ClickableSurfaceDefaults.border(
@@ -160,7 +160,7 @@ fun RoundButton(
             glow = ClickableSurfaceDefaults.glow(focusedGlow = Halo),
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = Glass.Idle, contentColor = if (active) Aditv.Accent else Aditv.Text,
-                focusedContainerColor = Color.White, focusedContentColor = if (active) Color(0xFF007D7D) else Aditv.OnLight,
+                focusedContainerColor = Aditv.Text, focusedContentColor = if (active) Color(0xFF007D7D) else Aditv.OnLight,
             ),
             border = ClickableSurfaceDefaults.border(
                 border = Border(BorderStroke(0.5.dp, Glass.Border), shape = CircleShape),
@@ -192,7 +192,7 @@ fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: M
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent,
             contentColor = if (selected) Aditv.Text else Aditv.TextSecondary,
-            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+            focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight,
         ),
     ) {
         Box(
@@ -278,9 +278,8 @@ fun BoxScope.CardProgress(fraction: Float) {
 /** Pastille « EN DIRECT ». */
 @Composable
 fun LiveTag(modifier: Modifier = Modifier) {
-    Row(modifier.background(Color(0xB80A0C10), RoundedCornerShape(50)).padding(horizontal = 6.dp, vertical = 2.5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(4.dp).background(Aditv.Live, CircleShape))
-        Spacer(Modifier.width(4.dp))
+    // Charte : fond corail, texte blanc, compact, sans clignotement.
+    Row(modifier.background(Aditv.Live, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 2.5.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("EN DIRECT", fontSize = 6.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = Color.White)
     }
 }
@@ -480,7 +479,7 @@ fun SkeletonCard(width: Dp, aspect: Float = CINEMASCOPE) {
         0f, 1f, infiniteRepeatable(tween(1300, easing = LinearEasing), RepeatMode.Restart), label = "skel-x",
     ).value
     val brush = Brush.linearGradient(
-        listOf(Color(0xFF121820), Color(0xFF1B232E), Color(0xFF121820)),
+        listOf(Aditv.Surface1, Aditv.Surface2, Aditv.Surface1),
         start = Offset(-400f + 1200f * shift, 0f), end = Offset(-100f + 1200f * shift, 0f),
     )
     Column(Modifier.width(width)) {
@@ -498,7 +497,7 @@ fun SheetOption(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
         modifier = (modifier.fillMaxWidth().height(35.dp)).navSound(),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(7.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Aditv.Text, focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
             if (checked != null) {

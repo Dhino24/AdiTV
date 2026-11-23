@@ -48,6 +48,8 @@ Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Ada
 
 ## 2. Identité visuelle
 
+Charte couleurs : `docs/ADI_TV_CHARTE_COULEURS.md` (noir bleuté profond, turquoise rare, blanc cassé élégant).
+
 - **Logo officiel** (pack « ADI_TV_Logo_Pack_Claude ») : « ADI » blanc avec un triangle play rouge dans le A, capsule « TV », trois traits discrets vert / jaune / rouge (Sénégal).
   - Les tracés du SVG du pack sont convertis tels quels en dessins vectoriels Android, découpés en calques : ADI, play, TV, traits.
 - **Icône** : l'emblème carré du pack (le A, le play et les traits).

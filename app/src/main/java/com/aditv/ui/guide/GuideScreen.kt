@@ -413,7 +413,7 @@ private fun Cell(modifier: Modifier, onClick: () -> Unit, kind: CellKind, progre
         onClick = onClick, modifier = modifier.navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = if (kind == CellKind.CHANNEL) 1.04f else 1f),
-        glow = ClickableSurfaceDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Aditv.Accent.copy(alpha = 0.3f), 8.dp)),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Aditv.AccentSoft.copy(alpha = 0.16f), 6.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = when (kind) { CellKind.NOW -> Aditv.Surface3; CellKind.PAST -> Color(0xFF0F141A); CellKind.CHANNEL -> Aditv.Surface1; else -> Aditv.Surface2 },
             contentColor = if (kind == CellKind.PAST || kind == CellKind.NONE) Aditv.TextSecondary else Aditv.Text,

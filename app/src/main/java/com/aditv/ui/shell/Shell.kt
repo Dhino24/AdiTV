@@ -168,7 +168,7 @@ fun Shell(session: Session.Active) {
     LaunchedEffect(pendingChannel) { pendingChannel?.let { com.aditv.data.sport.PendingLaunch.channel.value = null; playLive(it, "sport") } }
 
     CompositionLocalProvider(LocalNavChrome provides chrome) {
-        Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent { ev ->
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Aditv.BgAlt, Aditv.Bg))).onPreviewKeyEvent { ev ->
             val r = reminder
             if (r != null && ev.type == KeyEventType.KeyDown && ev.key == Key.Menu) {
                 com.aditv.data.sport.ReminderBus.clear(); playLive(r.channelItemId, "sport"); true
@@ -300,7 +300,7 @@ private fun TopNav(
     }
 }
 
-private val NavHalo = Glow(elevationColor = Color.White.copy(alpha = 0.22f), elevation = 10.dp)
+private val NavHalo = Glow(elevationColor = Aditv.AccentSoft.copy(alpha = 0.14f), elevation = 6.dp)
 
 /**
  * Icône de la barre (façon Fire TV) : au focus, carré blanc arrondi, icône sombre, nom dessous ;
@@ -321,7 +321,7 @@ private fun NavItem(icon: Int, label: String, isSelected: Boolean, onClick: () -
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent,
                 contentColor = if (isSelected) Aditv.Text else Aditv.Text.copy(alpha = 0.78f),
-                focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+                focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight,
             ),
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

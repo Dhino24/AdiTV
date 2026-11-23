@@ -13,24 +13,32 @@ import androidx.tv.material3.darkColorScheme
 import com.aditv.R
 
 /**
- * Charte ADITV validée sur le prototype (design/prototype) : anthracite profond, blanc, turquoise discret.
+ * Charte ADI TV « rendu premium » : noir bleuté profond, turquoise rare, blanc cassé élégant.
  * Le prototype est dessiné à 1920 × 1080 px ; la Fire TV affiche 960 × 540 dp : 1 dp = 2 px du prototype.
  */
 object Aditv {
-    val Bg = Color(0xFF07090D)
-    val Surface1 = Color(0xFF0E131A)
-    val Surface2 = Color(0xFF151C25)
-    val Surface3 = Color(0xFF1D2631)
-    val Text = Color(0xFFF5F7FA)
-    val TextSecondary = Color(0xFFA7B2BF)
-    val TextTertiary = Color(0xFF7D8896)
-    val Accent = Color(0xFF00D7D7)
-    val Live = Color(0xFFFF4D5E)
+    // Charte « rendu premium » (docs/ADI_TV_CHARTE_COULEURS.md) : noir bleuté profond, turquoise rare, blanc cassé.
+    val Bg = Color(0xFF07111A)
+    val BgAlt = Color(0xFF0B1520)
+    val Surface1 = Color(0xFF101C28)
+    val Surface2 = Color(0xFF162433)
+    val Surface3 = Color(0xFF1B2B3B)
+    val Text = Color(0xFFF4F7FA)
+    val TextSecondary = Color(0xFFC3CED8)
+    val TextTertiary = Color(0xFF7F93A6)
+    /** Focus, sélection, progression, interactions actives — jamais en aplat sur de grandes zones. */
+    val Accent = Color(0xFF22D3C5)
+    /** Halo très discret et détails de focus. */
+    val AccentSoft = Color(0xFF7EE7F2)
+    /** Badges « EN DIRECT » et alertes pertinentes. */
+    val Live = Color(0xFFFF6B57)
     val Line = Color(0x1AFFFFFF)
-    val Ok = Color(0xFF3DDC84)
+    val Ok = Color(0xFF26C281)
     val Warn = Color(0xFFF6D58A)
-    val Error = Color(0xFFFF8E99)
-    val OnLight = Color(0xFF0A0E13)
+    val Error = Color(0xFFFF8E80)
+    /** Or discret : usage très rare (badge exceptionnel). */
+    val Gold = Color(0xFFE0B75F)
+    val OnLight = Color(0xFF07111A)
 }
 
 /** Outfit (titres, géométrique comme le logo) et Inter (texte). Polices sous licence OFL, embarquées. */

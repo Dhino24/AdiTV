@@ -448,8 +448,8 @@ private fun StandingLine(r: com.aditv.data.football.StandingRow) {
     val mark = when {
         "relegation" in zone || "relégation" in zone -> Aditv.Live
         "champions" in zone -> Aditv.Accent
-        "europa" in zone -> Color(0xFFFF9F43)
-        "conference" in zone -> Color(0xFF34C759)
+        "europa" in zone -> Aditv.AccentSoft.copy(alpha = 0.55f)
+        "conference" in zone -> Aditv.Ok.copy(alpha = 0.6f)
         zone.isNotBlank() -> Color.White.copy(alpha = 0.35f)
         else -> Color.Transparent
     }
@@ -473,7 +473,7 @@ private fun StandingLine(r: com.aditv.data.football.StandingRow) {
             Text(r.points.toString(), fontFamily = Outfit, fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.width(44.dp))
             Row(Modifier.width(86.dp), horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)) {
                 r.form.orEmpty().takeLast(5).forEach { ch ->
-                    val (bg, txt) = when (ch) { 'W' -> Color(0xFF2FB36A) to "V"; 'D' -> Color(0xFF6B7280) to "N"; 'L' -> Color(0xFFE5484D) to "D"; else -> Color.Transparent to "" }
+                    val (bg, txt) = when (ch) { 'W' -> Aditv.Ok to "V"; 'D' -> Aditv.Surface3 to "N"; 'L' -> Aditv.Live to "D"; else -> Color.Transparent to "" }
                     Box(Modifier.size(14.dp).background(bg, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) { Text(txt, fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Color.White) }
                 }
             }
@@ -540,8 +540,8 @@ private fun placeOnPitch(l: com.aditv.data.football.Lineup): List<Triple<com.adi
     return rows.flatMapIndexed { r, n -> (1..n).mapNotNull { c -> l.startXI.getOrNull(i++)?.let { Triple(it, r + 1, c) } } }
 }
 
-private val PitchDark = Color(0xFF0C2A22)
-private val PitchLight = Color(0xFF113629)
+private val PitchDark = Color(0xFF0B231F)
+private val PitchLight = Color(0xFF0E2A25)
 
 @Composable
 private fun Pitch(home: com.aditv.data.football.Lineup?, away: com.aditv.data.football.Lineup?, modifier: Modifier) {

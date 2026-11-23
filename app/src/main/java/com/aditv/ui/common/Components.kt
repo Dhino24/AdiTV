@@ -58,7 +58,7 @@ fun AditvButton(
         modifier = (modifier.height(30.dp)).navSound(),
         shape = ButtonDefaults.shape(RoundedCornerShape(50)),
         scale = ButtonDefaults.scale(focusedScale = 1.06f),
-        glow = ButtonDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Aditv.Accent.copy(alpha = 0.3f), 10.dp)),
+        glow = ButtonDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Aditv.AccentSoft.copy(alpha = 0.16f), 6.dp)),
         colors = ButtonDefaults.colors(
             containerColor = Aditv.Text.copy(alpha = 0.13f),
             contentColor = Aditv.Text,

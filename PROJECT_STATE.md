@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.16.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.16.1) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.16.1 (23/11/2026) — charte couleurs « rendu premium » (docs/ADI_TV_CHARTE_COULEURS.md)
+- Palette : fond noir bleuté #07111A (dégradé très léger depuis #0B1520), surfaces #101C28 / #162433 / #1B2B3B, texte #F4F7FA / #C3CED8 / #7F93A6, turquoise #22D3C5 (focus, sélection, progression), cyan doux #7EE7F2 (halos), corail #FF6B57 (direct), vert #26C281, or #E0B75F (rare).
+- Blanc cassé au lieu du blanc pur pour les boutons principaux et les éléments sélectionnés ; halos de focus plus diffus et discrets ; verre plus mat (arête fine, presque sans reflet).
+- Pastille « EN DIRECT » : fond corail, texte blanc, compacte, sans clignotement.
+- Classements : forme et zones aux couleurs de la charte (vert, corail, turquoise, cyan doux) au lieu de couleurs concurrentes.
 
 ### 0.16.0 (23/11/2026) — FootAdi : classements
 - Puce **🏆 Classements** après « Mes équipes » : Ligue 1, Premier League, LaLiga, Serie A, Bundesliga, Ligue 2, Ligue des champions, Ligue Europa, Conférence. Tableau : rang, écusson, équipe, J G N P, différence, points, forme (V/N/D en couleur) ; repère de zone à gauche (turquoise LDC, orange Europa, vert Conférence, rouge relégation) ; équipes suivies surlignées ; poules séparées si la compétition en a.

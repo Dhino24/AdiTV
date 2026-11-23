@@ -262,7 +262,7 @@ private fun FamilyItem(f: FamilyEntry, current: Boolean, onClick: () -> Unit, mo
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (current) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f), contentColor = if (current) Aditv.Text else Aditv.TextSecondary,
-            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+            focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight,
         ),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp)),
     ) {
@@ -283,7 +283,7 @@ private fun MatchRow(m: ChampionsMatch, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().height(56.dp).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Aditv.Text, focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp)),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -374,7 +374,7 @@ private fun ChannelRow(r: LiveRow, favorite: Boolean, onFocus: () -> Unit, onCli
             .onPreviewKeyEvent { ev -> if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && ev.key == androidx.compose.ui.input.key.Key.Menu) { onMenu(); true } else false }).navSound(),
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), contentColor = Aditv.Text, focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.05f), contentColor = Aditv.Text, focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(1.5.dp, Aditv.Accent), shape = shape, inset = (-2).dp)),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {

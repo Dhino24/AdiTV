@@ -164,7 +164,7 @@ private fun ResultRow(title: String, cards: List<CatalogCard>, onOpen: (String) 
     }
 }
 
-private val KeyHalo = Glow(elevationColor = Aditv.Accent.copy(alpha = 0.3f), elevation = 8.dp)
+private val KeyHalo = Glow(elevationColor = Aditv.AccentSoft.copy(alpha = 0.16f), elevation = 6.dp)
 
 @Composable
 private fun Key(label: String, modifier: Modifier, small: Boolean = false, icon: Int? = null, enabled: Boolean = true, onClick: () -> Unit) {
@@ -176,7 +176,7 @@ private fun Key(label: String, modifier: Modifier, small: Boolean = false, icon:
         glow = ClickableSurfaceDefaults.glow(focusedGlow = KeyHalo),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.White.copy(alpha = 0.05f), contentColor = Aditv.Text,
-            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+            focusedContainerColor = Aditv.Text, focusedContentColor = Aditv.OnLight,
             disabledContainerColor = Color.Transparent,
         ),
     ) {
