@@ -81,4 +81,16 @@ class FootballTest {
         assertEquals(2, server.requestCount)
         dir.deleteRecursively()
     }
+
+    @Test fun parsesStandingsWithGroups() = runTest {
+        server.enqueue(MockResponse.Builder().body("""{"errors":[],"response":[{"league":{"id":61,"season":2026,"standings":[[
+          {"rank":1,"team":{"id":85,"name":"Paris Saint Germain","logo":"x"},"points":31,"goalsDiff":18,"group":"Ligue 1","form":"WWDWW","description":"Promotion - Champions League (League phase: )",
+           "all":{"played":13,"win":10,"draw":1,"lose":2}},
+          {"rank":18,"team":{"id":99,"name":"Metz"},"points":7,"goalsDiff":-15,"group":"Ligue 1","form":"LLDLL","description":"Relegation - Ligue 2","all":{"played":13,"win":1,"draw":4,"lose":8}}]]}}]}""").build())
+        val rows = client().parseStandings(client().standingsRaw(61, 2026))
+        assertEquals(2, rows.size)
+        assertEquals(31, rows[0].points); assertEquals(10, rows[0].win); assertEquals("WWDWW", rows[0].form)
+        assertEquals(-15, rows[1].goalsDiff); assertTrue(rows[1].description!!.contains("Relegation"))
+        assertTrue(server.takeRequest().url.toString().contains("/standings?league=61&season=2026"))
+    }
 }

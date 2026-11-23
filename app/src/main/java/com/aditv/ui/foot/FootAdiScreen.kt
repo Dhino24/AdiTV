@@ -1,5 +1,6 @@
 package com.aditv.ui.foot
 
+import com.aditv.data.football.Competition
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.verticalScroll
 import com.aditv.ui.design.liquidGlass
@@ -101,7 +102,34 @@ class FootViewModel(private val c: AppContainer, private val session: Session.Ac
     /** Appelé toutes les 5 min tant que l'écran FootAdi est affiché (pas pendant qu'on regarde la chaîne). */
     fun refreshIfLive() { if (!session.isDemo && fixtures?.any { it.live } == true && !c.football.saving) load(quiet = true) }
 
-    fun select(d: Int?) { if (d == day) return; day = d; fixtures = null; load() }
+    fun select(d: Int?) { if (d == day && !standingsMode) return; standingsMode = false; day = d; fixtures = null; load() }
+
+    // Classements : une compétition à la fois (1 requête, gardée 6 h).
+    var standingsMode by mutableStateOf(false); private set
+    var league by mutableStateOf(FootballRepository.COMPETITIONS.keys.first { it == 61L }); private set
+    var table by mutableStateOf<List<com.aditv.data.football.StandingRow>?>(null); private set
+    var tableError by mutableStateOf<String?>(null); private set
+    private var tableJob: kotlinx.coroutines.Job? = null
+
+    private var tableSeason: Int = c.football.currentSeason()
+    fun seasonLabel() = "$tableSeason-${(tableSeason + 1) % 100}"
+
+    fun openStandings(leagueId: Long = league, season: Int? = null) {
+        tableSeason = season ?: c.football.currentSeason()
+        standingsMode = true
+        if (leagueId == league && table != null) return
+        league = leagueId; table = null; tableError = null
+        tableJob?.cancel()
+        tableJob = viewModelScope.launch {
+            try {
+                table = if (session.isDemo) c.football.demoStandings(leagueId)
+                    else withContext(Dispatchers.Default) { c.football.standings(leagueId, season ?: c.football.currentSeason()) }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: FootballError) { tableError = e.message; table = emptyList() }
+            catch (e: Exception) { tableError = "Classement indisponible (${e.javaClass.simpleName})."; table = emptyList() }
+            updateQuota()
+        }
+    }
 
     private suspend fun forDay(offset: Int) = if (session.isDemo) c.football.demo(offset) else c.football.fixtures(offset)
 
@@ -161,7 +189,7 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
     val listFocus = remember { FocusRequester() }
     val selChip = remember { FocusRequester() }
     // ↓ depuis les jours : directement sur le premier match (sinon la recherche 2D peut viser le panneau de droite).
-    val hasRows = !vm.fixtures.isNullOrEmpty() && vm.hasKey
+    val hasRows = vm.standingsMode || (!vm.fixtures.isNullOrEmpty() && vm.hasKey)
     val toList = Modifier.focusProperties { if (hasRows) down = listFocus }
     val entry = com.aditv.ui.LocalScreenEntry.current
     com.aditv.ui.common.InitialFocus(todayChip)
@@ -186,12 +214,14 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
         Row(Modifier.focusRestorer(todayChip).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(-2, -1, 0, 1, 2, 3).forEach { d ->
                 val label = when (d) { -1 -> "Hier"; 0 -> "Aujourd'hui"; 1 -> "Demain"; else -> dayFmt.format(Date(System.currentTimeMillis() + d * 86_400_000L)).replaceFirstChar { it.uppercase() } }
-                FilterChip(label, vm.day == d, { vm.select(d) }, (if (d == 0) Modifier.focusRequester(todayChip).focusRequester(entry) else Modifier).then(if (vm.day == d) Modifier.focusRequester(selChip) else Modifier).then(toList))
+                FilterChip(label, vm.day == d && !vm.standingsMode, { vm.select(d) }, (if (d == 0) Modifier.focusRequester(todayChip).focusRequester(entry) else Modifier).then(if (vm.day == d && !vm.standingsMode) Modifier.focusRequester(selChip) else Modifier).then(toList))
             }
-            FilterChip("★ Mes équipes", vm.day == null, { vm.select(null) }, (if (vm.day == null) Modifier.focusRequester(selChip) else Modifier).then(toList))
+            FilterChip("★ Mes équipes", vm.day == null && !vm.standingsMode, { vm.select(null) }, (if (vm.day == null && !vm.standingsMode) Modifier.focusRequester(selChip) else Modifier).then(toList))
+            FilterChip("🏆 Classements", vm.standingsMode, { vm.openStandings() }, (if (vm.standingsMode) Modifier.focusRequester(selChip) else Modifier).then(toList))
         }
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxSize()) {
+        if (vm.standingsMode) StandingsView(vm, listFocus, selChip)
+        else Row(Modifier.fillMaxSize()) {
             Box(Modifier.width(560.dp).fillMaxHeight()) {
                 when {
                     !vm.hasKey -> StateBox(R.drawable.ic_info, "Ajoutez votre clé API-Football",
@@ -227,7 +257,8 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
             Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 18.dp)) {
                 shown?.let { f -> MatchPanel(f, vm.broadcasts[f.id].orEmpty(), vm.goals[f.id].orEmpty(), vm.lineups[f.id].orEmpty(),
                     onWatch = { b -> onPlayLive(b.channel.id, "fam:SPORT_FR") }, onRemind = { vm.remind(f, vm.broadcasts[f.id]?.firstOrNull()) },
-                    onLineups = { sheet = f }) }
+                    onLineups = { sheet = f },
+                    onStandings = if (f.competition.id in FootballRepository.standingsLeagues) ({ vm.openStandings(f.competition.id, f.competition.season) }) else null) }
             }
         }
     }
@@ -301,7 +332,7 @@ private fun ScoreOrTime(f: Fixture, size: androidx.compose.ui.unit.TextUnit) {
 @Composable
 private fun MatchPanel(
     f: Fixture, broadcasts: List<Broadcast>, goals: List<Goal>, lineups: List<com.aditv.data.football.Lineup>,
-    onWatch: (Broadcast) -> Unit, onRemind: () -> Unit, onLineups: () -> Unit,
+    onWatch: (Broadcast) -> Unit, onRemind: () -> Unit, onLineups: () -> Unit, onStandings: (() -> Unit)?,
 ) {
     Column(
         Modifier.fillMaxSize().liquidGlass(RoundedCornerShape(22.dp), strength = 1.2f)
@@ -357,7 +388,96 @@ private fun MatchPanel(
             else "Annoncées vers ${timeFmt.format(Date(f.kickoff - 3_600_000L))} (environ 1 h avant le match).",
             style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary,
         )
+        onStandings?.let { Spacer(Modifier.height(10.dp)); PillButton("Classement", it, icon = R.drawable.ic_chart, primary = false, small = true) }
         if (f.live) { Spacer(Modifier.height(10.dp)); LiveTag() }
+    }
+}
+
+/** Classements : compétitions à gauche, tableau à droite (rang, équipe, J G N P, différence, points, forme). */
+@Composable
+private fun StandingsView(vm: FootViewModel, firstFocus: FocusRequester, upTo: FocusRequester) {
+    Row(Modifier.fillMaxSize().padding(bottom = 18.dp)) {
+        Column(Modifier.width(230.dp).fillMaxHeight().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(2.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            FootballRepository.standingsLeagues.forEachIndexed { i, id ->
+                val name = FootballRepository.COMPETITIONS[id] ?: id.toString()
+                PillButton(name, { vm.openStandings(id) }, (if (i == 0) Modifier.focusRequester(firstFocus).focusProperties { up = upTo } else Modifier).fillMaxWidth(),
+                    icon = null, primary = vm.league == id, small = true)
+            }
+        }
+        Spacer(Modifier.width(22.dp))
+        Column(Modifier.weight(1f).fillMaxHeight().liquidGlass(RoundedCornerShape(22.dp), strength = 1.2f).padding(horizontal = 18.dp, vertical = 14.dp)) {
+            Text((FootballRepository.COMPETITIONS[vm.league] ?: "") + " · saison ${FootballRepository.zone.let { _ -> vm.seasonLabel() }}",
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 15.sp), color = Aditv.Text)
+            Spacer(Modifier.height(8.dp))
+            val t = vm.table
+            when {
+                t == null -> Text("Chargement du classement…", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+                t.isEmpty() -> Text(vm.tableError ?: "Classement non disponible pour cette compétition.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+                else -> {
+                    StandingHeader()
+                    androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        var lastGroup: String? = null
+                        t.forEach { r ->
+                            if (t.map { it.group }.distinct().size > 1 && r.group != lastGroup) {
+                                lastGroup = r.group
+                                item(key = "g${r.group}") { Text(r.group.orEmpty(), style = MaterialTheme.typography.labelLarge.copy(fontSize = 9.sp), color = Aditv.TextSecondary, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)) }
+                            }
+                            item(key = "${r.group}-${r.team.id}") { StandingLine(r) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val numW = 30.dp
+
+@Composable
+private fun StandingHeader() = Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+    val st = MaterialTheme.typography.labelLarge.copy(fontSize = 8.5.sp, letterSpacing = 1.sp)
+    Text("#", style = st, color = Aditv.TextTertiary, modifier = Modifier.width(numW))
+    Text("ÉQUIPE", style = st, color = Aditv.TextTertiary, modifier = Modifier.weight(1f))
+    listOf("J", "G", "N", "P", "DIFF", "PTS").forEach { Text(it, style = st, color = Aditv.TextTertiary, textAlign = TextAlign.Center, modifier = Modifier.width(if (it.length > 1) 44.dp else numW)) }
+    Text("FORME", style = st, color = Aditv.TextTertiary, textAlign = TextAlign.Center, modifier = Modifier.width(86.dp))
+}
+
+@Composable
+private fun StandingLine(r: com.aditv.data.football.StandingRow) {
+    val zone = r.description.orEmpty().lowercase()
+    val mark = when {
+        "relegation" in zone || "relégation" in zone -> Aditv.Live
+        "champions" in zone -> Aditv.Accent
+        "europa" in zone -> Color(0xFFFF9F43)
+        "conference" in zone -> Color(0xFF34C759)
+        zone.isNotBlank() -> Color.White.copy(alpha = 0.35f)
+        else -> Color.Transparent
+    }
+    val mine = FootballRepository.isFollowed(Fixture(0, Competition(0, "", "", null, null), null, 0, "NS", null, r.team, r.team, null, null))
+    val shape = RoundedCornerShape(9.dp)
+    // Ligne focalisable : ↑/↓ font défiler le tableau à la télécommande.
+    Surface(
+        onClick = {}, modifier = Modifier.fillMaxWidth().height(30.dp),
+        shape = ClickableSurfaceDefaults.shape(shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = if (mine) Aditv.Accent.copy(alpha = 0.12f) else Color.Transparent, contentColor = Aditv.Text,
+            focusedContainerColor = Color.White.copy(alpha = 0.16f), focusedContentColor = Aditv.Text),
+    ) {
+        Row(Modifier.fillMaxSize().padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(3.dp).fillMaxHeight().padding(vertical = 5.dp).background(mark, RoundedCornerShape(2.dp)))
+            Spacer(Modifier.width(7.dp))
+            Text(r.rank.toString(), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, modifier = Modifier.width(numW - 10.dp))
+            Crest(r.team.logo, r.team.name, 18.dp); Spacer(Modifier.width(8.dp))
+            Text(r.team.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (mine) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            listOf(r.played, r.win, r.draw, r.lose).forEach { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(numW)) }
+            Text((if (r.goalsDiff > 0) "+" else "") + r.goalsDiff, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.width(44.dp))
+            Text(r.points.toString(), fontFamily = Outfit, fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.width(44.dp))
+            Row(Modifier.width(86.dp), horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)) {
+                r.form.orEmpty().takeLast(5).forEach { ch ->
+                    val (bg, txt) = when (ch) { 'W' -> Color(0xFF2FB36A) to "V"; 'D' -> Color(0xFF6B7280) to "N"; 'L' -> Color(0xFFE5484D) to "D"; else -> Color.Transparent to "" }
+                    Box(Modifier.size(14.dp).background(bg, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) { Text(txt, fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                }
+            }
+        }
     }
 }
 

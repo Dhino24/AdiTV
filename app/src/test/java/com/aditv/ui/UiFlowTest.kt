@@ -243,6 +243,14 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         waitGone("Fermer")
         // Fermeture : retour sur la ligne du match.
         assertFocused("Lions de Paris")
+        // Classements : ↑ vers les jours, → jusqu'à « Classements », OK.
+        key(Key.DirectionUp)
+        var k2 = 0
+        while (k2++ < 10 && rule.onAllNodes(hasText("🏆 Classements") and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionRight)
+        key(Key.DirectionCenter)
+        waitText("PTS")
+        waitText("Étoile de l'Est")
+        shot("17c_classements")
         key(Key.DirectionUp, 2)
         upUntil("FootAdi")
         key(Key.DirectionLeft, 5)

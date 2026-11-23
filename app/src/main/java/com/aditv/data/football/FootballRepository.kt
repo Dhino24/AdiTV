@@ -22,6 +22,8 @@ class FootballRepository(
     companion object {
         val zone: ZoneId = ZoneId.of("Europe/Paris")
         const val SAVE_BELOW = 10
+        /** Compétitions proposées dans « Classements », dans l'ordre d'affichage. */
+        val standingsLeagues = listOf(61L, 39L, 140L, 135L, 78L, 62L, 2L, 3L, 848L)
         /** Compétitions affichées (identifiants API-Football), dans l'ordre d'affichage. */
         val COMPETITIONS = linkedMapOf(
             2L to "Ligue des champions", 61L to "Ligue 1", 39L to "Premier League", 140L to "LaLiga", 135L to "Serie A",
@@ -138,6 +140,35 @@ class FootballRepository(
         val f = file("goals-$id.txt")?.takeIf { it.exists() } ?: return null
         f.readLines().filter { it.isNotBlank() }.map { l -> val p = l.split("|"); Goal(p[0].toIntOrNull(), p[2], p[1].toLongOrNull() ?: 0, p.getOrNull(3)?.ifBlank { null }) }
     }.getOrNull()
+
+    /** Saison en cours d'un championnat européen (août → mai) : 2026 pour 2026-2027. */
+    fun currentSeason(): Int { val d = LocalDate.now(zone); return if (d.monthValue >= 7) d.year else d.year - 1 }
+
+    private val standingsCache = ConcurrentHashMap<String, Entry2>()
+    private class Entry2(val at: Long, val rows: List<StandingRow>)
+
+    /** Classement : 1 requête par compétition, gardé 6 h (sur disque aussi). Quota presque épuisé : on garde l'ancien. */
+    suspend fun standings(league: Long, season: Int = currentSeason()): List<StandingRow> {
+        val k = "$league-$season"
+        val now = clock()
+        val e = standingsCache[k] ?: runCatching {
+            file("standings-$k.json")?.takeIf { it.exists() }?.let { Entry2(it.lastModified(), client.parseStandings(it.readText())) }
+        }.getOrNull()?.also { standingsCache[k] = it }
+        if (e != null && (now - e.at < 6 * 3_600_000L || saving)) return e.rows
+        val raw = client.standingsRaw(league, season)
+        runCatching { dir?.mkdirs(); file("standings-$k.json")?.writeText(raw) }
+        return client.parseStandings(raw).also { standingsCache[k] = Entry2(now, it) }
+    }
+
+    /** Démonstration : classement fictif. */
+    fun demoStandings(league: Long): List<StandingRow> {
+        val names = listOf("Lions de Paris", "Olympique Sud", "Nord United", "Catalans FC", "Étoile de l'Est", "Racing Ouest", "AS Montagne", "FC Rivière", "Union Centre", "Stade Atlantique")
+        return names.mapIndexed { i, n ->
+            val w = 12 - i; val d = (i % 3) + 1; val l = i
+            StandingRow(i + 1, Team(1000L + i, n, null), w * 3 + d, w + d + l, w, d, l, 20 - i * 4, "WWDLW".drop(i % 3).padEnd(5, 'D'), null,
+                when (i) { 0, 1, 2 -> "Ligue des champions"; 3 -> "Ligue des champions (barrages)"; 4 -> "Ligue Europa"; 8, 9 -> "Relégation"; else -> null })
+        }
+    }
 
     /** Démonstration : compositions fictives. */
     fun demoLineups(f: Fixture): List<Lineup> {

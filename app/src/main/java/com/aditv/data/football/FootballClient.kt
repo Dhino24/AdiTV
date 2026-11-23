@@ -17,7 +17,13 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 data class Team(val id: Long, val name: String, val logo: String?)
-data class Competition(val id: Long, val name: String, val country: String, val flag: String?, val logo: String?)
+data class Competition(val id: Long, val name: String, val country: String, val flag: String?, val logo: String?, val season: Int? = null)
+
+/** Ligne de classement. [group] : poule (CAN, phase de groupes) ; [description] : qualification / relégation. */
+data class StandingRow(
+    val rank: Int, val team: Team, val points: Int, val played: Int, val win: Int, val draw: Int, val lose: Int,
+    val goalsDiff: Int, val form: String?, val group: String?, val description: String?,
+)
 data class Fixture(
     val id: Long, val competition: Competition, val round: String?, val kickoff: Long,
     /** NS à venir, 1H/HT/2H/ET/P en cours, FT/AET/PEN terminé, PST/CANC… */
@@ -107,7 +113,7 @@ class FootballClient(private val http: OkHttpClient, private val key: () -> Stri
         fun team(x: JsonElement?) = x.obj()?.let { Team((it["id"] as? JsonPrimitive)?.longOrNull ?: 0, it["name"].str() ?: "?", it["logo"].str()) }
         return Fixture(
             id = (f["id"] as? JsonPrimitive)?.longOrNull ?: return null,
-            competition = Competition((l["id"] as? JsonPrimitive)?.longOrNull ?: 0, l["name"].str() ?: "", l["country"].str() ?: "", l["flag"].str(), l["logo"].str()),
+            competition = Competition((l["id"] as? JsonPrimitive)?.longOrNull ?: 0, l["name"].str() ?: "", l["country"].str() ?: "", l["flag"].str(), l["logo"].str(), (l["season"] as? JsonPrimitive)?.intOrNull),
             round = l["round"].str(),
             kickoff = ((f["timestamp"] as? JsonPrimitive)?.longOrNull ?: return null) * 1000,
             status = f["status"].obj()?.get("short").str() ?: "NS",
@@ -146,6 +152,24 @@ class FootballClient(private val http: OkHttpClient, private val key: () -> Stri
             val id = (o["fixture"].obj()?.get("id") as? JsonPrimitive)?.longOrNull ?: return@mapNotNull null
             id to ((o["events"] as? JsonArray).orEmpty().filter { (it.obj()?.get("type")).str() == "Goal" }.mapNotNull(::parseGoal) to (o["lineups"] ?: JsonArray(emptyList())).toString())
         }.toMap()
+    }
+
+    /** Classement d'une compétition (1 requête). */
+    suspend fun standingsRaw(league: Long, season: Int): String = getRaw("/standings?league=$league&season=$season")
+
+    fun parseStandings(raw: String): List<StandingRow> {
+        val league = ((parse(raw)["response"] as? JsonArray)?.firstOrNull().obj()?.get("league")).obj() ?: return emptyList()
+        return (league["standings"] as? JsonArray).orEmpty().flatMap { g -> (g as? JsonArray).orEmpty() }.mapNotNull { e ->
+            val o = e.obj() ?: return@mapNotNull null
+            val t = o["team"].obj() ?: return@mapNotNull null
+            val all = o["all"].obj()
+            fun n(x: JsonElement?) = (x as? JsonPrimitive)?.intOrNull ?: 0
+            StandingRow(
+                n(o["rank"]), Team((t["id"] as? JsonPrimitive)?.longOrNull ?: 0, t["name"].str() ?: "?", t["logo"].str()),
+                n(o["points"]), n(all?.get("played")), n(all?.get("win")), n(all?.get("draw")), n(all?.get("lose")),
+                n(o["goalsDiff"]), o["form"].str(), o["group"].str(), o["description"].str(),
+            )
+        }
     }
 
     /** Compositions (tableau « lineups » de l'API). */

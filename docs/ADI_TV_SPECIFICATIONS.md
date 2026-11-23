@@ -174,6 +174,7 @@ Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Ada
 - Jours (avant-hier → J+3) et **★ Mes équipes** ; ↓ va au premier match, ↑ revient sur le jour choisi.
 - Matchs groupés par compétition (Ligue des champions, grands championnats, Coupes d'Europe, Ligue 2, CAN, Sénégal, équipes de France et du Sénégal) : écussons, score et minute en direct, heure sinon, chaîne qui diffuse.
 - Panneau : compétition · journée, score ou compte à rebours, buteurs, **Où regarder dans votre abonnement** (chaînes du guide TV dont un programme cite les deux équipes autour du coup d'envoi, françaises d'abord ; sinon diffuseur habituel en France). **OK** lance la chaîne. « Me rappeler le match ».
+- **🏆 Classements** : 9 compétitions (Ligue 1, PL, LaLiga, Serie A, Bundesliga, Ligue 2, LDC, Europa, Conférence) ; rang, J G N P, différence, points, forme, zones (LDC, Europa, Conférence, relégation) ; aussi depuis le panneau d'un match. 1 requête par compétition, gardée 6 h.
 - Source : **API-Football** avec la clé gratuite de l'utilisateur (Réglages → FootAdi, ou QR code). Cache sur disque : 5 min en direct / 30 min le jour même / 6 h à venir / définitif pour un jour passé terminé ; buteurs groupés (1 requête pour 20 matchs) ; rafraîchissement auto seulement écran affiché ; quota restant affiché, mode économie sous 10 requêtes. Démo : matchs fictifs.
 
 ### Recherche
