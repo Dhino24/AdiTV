@@ -282,7 +282,7 @@ private fun TopNav(
             Box {
                 // Le verre est dessiné derrière (découpé) ; les icônes et leur nom ne sont pas découpés.
                 Box(Modifier.matchParentSize().liquidGlass(RoundedCornerShape(50), strength = 0.8f))
-                Row(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     navItems.forEach { t -> NavItem(t.icon, t.label, t.route == selected, { onPick(t.route) }, Modifier.focusRequester(requesters.getValue(t.route))) }
                 }
             }

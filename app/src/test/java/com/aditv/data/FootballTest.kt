@@ -60,7 +60,10 @@ class FootballTest {
         server.enqueue(MockResponse.Builder().body("""{"errors":[],"response":[{"fixture":{"id":7},"events":[
             {"time":{"elapsed":12},"team":{"id":85},"player":{"name":"Dembélé"},"type":"Goal","detail":"Normal Goal"},
             {"time":{"elapsed":30},"team":{"id":80},"player":{"name":"X"},"type":"Card","detail":"Yellow Card"},
-            {"time":{"elapsed":77},"team":{"id":85},"player":{"name":"Doué"},"type":"Goal","detail":"Penalty"}]}]}""").build())
+            {"time":{"elapsed":77},"team":{"id":85},"player":{"name":"Doué"},"type":"Goal","detail":"Penalty"}],
+            "lineups":[{"team":{"id":85,"name":"Paris Saint Germain"},"formation":"4-3-3","coach":{"name":"L. Enrique"},
+              "startXI":[{"player":{"number":1,"name":"Chevalier","pos":"G"}},{"player":{"number":10,"name":"Dembélé","pos":"F"}}],"substitutes":[{"player":{"number":14,"name":"Doué","pos":"F"}}]},
+             {"team":{"id":80,"name":"Lyon"},"formation":"4-2-3-1","coach":{"name":"P. Fonseca"},"startXI":[{"player":{"number":1,"name":"Perri","pos":"G"}}],"substitutes":[]}]}]}""").build())
         val repo = FootballRepository(client(), dir)
         val f = repo.fixtures(-1).single()
         assertEquals(97, repo.remaining); assertEquals(100, repo.dailyLimit)
@@ -70,7 +73,11 @@ class FootballTest {
         // « Redémarrage » : nouveau dépôt, même dossier → aucune requête de plus.
         val again = FootballRepository(client(), dir)
         val f2 = again.fixtures(-1).single()
-        assertEquals(2, again.goals(f2, listOf(f2)).size)
+        val d = again.details(f2, listOf(f2))
+        assertEquals(2, d.goals.size)
+        // Compositions arrivées dans la même requête que les buts, gardées sur disque.
+        assertEquals(listOf("4-3-3", "4-2-3-1"), d.lineups.map { it.formation })
+        assertEquals("Dembélé", d.lineups[0].startXI[1].name); assertEquals("L. Enrique", d.lineups[0].coach)
         assertEquals(2, server.requestCount)
         dir.deleteRecursively()
     }

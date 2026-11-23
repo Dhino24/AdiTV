@@ -229,7 +229,19 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         key(Key.DirectionUp)
         assertFocused("Aujourd'hui")
         key(Key.DirectionDown)
+        waitText("Voir les compositions")
         shot("17_footadi")
+        // Compositions (démo) : → vers le panneau, ↓ jusqu'au bouton, OK ; Retour ferme.
+        key(Key.DirectionRight)
+        var c = 0
+        while (c++ < 8 && rule.onAllNodes(hasText("Voir les compositions") and androidx.compose.ui.test.isFocused()).fetchSemanticsNodes().isEmpty()) key(Key.DirectionDown)
+        key(Key.DirectionCenter)
+        waitText("Joueur 11 (démo)")
+        shot("17b_compositions")
+        back()
+        waitGone("Joueur 11 (démo)")
+        // Fermeture : retour sur la ligne du match.
+        assertFocused("Lions de Paris")
         key(Key.DirectionUp, 2)
         upUntil("FootAdi")
         key(Key.DirectionLeft, 5)

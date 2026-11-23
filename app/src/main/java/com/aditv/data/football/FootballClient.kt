@@ -30,6 +30,12 @@ data class Goal(val minute: Int?, val player: String, val teamId: Long, val deta
 
 class FootballError(message: String) : Exception(message)
 
+data class LineupPlayer(val number: Int?, val name: String, val pos: String?)
+/** Composition d'une équipe (publiée environ 1 h avant le coup d'envoi). */
+data class Lineup(val teamId: Long, val team: String, val formation: String?, val coach: String?, val startXI: List<LineupPlayer>, val substitutes: List<LineupPlayer>)
+/** Buts + compositions d'un match. */
+data class MatchDetails(val goals: List<Goal>, val lineups: List<Lineup>)
+
 /** Clé API-Football personnelle, chiffrée sur l'appareil comme la clé TMDB. */
 class FootballKeyStore(private val secrets: SecretStore) {
     @Volatile private var cached: String? = null
@@ -120,15 +126,31 @@ class FootballClient(private val http: OkHttpClient, private val key: () -> Stri
         (get("/fixtures/events?fixture=$fixtureId&type=Goal")["response"] as? JsonArray).orEmpty().mapNotNull(::parseGoal)
 
     /** Buts de 20 matchs au plus en UNE requête (/fixtures?ids=… renvoie les événements de chaque match). */
-    suspend fun goalsBatch(ids: List<Long>): Map<Long, List<Goal>> {
+    suspend fun goalsBatch(ids: List<Long>): Map<Long, List<Goal>> = detailsBatch(ids).mapValues { it.value.goals }
+
+    /** Buts ET compositions de 20 matchs au plus, en UNE requête (/fixtures?ids=…). Compositions brutes à part, pour le disque. */
+    suspend fun detailsBatch(ids: List<Long>): Map<Long, MatchDetails> = detailsBatchRaw(ids).mapValues { (_, v) -> MatchDetails(v.first, parseLineups(v.second)) }
+
+    suspend fun detailsBatchRaw(ids: List<Long>): Map<Long, Pair<List<Goal>, String>> {
         if (ids.isEmpty()) return emptyMap()
         val r = get("/fixtures?ids=" + ids.take(20).joinToString("-") + "&timezone=Europe/Paris")["response"] as? JsonArray
         return r.orEmpty().mapNotNull { e ->
             val o = e.obj() ?: return@mapNotNull null
             val id = (o["fixture"].obj()?.get("id") as? JsonPrimitive)?.longOrNull ?: return@mapNotNull null
-            id to (o["events"] as? JsonArray).orEmpty().filter { (it.obj()?.get("type")).str() == "Goal" }.mapNotNull(::parseGoal)
+            id to ((o["events"] as? JsonArray).orEmpty().filter { (it.obj()?.get("type")).str() == "Goal" }.mapNotNull(::parseGoal) to (o["lineups"] ?: JsonArray(emptyList())).toString())
         }.toMap()
     }
+
+    /** Compositions (tableau « lineups » de l'API). */
+    fun parseLineups(raw: String): List<Lineup> = runCatching { json.parseToJsonElement(raw) as? JsonArray }.getOrNull().orEmpty().mapNotNull { e ->
+        val o = e.obj() ?: return@mapNotNull null
+        val t = o["team"].obj() ?: return@mapNotNull null
+        fun players(k: String) = (o[k] as? JsonArray).orEmpty().mapNotNull { pe ->
+            val p = pe.obj()?.get("player").obj() ?: return@mapNotNull null
+            LineupPlayer((p["number"] as? JsonPrimitive)?.intOrNull, p["name"].str() ?: return@mapNotNull null, p["pos"].str())
+        }
+        Lineup((t["id"] as? JsonPrimitive)?.longOrNull ?: 0, t["name"].str() ?: "?", o["formation"].str(), o["coach"].obj()?.get("name").str(), players("startXI"), players("substitutes"))
+    }.filter { it.startXI.isNotEmpty() }
 
     /** Vérifie la clé (statut du compte). */
     suspend fun check(): String {

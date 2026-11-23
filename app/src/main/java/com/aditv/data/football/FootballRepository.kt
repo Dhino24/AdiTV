@@ -81,24 +81,47 @@ class FootballRepository(
         return sortAndKeep(client.parseFixtures(raw)).also { cache[d] = Entry(now, it) }
     }
 
+    private val lineupsCache = ConcurrentHashMap<Long, List<Lineup>>()
+    /** Dernier essai de compositions pour un match pas encore commencé (on ne redemande pas avant 10 min). */
+    private val lineupTried = ConcurrentHashMap<Long, Long>()
+
+    /** Compositions attendues : match commencé/terminé, ou coup d'envoi dans moins de 70 min. */
+    private fun lineupsDue(f: Fixture) = f.live || f.finished || (f.kickoff - clock() in 0..70 * 60_000L)
+
+    private fun lineupsKnown(f: Fixture): List<Lineup>? = lineupsCache[f.id] ?: loadLineups(f.id)?.also { lineupsCache[f.id] = it }
+
+    private fun needsRequest(f: Fixture): Boolean {
+        val goalsMissing = (f.live || f.finished) && fresh(f) == null
+        val lineupMissing = lineupsDue(f) && lineupsKnown(f) == null && clock() - (lineupTried[f.id] ?: 0L) > 10 * 60_000L
+        return goalsMissing || lineupMissing
+    }
+
+    /** Buts d'un match (voir [details]). */
+    suspend fun goals(f: Fixture, sameDay: List<Fixture> = listOf(f)): List<Goal> = details(f, sameDay).goals
+
     /**
-     * Buts d'un match. Les buts de TOUS les matchs commencés de la liste sont demandés d'un coup (1 requête pour 20 matchs) ;
-     * matchs terminés : gardés sur disque.
+     * Buts et compositions. Tout ce qui manque pour les matchs du jour est demandé d'un coup : 1 requête pour 20 matchs.
+     * Compositions : publiées ~1 h avant ; une fois connues, gardées pour toujours (disque). Buts des matchs terminés : disque.
      */
-    suspend fun goals(f: Fixture, sameDay: List<Fixture> = listOf(f)): List<Goal> {
-        if (!f.live && !f.finished) return emptyList()
-        fresh(f)?.let { return it }
-        if (saving) return emptyList()
-        val wanted = (listOf(f) + sameDay.filter { (it.live || it.finished) && it.id != f.id && fresh(it) == null }).distinctBy { it.id }.take(20)
-        val got = client.goalsBatch(wanted.map { it.id })
+    suspend fun details(f: Fixture, sameDay: List<Fixture> = listOf(f)): MatchDetails {
+        if (!needsRequest(f) || saving) return MatchDetails(fresh(f).orEmpty(), lineupsKnown(f).orEmpty())
+        val wanted = (listOf(f) + sameDay.filter { it.id != f.id && needsRequest(it) }).distinctBy { it.id }.take(20)
+        val got = client.detailsBatchRaw(wanted.map { it.id })
         val now = clock()
         wanted.forEach { w ->
-            val g = got[w.id] ?: return@forEach
-            goalsCache[w.id] = now to g
-            if (w.finished) saveGoals(w.id, g)
+            val (g, rawLineups) = got[w.id] ?: return@forEach
+            if (w.live || w.finished) { goalsCache[w.id] = now to g; if (w.finished) saveGoals(w.id, g) }
+            val l = client.parseLineups(rawLineups)
+            // Connues, ou match terminé sans composition publiée : on ne redemandera plus.
+            if (l.isNotEmpty() || w.finished) { lineupsCache[w.id] = l; runCatching { dir?.mkdirs(); file("lineups-${w.id}.json")?.writeText(rawLineups) } }
+            else lineupTried[w.id] = now
         }
-        return got[f.id].orEmpty()
+        return MatchDetails(fresh(f).orEmpty(), lineupsKnown(f).orEmpty())
     }
+
+    private fun loadLineups(id: Long): List<Lineup>? = runCatching {
+        file("lineups-$id.json")?.takeIf { it.exists() }?.readText()?.let(client::parseLineups)
+    }.getOrNull()
 
     private fun fresh(f: Fixture): List<Goal>? {
         goalsCache[f.id]?.takeIf { f.finished || clock() - it.first < 5 * 60_000L }?.let { return it.second }
@@ -114,6 +137,16 @@ class FootballRepository(
         val f = file("goals-$id.txt")?.takeIf { it.exists() } ?: return null
         f.readLines().filter { it.isNotBlank() }.map { l -> val p = l.split("|"); Goal(p[0].toIntOrNull(), p[2], p[1].toLongOrNull() ?: 0, p.getOrNull(3)?.ifBlank { null }) }
     }.getOrNull()
+
+    /** Démonstration : compositions fictives. */
+    fun demoLineups(f: Fixture): List<Lineup> {
+        if (!f.live && !f.finished && f.kickoff - clock() > 70 * 60_000L) return emptyList()
+        val pos = listOf("G", "D", "D", "D", "D", "M", "M", "M", "F", "F", "F")
+        fun team(t: Team, formation: String) = Lineup(t.id, t.name, formation, "Coach ${t.name.split(' ').last()}",
+            pos.mapIndexed { i, p -> LineupPlayer(if (i == 0) 1 else i + 1, "Joueur ${i + 1} (démo)", p) },
+            (12..18).map { LineupPlayer(it, "Remplaçant ${it - 11}", null) })
+        return listOf(team(f.home, "4-3-3"), team(f.away, "4-2-3-1"))
+    }
 
     /** Démonstration (sans clé) : matchs fictifs, équipes inventées. */
     fun demo(offset: Int): List<Fixture> {

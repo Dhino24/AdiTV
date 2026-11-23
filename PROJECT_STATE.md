@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.15.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.15.1) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,11 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.15.1 (23/11/2026) — FootAdi : chaînes en lignes, compositions ; menu aéré
+- Panneau du match : **une chaîne par ligne**, pleine largeur ; noms d'équipes lisibles ; panneau défilant.
+- **Compositions** : arrivent dans la **même requête groupée** que les buteurs (`/fixtures?ids=`, 20 matchs) — aucune requête dédiée ; demandées à partir de 70 min avant le coup d'envoi (au plus toutes les 10 min tant qu'elles ne sont pas publiées), puis gardées sur disque. Panneau : formations + « Voir les compositions » (fenêtre plein écran : titulaires numérotés, postes, entraîneur, remplaçants).
+- Barre d'icônes plus aérée (16 dp entre les icônes).
 
 ### 0.15.0 (23/11/2026) — barre d'icônes façon Fire TV, « Liquid Glass »
 - **Barre du haut en icônes** (photo d'Adama) : Recherche · Accueil · Films · Séries · En direct · FootAdi · Ma liste · Réglages dans une capsule de verre ; au focus, carré blanc arrondi + nom dessous ; rubrique active : verre plus clair + point turquoise. Logo à gauche, heure à droite.
