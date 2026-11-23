@@ -298,13 +298,9 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                     }
                     Spacer(Modifier.height(16.dp))
                 }
-                Box(Modifier.fillMaxWidth().height(58.dp)) {
-                    Text(
-                        if (vm.isLive) "En direct" else if (playing) "En cours de lecture" else "En pause",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp), color = Aditv.TextSecondary, modifier = Modifier.align(Alignment.CenterStart),
-                    )
-                    // Commandes de lecture au centre.
-                    Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Une seule ligne sans superposition : commandes de lecture à gauche, options à droite.
+                Row(Modifier.fillMaxWidth().height(58.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (!vm.isLive) RoundButton(R.drawable.ic_back10, "Reculer de 10 s", { seekBy(-10_000); touch() }, overlay = "10")
                         else RoundButton(R.drawable.ic_up, "Chaîne précédente", { vm.zap(-1); touch() })
                         RoundButton(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Lecture",
@@ -312,8 +308,9 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                         if (!vm.isLive) RoundButton(R.drawable.ic_fwd10, "Avancer de 10 s", { seekBy(10_000); touch() }, overlay = "10")
                         else RoundButton(R.drawable.ic_down, "Chaîne suivante", { vm.zap(1); touch() })
                     }
-                    // Options à droite : Audio, Sous-titres, Turbo, Infos, puis « Plus » (moteur, version, veille, favori).
-                    Row(Modifier.align(Alignment.CenterEnd), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.weight(1f).widthIn(min = 16.dp))
+                    // Options : Audio, Sous-titres, Turbo, Infos, puis « Plus » (moteur, version, veille, favori).
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         PillButton("Audio", { panel = Panel.AUDIO }, icon = R.drawable.ic_trailer, primary = false, small = true)
                         PillButton("Sous-titres", { panel = Panel.SUBS }, icon = R.drawable.ic_subs, primary = false, small = true)
                         PillButton("Turbo", { vm.toggleTurbo(!vm.turbo); touch() }, icon = R.drawable.ic_bolt, primary = false, small = true, secondary = if (vm.turbo) "activé" else null)
@@ -322,6 +319,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                             secondary = sleepLeft?.let { "veille ${(it / 60_000) + 1} min" })
                     }
                 }
+                Spacer(Modifier.height(6.dp))
                 Text(
                     if (vm.isLive) "Commandes masquées : ↑/↓ chaîne précédente / suivante · OK afficher"
                     else "Commandes masquées : ←/→ −/+ 10 s · OK afficher",

@@ -60,7 +60,6 @@ object ChannelFamilies {
     private val africa = setOf("Côte d'Ivoire", "Cameroun", "Mali", "Burkina Faso", "Guinée", "Bénin", "Togo", "RD Congo", "Congo", "Gabon", "Nigeria", "Ghana", "Afrique")
 
     // Noms connus (sans accents, minuscules).
-    private val senegal = Regex("""\b(rts ?[12]?|2s ?tv|2stv|tfm|sen ?tv|walf|7 ?tv|itv senegal|d ?media|leeral|dtv senegal|africa 7|senegal|lamp fall|ltv senegal|zik ?fm|sentv)\b""")
     private val sportNames = Regex("""\b(bein|rmc sport|canal\+? ?(sport|foot)|foot\+|eurosport|l ?equipe|infosport|golf\+|automoto|equidia|sport en france|ligue ?1\+?|dazn|multisport|ol ?tv|om ?tv|psg ?tv|tennis|nba|nfl|motorsport|rugby|sports?)\b""")
     private val cinemaNames = Regex("""\b(canal\+? ?(cinema|cinemas|premier|grand ecran)|cine\+?|cine ?(premier|frisson|emotion|famiz|club|classic)|ocs|tcm|paramount|action|polar\+?|warner tv|13e? ?rue|syfy|novelas|cinema|films?)\b""")
     private val infoNames = Regex("""\b(bfm ?tv|bfm|cnews|lci|franceinfo|france ?info|france 24|lcp|public senat|euronews|i24|bfm business|tv5 ?monde info)\b""")
@@ -85,15 +84,17 @@ object ChannelFamilies {
         val name = norm(clean)
         val c = catCache.getOrPut(categoryName.orEmpty()) {
             val n = norm(categoryName.orEmpty())
-            Cat(n, catFrance.find(n)?.let { "France" } ?: catSenegal.find(n)?.let { "Sénégal" } ?: catAfrica.find(n)?.let { "Afrique" }
+            Cat(n, catSenegal.find(n)?.let { "Sénégal" } ?: catFrance.find(n)?.let { "France" } ?: catAfrica.find(n)?.let { "Afrique" }
                 ?: countryNames.firstOrNull { (k, _) -> k in n }?.second)
         }
         val cat = c.norm
-        val country = countries[code] ?: c.country ?: if (lang == "fr") "France" else null
+        // La catégorie « Sénégal » du fournisseur l'emporte sur le préfixe (« FR: 2STV » rangée dans SÉNÉGAL).
+        val country = (if (c.country == "Sénégal") c.country else null) ?: countries[code] ?: c.country ?: if (lang == "fr") "France" else null
         val french = country == "France" || lang == "fr"
         val text = "$name $cat"
         val family = when {
-            country == "Sénégal" || senegal.containsMatchIn(name) || (cat.contains("senegal")) -> Family.SENEGAL
+            // Sénégal : uniquement la catégorie « Sénégal » du fournisseur (ou le préfixe SN), pas les noms qui se ressemblent (RTS suisse…).
+            country == "Sénégal" -> Family.SENEGAL
             country in africa -> Family.AFRIQUE
             !french -> Family.MONDE
             sportNames.containsMatchIn(name) || cat.contains("sport") -> Family.SPORT_FR

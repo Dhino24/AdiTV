@@ -23,7 +23,10 @@ class ChannelFamiliesTest {
         assertEquals(Family.DOCS_FR, fam("FR| National Geographic"))
         assertEquals(Family.SENEGAL, fam("SN| RTS 1"))
         assertEquals(Family.SENEGAL, fam("2STV", "AFRIQUE | Sénégal"))
-        assertEquals(Family.SENEGAL, fam("TFM HD", "Afrique"))
+        // Seule la catégorie Sénégal du fournisseur compte : une « RTS » suisse ou une chaîne d'Afrique n'y vont pas.
+        assertEquals(Family.AFRIQUE, fam("TFM HD", "Afrique"))
+        assertEquals(Family.SENEGAL, fam("FR: 2STV", "SENEGAL"))
+        assertEquals(Family.MONDE, fam("CH| RTS Un"))
         assertEquals(Family.AFRIQUE, fam("CI| RTI 1"))
         assertEquals(Family.MONDE, fam("UK| Sky Sports Main Event"))
         assertEquals(Family.SPORT_FR, fam("Eurosport 1", "France | Sport"))

@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
@@ -80,7 +81,14 @@ fun SpotInfo(spot: Spot?, modifier: Modifier = Modifier) {
     Column(modifier.width(560.dp)) {
         spot.kicker?.let { Kicker(it, color = if (spot.live) Aditv.Live else Aditv.TextSecondary) }
         Spacer(Modifier.height(8.dp))
-        DisplayTitle(spot.title, spot.logo, size = 40.sp, maxWidth = 540.dp)
+        // Hauteur bornée (les rangées commencent juste en dessous) : titre sur 2 lignes → résumé sur 1 ligne.
+        var titleLines by androidx.compose.runtime.remember(spot.title) { androidx.compose.runtime.mutableIntStateOf(1) }
+        if (spot.logo != null) DisplayTitle(spot.title, spot.logo, size = 34.sp, maxWidth = 540.dp)
+        else Text(
+            spot.title.uppercase(), fontFamily = com.aditv.ui.theme.Outfit, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            fontSize = 34.sp, lineHeight = 33.sp, letterSpacing = 0.5.sp, color = Aditv.Text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 540.dp), onTextLayout = { titleLines = it.lineCount },
+        )
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (spot.meta.isNotEmpty()) MetaLine(spot.meta)
@@ -88,7 +96,7 @@ fun SpotInfo(spot: Spot?, modifier: Modifier = Modifier) {
         }
         spot.overview?.let {
             Spacer(Modifier.height(8.dp))
-            Text(it, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp, lineHeight = 17.sp), color = Aditv.Text.copy(alpha = 0.9f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(it, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp, lineHeight = 17.sp), color = Aditv.Text.copy(alpha = 0.9f), maxLines = if (spot.logo != null) 2 else if (titleLines > 1) 1 else 3, overflow = TextOverflow.Ellipsis)
         }
     }
 }
