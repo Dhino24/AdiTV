@@ -67,7 +67,7 @@ class AppContainer(context: Context) {
     val tmdbClient = TmdbClient(http.tmdb, { tmdbKey.get() })
     /** FootAdi : clé API-Football personnelle (chiffrée), matchs et scores. */
     val footballKey = com.aditv.data.football.FootballKeyStore(secrets)
-    val football = com.aditv.data.football.FootballRepository(com.aditv.data.football.FootballClient(http.tmdb, { footballKey.get() }))
+    val football = com.aditv.data.football.FootballRepository(com.aditv.data.football.FootballClient(http.tmdb, { footballKey.get() }), context.cacheDir.resolve("football"))
     val metadata = MetadataRepository(db, tmdbClient)
     val trending = com.aditv.data.tmdb.TrendingRepository(db, tmdbClient)
     val playback = PlaybackController(context, http.streams)

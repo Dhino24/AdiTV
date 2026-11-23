@@ -9,13 +9,19 @@ import java.util.concurrent.ConcurrentHashMap
  * Matchs du jour (cache en mémoire pour ménager les 100 requêtes quotidiennes de la clé gratuite) et sélection
  * des compétitions qui intéressent Adama : Ligue des champions, grands championnats, Ligue 2, CAN, Sénégal, France.
  */
-class FootballRepository(private val client: FootballClient, private val clock: () -> Long = System::currentTimeMillis) {
+class FootballRepository(
+    private val client: FootballClient,
+    /** Cache sur disque (survit au redémarrage) : réponses par date, buts des matchs terminés. */
+    private val dir: java.io.File? = null,
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
     private class Entry(val at: Long, val list: List<Fixture>)
     private val cache = ConcurrentHashMap<String, Entry>()
     private val goalsCache = ConcurrentHashMap<Long, Pair<Long, List<Goal>>>()
 
     companion object {
         val zone: ZoneId = ZoneId.of("Europe/Paris")
+        const val SAVE_BELOW = 10
         /** Compétitions affichées (identifiants API-Football), dans l'ordre d'affichage. */
         val COMPETITIONS = linkedMapOf(
             2L to "Ligue des champions", 61L to "Ligue 1", 39L to "Premier League", 140L to "LaLiga", 135L to "Serie A",
@@ -34,24 +40,80 @@ class FootballRepository(private val client: FootballClient, private val clock: 
     /** Date du jour à Paris décalée de [offset] jours, au format attendu par l'API. */
     fun date(offset: Int): LocalDate = LocalDate.now(zone).plusDays(offset.toLong())
 
-    /** Matchs retenus d'une date : cache 5 min s'il y a du direct, 30 min aujourd'hui, 6 h sinon. */
+    /** Requêtes restantes aujourd'hui (null tant qu'aucun appel n'a eu lieu) et limite du jour. */
+    val remaining get() = client.remaining
+    val dailyLimit get() = client.dailyLimit
+    /** Sous ce seuil : plus de rafraîchissement automatique ni de buteurs, seulement ce que l'utilisateur demande. */
+    val saving get() = (client.remaining ?: Int.MAX_VALUE) < SAVE_BELOW
+
+    private fun file(name: String) = dir?.let { java.io.File(it, name) }
+    private fun readDisk(d: String): Entry? = runCatching {
+        val f = file("fixtures-$d.json")?.takeIf { it.exists() } ?: return null
+        Entry(f.lastModified(), sortAndKeep(client.parseFixtures(f.readText())))
+    }.getOrNull()
+    private fun writeDisk(d: String, raw: String) = runCatching {
+        dir?.mkdirs(); file("fixtures-$d.json")?.writeText(raw)
+        // Ménage : on garde 10 jours.
+        dir?.listFiles()?.filter { clock() - it.lastModified() > 10 * 86_400_000L }?.forEach { it.delete() }
+    }
+
+    private fun sortAndKeep(l: List<Fixture>) = l.filter(::keep).sortedWith(compareBy({ if (isFollowed(it)) 0 else 1 }, ::competitionRank, { it.kickoff }))
+
+    /**
+     * Matchs retenus d'une date. Une requête par date au plus : jours passés terminés = définitif ;
+     * direct = 5 min ; aujourd'hui = 30 min ; à venir = 6 h. Quota presque épuisé : on garde ce qu'on a.
+     */
     suspend fun fixtures(offset: Int, force: Boolean = false): List<Fixture> {
         val d = date(offset).toString()
         val now = clock()
-        cache[d]?.let { e ->
-            val ttl = when { e.list.any { it.live } -> 5 * 60_000L; offset == 0 -> 30 * 60_000L; else -> 6 * 3_600_000L }
-            if (!force && now - e.at < ttl) return e.list
+        val e = cache[d] ?: readDisk(d)?.also { cache[d] = it }
+        if (e != null) {
+            val ttl = when {
+                e.list.any { it.live } -> 5 * 60_000L
+                offset < 0 && e.list.all { it.finished || it.status in setOf("PST", "CANC", "ABD") } -> Long.MAX_VALUE
+                offset <= 0 -> 30 * 60_000L
+                else -> 6 * 3_600_000L
+            }
+            if ((!force && now - e.at < ttl) || saving) return e.list
         }
-        val list = client.fixtures(d).filter(::keep).sortedWith(compareBy({ if (isFollowed(it)) 0 else 1 }, ::competitionRank, { it.kickoff }))
-        cache[d] = Entry(now, list)
-        return list
+        val raw = client.fixturesRaw(d)
+        writeDisk(d, raw)
+        return sortAndKeep(client.parseFixtures(raw)).also { cache[d] = Entry(now, it) }
     }
 
-    suspend fun goals(f: Fixture): List<Goal> {
+    /**
+     * Buts d'un match. Les buts de TOUS les matchs commencés de la liste sont demandés d'un coup (1 requête pour 20 matchs) ;
+     * matchs terminés : gardés sur disque.
+     */
+    suspend fun goals(f: Fixture, sameDay: List<Fixture> = listOf(f)): List<Goal> {
         if (!f.live && !f.finished) return emptyList()
-        goalsCache[f.id]?.takeIf { f.finished || clock() - it.first < 5 * 60_000L }?.let { return it.second }
-        return client.goals(f.id).also { goalsCache[f.id] = clock() to it }
+        fresh(f)?.let { return it }
+        if (saving) return emptyList()
+        val wanted = (listOf(f) + sameDay.filter { (it.live || it.finished) && it.id != f.id && fresh(it) == null }).distinctBy { it.id }.take(20)
+        val got = client.goalsBatch(wanted.map { it.id })
+        val now = clock()
+        wanted.forEach { w ->
+            val g = got[w.id] ?: return@forEach
+            goalsCache[w.id] = now to g
+            if (w.finished) saveGoals(w.id, g)
+        }
+        return got[f.id].orEmpty()
     }
+
+    private fun fresh(f: Fixture): List<Goal>? {
+        goalsCache[f.id]?.takeIf { f.finished || clock() - it.first < 5 * 60_000L }?.let { return it.second }
+        if (f.finished) loadGoals(f.id)?.let { goalsCache[f.id] = clock() to it; return it }
+        return null
+    }
+
+    // Format simple : une ligne par but « minute|équipe|joueur|détail ».
+    private fun saveGoals(id: Long, g: List<Goal>) = runCatching {
+        dir?.mkdirs(); file("goals-$id.txt")?.writeText(g.joinToString("\n") { listOf(it.minute ?: "", it.teamId, it.player.replace("|", " "), it.detail.orEmpty().replace("|", " ")).joinToString("|") })
+    }
+    private fun loadGoals(id: Long): List<Goal>? = runCatching {
+        val f = file("goals-$id.txt")?.takeIf { it.exists() } ?: return null
+        f.readLines().filter { it.isNotBlank() }.map { l -> val p = l.split("|"); Goal(p[0].toIntOrNull(), p[2], p[1].toLongOrNull() ?: 0, p.getOrNull(3)?.ifBlank { null }) }
+    }.getOrNull()
 
     /** Démonstration (sans clé) : matchs fictifs, équipes inventées. */
     fun demo(offset: Int): List<Fixture> {

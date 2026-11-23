@@ -85,12 +85,17 @@ class FootViewModel(private val c: AppContainer, private val session: Session.Ac
     var goals by mutableStateOf<Map<Long, List<Goal>>>(emptyMap()); private set
     val hasKey get() = session.isDemo || c.footballKey.get() != null
     private var job: kotlinx.coroutines.Job? = null
+    /** Requêtes API restantes aujourd'hui (affichées en bas de l'écran). */
+    var quota by mutableStateOf<Pair<Int, Int>?>(null); private set
 
     init {
         load()
-        // Direct : scores rafraîchis toutes les 5 minutes (le cache évite de dépenser des requêtes pour rien).
-        viewModelScope.launch { while (true) { delay(5 * 60_000L); if (fixtures?.any { it.live } == true) load(quiet = true) } }
     }
+
+    private fun updateQuota() { val r = c.football.remaining; val l = c.football.dailyLimit; quota = if (r != null && l != null) r to l else null }
+
+    /** Appelé toutes les 5 min tant que l'écran FootAdi est affiché (pas pendant qu'on regarde la chaîne). */
+    fun refreshIfLive() { if (!session.isDemo && fixtures?.any { it.live } == true && !c.football.saving) load(quiet = true) }
 
     fun select(d: Int?) { if (d == day) return; day = d; fixtures = null; load() }
 
@@ -106,6 +111,7 @@ class FootViewModel(private val c: AppContainer, private val session: Session.Ac
                     day?.let { forDay(it) } ?: (0..3).flatMap { forDay(it) }.filter(FootballRepository::isFollowed)
                 }
                 fixtures = list
+                updateQuota()
                 // Chaînes qui diffusent : guide de l'abonnement d'abord, puis diffuseur habituel (en arrière-plan).
                 broadcasts = withContext(Dispatchers.Default) {
                     if (session.isDemo) {
@@ -122,7 +128,10 @@ class FootViewModel(private val c: AppContainer, private val session: Session.Ac
 
     fun loadGoals(f: Fixture) {
         if (session.isDemo || goals.containsKey(f.id) || (!f.live && !f.finished)) return
-        viewModelScope.launch { runCatching { c.football.goals(f) }.getOrNull()?.let { goals = goals + (f.id to it) } }
+        viewModelScope.launch {
+            runCatching { c.football.goals(f, fixtures.orEmpty()) }.getOrNull()?.let { goals = goals + (f.id to it) }
+            updateQuota()
+        }
     }
 
     fun remind(f: Fixture, b: Broadcast?) = viewModelScope.launch {
@@ -149,7 +158,9 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
     com.aditv.ui.common.InitialFocus(todayChip)
     val list = vm.fixtures
     val shown = list?.firstOrNull { it.id == focused?.id } ?: list?.firstOrNull()
-    LaunchedEffect(shown?.id) { shown?.let { delay(400); vm.loadGoals(it) } }
+    // Buteurs : seulement si l'on reste sur le match (1 requête couvre tous les matchs commencés du jour).
+    LaunchedEffect(shown?.id) { shown?.let { delay(1_200); vm.loadGoals(it) } }
+    LaunchedEffect(Unit) { while (true) { delay(5 * 60_000L); vm.refreshIfLive() } }
 
     Column(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 58.dp)) {
         // Jours, puis « Mes équipes ».
@@ -183,6 +194,10 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
                             }) }
                         }
                         vm.error?.let { e -> item(key = "err") { Text(e, style = MaterialTheme.typography.bodySmall, color = Aditv.Warn, modifier = Modifier.padding(6.dp)) } }
+                        vm.quota?.let { (left, limit) -> item(key = "quota") {
+                            Text("Requêtes API-Football restantes aujourd'hui : $left / $limit" + if (left < FootballRepository.SAVE_BELOW) " · mode économie (scores non rafraîchis)" else "",
+                                style = MaterialTheme.typography.bodySmall, color = if (left < FootballRepository.SAVE_BELOW) Aditv.Warn else Aditv.TextTertiary, modifier = Modifier.padding(start = 6.dp, top = 10.dp))
+                        } }
                     }
                 }
             }

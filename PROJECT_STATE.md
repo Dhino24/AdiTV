@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.14.2) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.14.3) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.14.3 (23/11/2026) — FootAdi économe (clé gratuite : 100 requêtes/jour)
+- Cache **sur disque** (survit au redémarrage) : une date = 1 requête ; jour passé terminé = jamais redemandé ; direct 5 min, aujourd'hui 30 min, à venir 6 h ; ménage après 10 jours.
+- **Buteurs groupés** : 1 requête pour 20 matchs commencés du jour (au lieu d'une par match), seulement si l'on reste 1,2 s sur un match ; buts des matchs terminés gardés sur disque.
+- Rafraîchissement auto (5 min, seulement s'il y a du direct) **uniquement quand l'écran FootAdi est affiché** — plus pendant qu'on regarde la chaîne.
+- **Quota affiché** en bas de la liste (« restantes aujourd'hui : N / 100 », d'après l'API) ; sous 10 : mode économie (plus de rafraîchissement auto ni de buteurs, on garde ce qui est en cache).
 
 ### 0.14.2 (23/11/2026) — retours d'Adama : Sénégal, chevauchements
 - **Famille Sénégal = la catégorie « Sénégal » du fournisseur** (ou préfixe SN), plus de devinette par le nom (une « RTS » suisse n'y va plus) ; la catégorie Sénégal l'emporte sur le préfixe FR.

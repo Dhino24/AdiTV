@@ -47,12 +47,29 @@ class FootballKeyStore(private val secrets: SecretStore) {
 class FootballClient(private val http: OkHttpClient, private val key: () -> String?, private val base: String = "https://v3.football.api-sports.io") {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private suspend fun get(path: String): JsonObject = withContext(Dispatchers.IO) {
+    /** Requêtes restantes aujourd'hui / limite du jour (en-têtes de l'API, mis à jour à chaque appel). */
+    @Volatile var remaining: Int? = null; private set
+    @Volatile var dailyLimit: Int? = null; private set
+
+    private suspend fun get(path: String): JsonObject = parse(getRaw(path))
+
+    /** Réponse brute (pour le cache sur disque) ; les erreurs de l'API sont levées ici aussi. */
+    suspend fun getRaw(path: String): String = withContext(Dispatchers.IO) {
         val k = key() ?: throw FootballError("Aucune clé API-Football : Réglages → FootAdi.")
         val req = Request.Builder().url(base + path).header("x-apisports-key", k).build()
         http.newCall(req).execute().use { r ->
+            r.header("x-ratelimit-requests-remaining")?.toIntOrNull()?.let { remaining = it }
+            r.header("x-ratelimit-requests-limit")?.toIntOrNull()?.let { dailyLimit = it }
             if (!r.isSuccessful) throw FootballError("Service football indisponible (HTTP ${r.code}).")
-            val o = json.parseToJsonElement(r.body.string()) as? JsonObject ?: throw FootballError("Réponse illisible.")
+            val body = r.body.string()
+            parse(body)
+            body
+        }
+    }
+
+    private fun parse(body: String): JsonObject {
+        run {
+            val o = json.parseToJsonElement(body) as? JsonObject ?: throw FootballError("Réponse illisible.")
             // API-Football signale les problèmes de clé ou d'offre dans « errors » (objet ou liste non vide).
             val errors = o["errors"]
             val msg = when (errors) {
@@ -61,7 +78,7 @@ class FootballClient(private val http: OkHttpClient, private val key: () -> Stri
                 else -> null
             }
             if (!msg.isNullOrBlank()) throw FootballError("API-Football : $msg")
-            o
+            return o
         }
     }
 
@@ -88,16 +105,30 @@ class FootballClient(private val http: OkHttpClient, private val key: () -> Stri
     }
 
     /** Tous les matchs d'une date (une seule requête pour toutes les compétitions), heure de Paris. */
-    suspend fun fixtures(date: String): List<Fixture> =
-        (get("/fixtures?date=$date&timezone=Europe/Paris")["response"] as? JsonArray).orEmpty().mapNotNull(::parseFixture)
+    suspend fun fixtures(date: String): List<Fixture> = parseFixtures(fixturesRaw(date))
+    suspend fun fixturesRaw(date: String): String = getRaw("/fixtures?date=$date&timezone=Europe/Paris")
+    fun parseFixtures(raw: String): List<Fixture> = (parse(raw)["response"] as? JsonArray).orEmpty().mapNotNull(::parseFixture)
 
-    /** Buts d'un match. */
+    private fun parseGoal(e: JsonElement): Goal? {
+        val o = e.obj() ?: return null
+        return Goal((o["time"].obj()?.get("elapsed") as? JsonPrimitive)?.intOrNull, o["player"].obj()?.get("name").str() ?: return null,
+            (o["team"].obj()?.get("id") as? JsonPrimitive)?.longOrNull ?: 0, o["detail"].str())
+    }
+
+    /** Buts d'un match (1 requête). */
     suspend fun goals(fixtureId: Long): List<Goal> =
-        (get("/fixtures/events?fixture=$fixtureId&type=Goal")["response"] as? JsonArray).orEmpty().mapNotNull { e ->
+        (get("/fixtures/events?fixture=$fixtureId&type=Goal")["response"] as? JsonArray).orEmpty().mapNotNull(::parseGoal)
+
+    /** Buts de 20 matchs au plus en UNE requête (/fixtures?ids=… renvoie les événements de chaque match). */
+    suspend fun goalsBatch(ids: List<Long>): Map<Long, List<Goal>> {
+        if (ids.isEmpty()) return emptyMap()
+        val r = get("/fixtures?ids=" + ids.take(20).joinToString("-") + "&timezone=Europe/Paris")["response"] as? JsonArray
+        return r.orEmpty().mapNotNull { e ->
             val o = e.obj() ?: return@mapNotNull null
-            Goal((o["time"].obj()?.get("elapsed") as? JsonPrimitive)?.intOrNull, o["player"].obj()?.get("name").str() ?: return@mapNotNull null,
-                (o["team"].obj()?.get("id") as? JsonPrimitive)?.longOrNull ?: 0, o["detail"].str())
-        }
+            val id = (o["fixture"].obj()?.get("id") as? JsonPrimitive)?.longOrNull ?: return@mapNotNull null
+            id to (o["events"] as? JsonArray).orEmpty().filter { (it.obj()?.get("type")).str() == "Goal" }.mapNotNull(::parseGoal)
+        }.toMap()
+    }
 
     /** Vérifie la clé (statut du compte). */
     suspend fun check(): String {
@@ -105,6 +136,7 @@ class FootballClient(private val http: OkHttpClient, private val key: () -> Stri
         val plan = r?.get("subscription").obj()?.get("plan").str()
         val used = r?.get("requests").obj()?.get("current")?.let { (it as? JsonPrimitive)?.intOrNull }
         val limit = r?.get("requests").obj()?.get("limit_day")?.let { (it as? JsonPrimitive)?.intOrNull }
+        if (used != null && limit != null) { remaining = limit - used; dailyLimit = limit }
         return "Clé valide" + (plan?.let { " · offre $it" } ?: "") + (if (used != null && limit != null) " · $used / $limit requêtes aujourd'hui" else "")
     }
 

@@ -48,4 +48,30 @@ class FootballTest {
         assertFalse(Broadcasts.mentions("Liga : Espanyol - Séville", "Barcelona"))
         assertFalse(Broadcasts.mentions("Journal de 20 heures", "Everton"))
     }
+
+    private val finishedDay = """{"errors":[],"response":[
+      {"fixture":{"id":7,"timestamp":1795000000,"status":{"short":"FT","elapsed":90}},"league":{"id":61,"name":"Ligue 1","country":"France"},
+       "teams":{"home":{"id":85,"name":"Paris Saint Germain"},"away":{"id":80,"name":"Lyon"}},"goals":{"home":2,"away":0}}]}"""
+
+    /** Quota de 100 requêtes/jour : un jour passé terminé et ses buts ne sont demandés qu'une fois, même après redémarrage. */
+    @Test fun savesRequestsWithDiskCacheAndBatchedGoals() = runTest {
+        val dir = kotlin.io.path.createTempDirectory("foot").toFile()
+        server.enqueue(MockResponse.Builder().body(finishedDay).addHeader("x-ratelimit-requests-remaining", "97").addHeader("x-ratelimit-requests-limit", "100").build())
+        server.enqueue(MockResponse.Builder().body("""{"errors":[],"response":[{"fixture":{"id":7},"events":[
+            {"time":{"elapsed":12},"team":{"id":85},"player":{"name":"Dembélé"},"type":"Goal","detail":"Normal Goal"},
+            {"time":{"elapsed":30},"team":{"id":80},"player":{"name":"X"},"type":"Card","detail":"Yellow Card"},
+            {"time":{"elapsed":77},"team":{"id":85},"player":{"name":"Doué"},"type":"Goal","detail":"Penalty"}]}]}""").build())
+        val repo = FootballRepository(client(), dir)
+        val f = repo.fixtures(-1).single()
+        assertEquals(97, repo.remaining); assertEquals(100, repo.dailyLimit)
+        assertEquals(listOf("Dembélé", "Doué"), repo.goals(f, listOf(f)).map { it.player })
+        assertTrue(server.takeRequest().url.toString().contains("/fixtures?date="))
+        assertTrue(server.takeRequest().url.toString().contains("/fixtures?ids=7"))
+        // « Redémarrage » : nouveau dépôt, même dossier → aucune requête de plus.
+        val again = FootballRepository(client(), dir)
+        val f2 = again.fixtures(-1).single()
+        assertEquals(2, again.goals(f2, listOf(f2)).size)
+        assertEquals(2, server.requestCount)
+        dir.deleteRecursively()
+    }
 }
