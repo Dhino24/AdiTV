@@ -74,7 +74,7 @@ fun CinemaBrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> U
 
     Box(Modifier.fillMaxSize()) {
         CinemaBackdrop(spot, reduced)
-        SpotInfo(spot, Modifier.padding(start = 48.dp, top = 66.dp))
+        SpotInfo(spot, Modifier.padding(start = 48.dp, top = 84.dp))
         when {
             recent == null -> Unit
             recent!!.isEmpty() && categories.isNullOrEmpty() -> Box(Modifier.fillMaxSize().padding(top = 120.dp), contentAlignment = Alignment.TopCenter) {

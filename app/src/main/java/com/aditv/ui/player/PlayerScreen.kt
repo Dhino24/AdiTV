@@ -99,6 +99,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     val engine = vm.engine
     DisplayRateMatcher(vm.videoFps)
     var controlsVisible by remember { mutableStateOf(true) }
+    val openedAt = remember { System.currentTimeMillis() }
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var panel by remember { mutableStateOf(Panel.NONE) }
     var bannerUntil by remember { mutableLongStateOf(0L) }
@@ -188,6 +189,11 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             .fillMaxSize()
             .background(Color.Black)
             .onPreviewKeyEvent { ev ->
+                // L'appui OK qui a lancé la chaîne (souvent maintenu → répété) ne doit pas atteindre Lecture/Pause :
+                // OK ignoré pendant la 1re seconde, et répétitions d'un OK maintenu toujours ignorées.
+                if (ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter) {
+                    if (System.currentTimeMillis() - openedAt < 1_000 || ev.nativeKeyEvent.repeatCount > 0) return@onPreviewKeyEvent true
+                }
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 // Dernières 60 s de la minuterie : n'importe quelle touche prolonge de 30 min.
                 if ((sleepLeft ?: Long.MAX_VALUE) < 60_000) { sleepAt = System.currentTimeMillis() + 30 * 60_000L; return@onPreviewKeyEvent true }
@@ -229,7 +235,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         if (buffering && vm.error == null) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Spinner()
             Spacer(Modifier.height(12.dp))
-            Text(if (vm.isLive) "Connexion à la chaîne…" else "Chargement…", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
+            Text(vm.engineNote?.takeIf { it.startsWith("Serveur occupé") } ?: if (vm.isLive) "Connexion à la chaîne…" else "Chargement…", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
         }
 
         // Saut ±10 s commandes masquées : retour visuel discret au centre.

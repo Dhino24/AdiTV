@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.15.3) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.15.4) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.15.4 (23/11/2026) — menu comme avant + espace, FootAdi rapide, pas de pause au lancement, HTTP 458
+- **Menu** : retour au nom **sous** l'icône (choix d'Adama) ; contenu des écrans descendu à 84 dp (FootAdi, Direct, Recherche, Ma liste, Réglages, vedette Accueil/Films/Séries) pour que le nom ne recouvre plus rien.
+- **FootAdi : chaînes affichées beaucoup plus vite** — un seul passage pour tous les matchs (chaînes, correspondances, guide lus une fois ; titres du guide normalisés une fois ; seulement les programmes des chaînes de l'abonnement) au lieu de tout refaire pour chaque match ; expressions précompilées.
+- **Plus de pause au lancement d'une chaîne** : l'appui OK qui lance la chaîne (souvent maintenu, donc répété par la télécommande) atteignait le bouton Lecture/Pause ; OK ignoré pendant la 1re seconde du lecteur, répétitions d'un OK maintenu toujours ignorées.
+- **HTTP 458 / 429 / 509 / 503** (serveur qui limite les connexions) : message clair, puis **jusqu'à 3 nouveaux essais automatiques** (2 s, 4 s, 6 s) en libérant d'abord la connexion précédente ; « Serveur occupé : nouvel essai (n/3)… » à l'écran.
 
 ### 0.15.3 (23/11/2026) — nom de l'icône dans la pastille
 - Barre : au focus, la pastille blanche s'élargit et contient l'icône + le nom (le nom sous l'icône recouvrait la puce « Demain » de FootAdi).

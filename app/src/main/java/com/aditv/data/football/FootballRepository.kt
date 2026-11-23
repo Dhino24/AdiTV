@@ -30,7 +30,8 @@ class FootballRepository(
         )
         /** Équipes suivies (toujours affichées, en tête avec « Mes équipes »). */
         private val followed = listOf("barcelona", "real madrid", "paris saint germain", "manchester city", "aston villa", "senegal")
-        fun norm(s: String) = Normalizer.normalize(s, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase().replace(Regex("[^a-z0-9 ]"), " ").replace(Regex(" +"), " ").trim()
+        private val marks = Regex("\\p{M}+"); private val nonAlnum = Regex("[^a-z0-9 ]"); private val spaces = Regex(" +")
+        fun norm(s: String) = spaces.replace(nonAlnum.replace(marks.replace(Normalizer.normalize(s, Normalizer.Form.NFD), "").lowercase(), " "), " ").trim()
         fun isFollowed(f: Fixture) = listOf(f.home.name, f.away.name).any { n -> followed.any { norm(n).startsWith(it) || norm(n) == it } }
         private fun nationalTeam(f: Fixture) = listOf(f.home.name, f.away.name).any { norm(it) in setOf("france", "senegal") }
         fun keep(f: Fixture) = f.competition.id in COMPETITIONS || f.competition.country.equals("Senegal", true) || nationalTeam(f) || isFollowed(f)

@@ -204,7 +204,7 @@ fun LiveScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, o
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg.copy(alpha = 0.97f), 0.45f to Aditv.Bg.copy(alpha = 0.9f), 0.66f to Aditv.Bg.copy(alpha = 0.25f), 0.88f to Color.Transparent)))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Aditv.Bg.copy(alpha = 0.92f))))
 
-        Row(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 56.dp, bottom = 16.dp)) {
+        Row(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 84.dp, bottom = 16.dp)) {
             // ---------- familles ----------
             Column(Modifier.width(196.dp).fillMaxHeight()) {
                 Text("En direct", fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, color = Aditv.Text)

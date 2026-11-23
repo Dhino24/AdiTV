@@ -13,6 +13,8 @@ object PlaybackErrors {
             if (c is HttpDataSource.InvalidResponseCodeException) return when (c.responseCode) {
                 401, 403 -> "Le serveur refuse ce flux (HTTP ${c.responseCode}) : accès expiré, contenu non autorisé ou nombre de connexions atteint."
                 404 -> "Flux introuvable sur le serveur (HTTP 404)."
+                // 458 (non standard), 429, 509 : le serveur limite les connexions (autre appareil, ou ancienne connexion pas encore libérée).
+                429, 458, 509 -> "Le serveur limite les connexions (HTTP ${c.responseCode}) : limite de l'abonnement atteinte ou ancienne connexion pas encore libérée."
                 in 500..599 -> "Le serveur a renvoyé une erreur (HTTP ${c.responseCode})."
                 else -> "Réponse inattendue du serveur (HTTP ${c.responseCode})."
             }
@@ -34,6 +36,15 @@ object PlaybackErrors {
             else -> "Lecture interrompue (${e.errorCodeName})."
         }
     }
+
+    /** Codes pour lesquels un nouvel essai après quelques secondes a de bonnes chances de passer. */
+    private val busyCodes = setOf(429, 458, 503, 509)
+    fun serverBusy(e: PlaybackException): Boolean {
+        var c: Throwable? = e
+        while (c != null) { if (c is HttpDataSource.InvalidResponseCodeException) return c.responseCode in busyCodes; c = c.cause }
+        return false
+    }
+    fun serverBusy(message: String): Boolean = Regex("""HTTP (\d{3})""").find(message)?.groupValues?.get(1)?.toIntOrNull() in busyCodes
 
     /** Format refusé par Media3 (conteneur ou décodage) : seul cas où « Auto » bascule vers VLC. */
     fun formatProblem(e: PlaybackException): Boolean = e.errorCode in setOf(

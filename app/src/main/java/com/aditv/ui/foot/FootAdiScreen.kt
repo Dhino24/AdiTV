@@ -122,7 +122,7 @@ class FootViewModel(private val c: AppContainer, private val session: Session.Ac
                         val demo = com.aditv.ui.live.LiveCatalog.placed(c, accountId).take(2)
                             .map { Broadcast(it.first, com.aditv.data.live.ChannelFamilies.cleanName(it.first.title), true, true) }
                         list.associate { it.id to demo }
-                    } else list.associate { it.id to runCatching { Broadcasts.find(c, accountId, it) }.getOrDefault(emptyList()) }
+                    } else runCatching { Broadcasts.findAll(c, accountId, list) }.getOrDefault(emptyMap())
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: FootballError) { error = e.message; if (fixtures == null) fixtures = emptyList() }
@@ -181,7 +181,7 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
         back = null
     }
     Box(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 58.dp)) {
+    Column(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 84.dp)) {
         // Jours, puis « Mes équipes ».
         Row(Modifier.focusRestorer(todayChip).padding(vertical = 4.dp, horizontal = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(-2, -1, 0, 1, 2, 3).forEach { d ->

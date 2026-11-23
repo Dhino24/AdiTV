@@ -85,7 +85,7 @@ fun SearchScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (Strin
     }
     val enoughChars = TitleNormalizer.searchKey(query).length >= 2
 
-    Row(Modifier.fillMaxSize().padding(start = 48.dp, top = 75.dp)) {
+    Row(Modifier.fillMaxSize().padding(start = 48.dp, top = 84.dp)) {
         Column(Modifier.width(280.dp)) {
             Row(
                 Modifier.fillMaxWidth().height(42.dp).background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(8.dp)).border(0.5.dp, Aditv.Line, RoundedCornerShape(8.dp)).padding(horizontal = 13.dp),

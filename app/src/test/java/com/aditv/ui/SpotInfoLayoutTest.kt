@@ -20,7 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** La vedette (titre + infos + résumé) ne doit jamais descendre sur « Tout parcourir » / les rangées (place : 176 dp). */
+/** La vedette (titre + infos + résumé) ne doit jamais descendre sur « Tout parcourir » / les rangées (place : 158 dp). */
 @RunWith(AndroidJUnit4::class)
 @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w960dp-h540dp-land-xhdpi")
@@ -41,6 +41,6 @@ class SpotInfoLayoutTest {
     @Test fun longTitleAndOverviewFit() {
         val h = height(Spot("k", "Children of the Corn : The Gathering of the Damned", kicker = "Ajouts récents", meta = listOf("1998", "Horreur", "1 h 23"),
             overview = "Six étudiants se trompent de route et arrivent dans une ville déserte. Mais ils découvrent bientôt qu'au cœur des champs se cache un culte meurtrier, dont les enfants sont les gardiens impitoyables et sans pitié.", lang = "fr"))
-        println("SPOT h=$h"); assertTrue("vedette trop haute : $h dp", h <= 176f)
+        println("SPOT h=$h"); assertTrue("vedette trop haute : $h dp", h <= 158f)
     }
 }

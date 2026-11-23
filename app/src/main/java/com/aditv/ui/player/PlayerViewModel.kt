@@ -93,6 +93,8 @@ class PlayerViewModel(
     private var fellBack = false
     private var sessionOpenedAt = 0L
     private var lastError: String? = null
+    /** Nouveaux essais automatiques quand le serveur limite les connexions (remis à zéro à chaque chaîne). */
+    private var busyRetries = 0
     private val choiceKey get() = currentItem?.variantKey ?: request?.contentId ?: contentId
 
     private val events = object : EngineEvents {
@@ -113,8 +115,21 @@ class PlayerViewModel(
                 play(r, resumeAtMs = pos, kind = EngineKind.VLC)
                 return
             }
+            // Serveur qui limite les connexions (HTTP 458, 429, 509, 503) : l'ancienne connexion (aperçu, chaîne précédente)
+            // met souvent quelques secondes à se libérer → jusqu'à 3 nouveaux essais automatiques (2 s, 4 s, 6 s).
+            if (com.aditv.playback.PlaybackErrors.serverBusy(message) && busyRetries < 3) {
+                busyRetries++
+                val r = request ?: return
+                engineNote = "Serveur occupé : nouvel essai ($busyRetries/3)…"
+                viewModelScope.launch {
+                    c.playback.release()
+                    kotlinx.coroutines.delay(2_000L * busyRetries)
+                    play(r, resumeAtMs = engine?.positionMs?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs, kind = engine?.kind)
+                }
+                return
+            }
             error = message
-            canRetry = retryable || retries < 1
+            canRetry = retryable || retries < 1 || com.aditv.playback.PlaybackErrors.serverBusy(message)
             persistSnapshot()
         }
         override fun onEnded() { viewModelScope.launch { persistSnapshot(); onEnded() } }
@@ -281,6 +296,7 @@ class PlayerViewModel(
     /** ↑ / ↓ en direct : chaîne précédente / suivante de la liste d'origine (une seule session à la fois). */
     fun zap(delta: Int) {
         if (!isLive || channels.isEmpty()) return
+        busyRetries = 0
         val key = currentItem?.variantKey
         val i = channels.indexOfFirst { it.id == currentItem?.id || (key != null && it.variantKey == key) }.coerceAtLeast(0)
         val next = channels[(i + delta + channels.size) % channels.size]
@@ -355,7 +371,7 @@ class PlayerViewModel(
     fun cancelNext() { nextJob?.cancel(); nextUp = null }
 
     fun retry() {
-        retries++
+        retries++; busyRetries = 0
         val r = request ?: run { start(); return }
         error = null
         play(r, resumeAtMs = engine?.positionMs?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs, kind = engine?.kind)

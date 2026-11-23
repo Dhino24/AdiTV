@@ -79,7 +79,7 @@ fun MyListScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (Strin
 
     LazyVerticalGrid(
         state = grid, columns = GridCells.Fixed(if (wide) 4 else 6), modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 74.dp, bottom = 40.dp),
+        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 84.dp, bottom = 40.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item(key = "head", span = { GridItemSpan(maxLineSpan) }) {

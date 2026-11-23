@@ -57,7 +57,7 @@ fun SettingsScreen(session: Session.Active) {
     val chrome = com.aditv.ui.shell.LocalNavChrome.current
     val scrolled by remember { androidx.compose.runtime.derivedStateOf { scroll.value > 40 } }
     LaunchedEffect(scrolled) { chrome.scrolled = scrolled }
-    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 48.dp, top = 74.dp, end = 48.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 48.dp, top = 84.dp, end = 48.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Réglages", style = MaterialTheme.typography.displaySmall, color = Aditv.Text)
 
         Section("Compte fournisseur") {

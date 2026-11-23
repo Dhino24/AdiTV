@@ -313,7 +313,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
     val shown = if (heroFocused || focusedSpot == null) heroSpot else focusedSpot
     Box(Modifier.fillMaxSize()) {
         com.aditv.ui.design.CinemaBackdrop(shown, reduced)
-        if (state.loaded && (state.hero.isNotEmpty() || state.rows.isNotEmpty())) com.aditv.ui.design.SpotInfo(shown, Modifier.padding(start = 48.dp, top = 66.dp))
+        if (state.loaded && (state.hero.isNotEmpty() || state.rows.isNotEmpty())) com.aditv.ui.design.SpotInfo(shown, Modifier.padding(start = 48.dp, top = 84.dp))
 
         if (state.loaded && state.hero.isEmpty() && state.rows.isEmpty() && state.resume.isEmpty()) {
             EmptyCatalog(progress, state.syncErrors)
