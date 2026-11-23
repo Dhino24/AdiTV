@@ -1,5 +1,6 @@
 package com.aditv.ui.shell
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.layout.layout
 import com.aditv.ui.design.liquidGlass
 import androidx.compose.ui.semantics.contentDescription
@@ -310,33 +311,30 @@ private val NavHalo = Glow(elevationColor = Color.White.copy(alpha = 0.22f), ele
 private fun NavItem(icon: Int, label: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
-    Box {
-        Surface(
-            onClick = onClick,
-            modifier = (modifier.size(34.dp).onFocusChanged { focused = it.isFocused }
-                .semantics { contentDescription = label }).navSound(),
-            shape = ClickableSurfaceDefaults.shape(shape),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.14f),
-            glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent,
-                contentColor = if (isSelected) Aditv.Text else Aditv.Text.copy(alpha = 0.78f),
-                focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
-            ),
-        ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    // Au focus, la pastille blanche s'élargit et porte le nom (rien ne déborde sur l'écran en dessous).
+    Surface(
+        onClick = onClick,
+        modifier = (modifier.height(34.dp).widthIn(min = 34.dp).animateContentSize(tween(160)).onFocusChanged { focused = it.isFocused }
+            .semantics { contentDescription = label }).navSound(),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = NavHalo),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent,
+            contentColor = if (isSelected) Aditv.Text else Aditv.Text.copy(alpha = 0.78f),
+            focusedContainerColor = Color.White, focusedContentColor = Aditv.OnLight,
+        ),
+    ) {
+        Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
+            Row(Modifier.padding(horizontal = if (focused) 11.dp else 8.5.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(17.dp))
-                if (isSelected && !focused) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).background(Aditv.Accent, CircleShape))
+                if (focused) {
+                    Spacer(Modifier.width(7.dp))
+                    Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp), maxLines = 1)
+                }
             }
+            if (isSelected && !focused) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).background(Aditv.Accent, CircleShape))
         }
-        // Nom sous l'icône sélectionnée à la télécommande (déborde de la capsule, sans la pousser).
-        if (focused) Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp,
-            shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.8f), blurRadius = 8f)), color = Aditv.Text, maxLines = 1,
-            // Taille nulle pour la mise en page : le nom est centré sous l'icône sans élargir la capsule.
-            modifier = Modifier.align(Alignment.BottomCenter).layout { m, _ ->
-                val p = m.measure(androidx.compose.ui.unit.Constraints())
-                layout(0, 0) { p.place(-p.width / 2, 12.dp.roundToPx()) }
-            })
     }
 }
 

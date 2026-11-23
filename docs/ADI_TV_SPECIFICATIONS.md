@@ -86,7 +86,7 @@ Projet : application IPTV personnelle pour Amazon Fire TV, développée pour Ada
 
 - **Barre du haut** :
   - à gauche : le logo, puis une **capsule de verre d'icônes** : Recherche · Accueil · Films · Séries · En direct · FootAdi · Ma liste · Réglages ;
-  - icône sélectionnée : carré blanc arrondi, nom affiché dessous ; rubrique active : verre plus clair et point turquoise ;
+  - icône sélectionnée : pastille blanche arrondie qui s'élargit avec le nom ; rubrique active : verre plus clair et point turquoise ;
   - à droite : l'heure et l'indicateur de mise à jour du catalogue.
 - La barre se masque au défilement.
   - **↑** depuis le haut d'un écran monte sur la rubrique active.
