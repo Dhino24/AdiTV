@@ -467,12 +467,34 @@ private fun CrashSection() {
 }
 
 
-/** Clé API-Football (gratuite, 100 requêtes par jour) : chiffrée, testée avant enregistrement, saisissable par QR code. */
+/** FootAdi : clé API-Football (matchs, 100 requêtes/jour) et clé football-data.org (classements), chiffrées, testées, saisissables par QR code. */
 @Composable
 private fun FootballSection() {
     val c = LocalContainer.current
+    KeyBlock(
+        store = c.footballKey, form = com.aditv.net.RemoteEntryServer.Form.FOOTBALL, fieldLabel = "Clé API-Football",
+        missing = "Aucune clé : FootAdi n'affiche pas de matchs",
+        help = "Créez un compte gratuit sur api-football.com et copiez votre clé (« API Key »). Matchs, écussons, scores, buteurs et compositions viennent de ce service ; les chaînes qui diffusent sont retrouvées dans votre guide TV.",
+        check = { key -> com.aditv.data.football.FootballClient(c.http.tmdb, { key }).check() },
+    )
+    Spacer(Modifier.height(10.dp))
+    Text("Classements", style = MaterialTheme.typography.titleMedium, color = Aditv.Text)
+    KeyBlock(
+        store = c.footballDataKey, form = com.aditv.net.RemoteEntryServer.Form.FOOTBALL_DATA, fieldLabel = "Clé football-data.org",
+        missing = "Aucune clé : classements indisponibles avec l'offre gratuite d'API-Football",
+        help = "L'offre gratuite d'API-Football ne donne pas les classements de la saison en cours. Inscrivez-vous gratuitement sur football-data.org : la clé (« API Token ») arrive par e-mail. Couvre Ligue 1, Premier League, LaLiga, Serie A, Bundesliga et Ligue des champions.",
+        check = { key -> com.aditv.data.football.FootballDataClient(c.http.tmdb, { key }).check() },
+    )
+}
+
+/** Clé d'un service (chiffrée) : saisie à la télécommande ou par QR code, test à l'enregistrement, suppression. */
+@Composable
+private fun KeyBlock(
+    store: com.aditv.data.football.FootballKeyStore, form: com.aditv.net.RemoteEntryServer.Form, fieldLabel: String,
+    missing: String, help: String, check: suspend (String) -> String,
+) {
     val scope = rememberCoroutineScope()
-    var configured by remember { mutableStateOf(c.footballKey.get() != null) }
+    var configured by remember { mutableStateOf(store.get() != null) }
     var input by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -481,14 +503,13 @@ private fun FootballSection() {
         onDismissRequest = { phoneEntry = false },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        com.aditv.ui.common.RemoteEntryPanel(com.aditv.net.RemoteEntryServer.Form.FOOTBALL,
+        com.aditv.ui.common.RemoteEntryPanel(form,
             onReceived = { v -> v["value"]?.trim()?.takeIf { it.isNotEmpty() }?.let { input = it; message = "Clé reçue du téléphone : choisissez « Enregistrer et tester »." } },
             onClose = { phoneEntry = false })
     }
-    Fact("État", if (configured) "Clé configurée (chiffrée sur l'appareil)" else "Aucune clé : FootAdi n'affiche pas de matchs", if (configured) Aditv.Text else Aditv.Warn)
-    Text("Créez un compte gratuit sur api-football.com et copiez votre clé (« API Key »). Matchs, écussons, scores et buteurs viennent de ce service ; les chaînes qui diffusent sont retrouvées dans votre guide TV.",
-        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
-    com.aditv.ui.common.TvTextField("Clé API-Football", input, { input = it; message = null }, Modifier.widthIn(max = 640.dp), password = true, placeholder = if (configured) "•••••• (laisser vide pour conserver)" else "OK pour saisir")
+    Fact("État", if (configured) "Clé configurée (chiffrée sur l'appareil)" else missing, if (configured) Aditv.Text else Aditv.Warn)
+    Text(help, style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+    com.aditv.ui.common.TvTextField(fieldLabel, input, { input = it; message = null }, Modifier.widthIn(max = 640.dp), password = true, placeholder = if (configured) "•••••• (laisser vide pour conserver)" else "OK pour saisir")
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         AditvButton(if (busy) "Vérification…" else "Enregistrer et tester", {
             val key = input.trim()
@@ -496,15 +517,15 @@ private fun FootballSection() {
             busy = true
             scope.launch {
                 message = try {
-                    val status = com.aditv.data.football.FootballClient(c.http.tmdb, { key }).check()
-                    c.footballKey.set(key); configured = true; input = ""
+                    val status = check(key)
+                    store.set(key); configured = true; input = ""
                     status
                 } catch (e: com.aditv.data.football.FootballError) { e.message } catch (e: Exception) { "Erreur : ${e.javaClass.simpleName}" }
                 busy = false
             }
         }, enabled = !busy)
         AditvButton("Depuis mon téléphone", { phoneEntry = true }, enabled = !busy)
-        if (configured) AditvButton("Supprimer la clé", { c.footballKey.clear(); configured = false; message = "Clé supprimée." })
+        if (configured) AditvButton("Supprimer la clé", { store.clear(); configured = false; message = "Clé supprimée." })
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
 }

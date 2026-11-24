@@ -11,6 +11,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class FootballRepository(
     private val client: FootballClient,
+    /** Classements (football-data.org) : utilisé en priorité quand sa clé est enregistrée et la compétition couverte. */
+    private val tables: FootballDataClient? = null,
+    private val tablesKey: () -> String? = { null },
     /** Cache sur disque (survit au redémarrage) : réponses par date, buts des matchs terminés. */
     private val dir: java.io.File? = null,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -147,17 +150,31 @@ class FootballRepository(
     private val standingsCache = ConcurrentHashMap<String, Entry2>()
     private class Entry2(val at: Long, val rows: List<StandingRow>)
 
-    /** Classement : 1 requête par compétition, gardé 6 h (sur disque aussi). Quota presque épuisé : on garde l'ancien. */
+    /**
+     * Classement : football-data.org si sa clé est là et la compétition couverte (gratuit, saison en cours),
+     * sinon API-Football (offre gratuite : saisons en cours souvent refusées). 1 requête par compétition, gardé 6 h (disque).
+     */
     suspend fun standings(league: Long, season: Int = currentSeason()): List<StandingRow> {
-        val k = "$league-$season"
+        val viaFd = tables != null && tablesKey() != null && league in FootballDataClient.CODES
+        val k = (if (viaFd) "fd-" else "") + "$league-$season"
         val now = clock()
+        fun parse(raw: String) = if (viaFd) tables!!.parseStandings(league, raw) else client.parseStandings(raw)
         val e = standingsCache[k] ?: runCatching {
-            file("standings-$k.json")?.takeIf { it.exists() }?.let { Entry2(it.lastModified(), client.parseStandings(it.readText())) }
+            file("standings-$k.json")?.takeIf { it.exists() }?.let { Entry2(it.lastModified(), parse(it.readText())) }
         }.getOrNull()?.also { standingsCache[k] = it }
-        if (e != null && (now - e.at < 6 * 3_600_000L || saving)) return e.rows
-        val raw = client.standingsRaw(league, season)
+        if (e != null && (now - e.at < 6 * 3_600_000L || (!viaFd && saving))) return e.rows
+        val raw = try {
+            if (viaFd) tables!!.standingsRaw(league) else client.standingsRaw(league, season)
+        } catch (err: FootballError) {
+            e?.let { return it.rows }
+            // Offre gratuite d'API-Football : la saison en cours n'est pas incluse → indiquer la solution gratuite.
+            if (!viaFd && league in FootballDataClient.CODES) throw FootballError(
+                "Classements non inclus dans l'offre gratuite d'API-Football. Ajoutez une clé gratuite football-data.org dans Réglages → FootAdi.")
+            if (!viaFd) throw FootballError("Classement non disponible pour cette compétition avec l'offre gratuite (Ligue 2, Europa et Conférence ne sont pas couvertes par football-data.org).")
+            throw err
+        }
         runCatching { dir?.mkdirs(); file("standings-$k.json")?.writeText(raw) }
-        return client.parseStandings(raw).also { standingsCache[k] = Entry2(now, it) }
+        return parse(raw).also { standingsCache[k] = Entry2(now, it) }
     }
 
     /** Démonstration : classement fictif. */

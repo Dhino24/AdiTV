@@ -176,7 +176,7 @@ Charte couleurs : `docs/ADI_TV_CHARTE_COULEURS.md` (noir bleuté profond, turquo
 - Jours (avant-hier → J+3) et **★ Mes équipes** ; ↓ va au premier match, ↑ revient sur le jour choisi.
 - Matchs groupés par compétition (Ligue des champions, grands championnats, Coupes d'Europe, Ligue 2, CAN, Sénégal, équipes de France et du Sénégal) : écussons, score et minute en direct, heure sinon, chaîne qui diffuse.
 - Panneau : compétition · journée, score ou compte à rebours, buteurs, **Où regarder dans votre abonnement** (chaînes du guide TV dont un programme cite les deux équipes autour du coup d'envoi, françaises d'abord ; sinon diffuseur habituel en France). **OK** lance la chaîne. « Me rappeler le match ».
-- **🏆 Classements** : 9 compétitions (Ligue 1, PL, LaLiga, Serie A, Bundesliga, Ligue 2, LDC, Europa, Conférence) ; rang, J G N P, différence, points, forme, zones (LDC, Europa, Conférence, relégation) ; aussi depuis le panneau d'un match. 1 requête par compétition, gardée 6 h.
+- **🏆 Classements** : 9 compétitions (Ligue 1, PL, LaLiga, Serie A, Bundesliga, Ligue 2, LDC, Europa, Conférence) ; rang, J G N P, différence, points, forme, zones (LDC, Europa, Conférence, relégation) ; aussi depuis le panneau d'un match. 1 requête par compétition, gardée 6 h. Source : **football-data.org** (clé gratuite, Réglages → FootAdi → Classements) pour L1, PL, LaLiga, Serie A, Bundesliga, LDC ; l'offre gratuite d'API-Football n'inclut pas les classements de la saison en cours.
 - Source : **API-Football** avec la clé gratuite de l'utilisateur (Réglages → FootAdi, ou QR code). Cache sur disque : 5 min en direct / 30 min le jour même / 6 h à venir / définitif pour un jour passé terminé ; buteurs groupés (1 requête pour 20 matchs) ; rafraîchissement auto seulement écran affiché ; quota restant affiché, mode économie sous 10 requêtes. Démo : matchs fictifs.
 
 ### Recherche
@@ -193,7 +193,7 @@ Charte couleurs : `docs/ADI_TV_CHARTE_COULEURS.md` (noir bleuté profond, turquo
 | Catalogue local | nombres d'éléments, mode d'import, erreurs ; synchroniser les chaînes / les films et séries |
 | Lecture | langue préférée (VF / VOSTFR / VO), qualité maximale (4K / 1080p / 720p), flux adaptatifs (débit max / adapté au réseau), fréquence de l'écran |
 | Moteur, Turbo et diagnostic | choix par défaut, Turbo par défaut, journal des 20 dernières sessions |
-| FootAdi | clé API-Football (aussi par QR code), test, suppression |
+| FootAdi | clé API-Football (matchs) et clé football-data.org (classements), par QR code aussi, test, suppression |
 | Sport | équipes et compétitions suivies, délai des rappels, liste des rappels |
 | Guide TV | sources XMLTV, actualisation, couverture, décalages |
 | Métadonnées TMDB | clé personnelle (aussi saisissable par QR code), cache |

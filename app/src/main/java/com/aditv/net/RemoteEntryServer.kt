@@ -60,6 +60,11 @@ class RemoteEntryServer(
                 "Collez la clé de votre compte api-football.com (tableau de bord, « API Key »).",
                 listOf(Field("value", "Clé API-Football", "Coller ici", secret = true)),
             )
+            val FOOTBALL_DATA = Form(
+                "Clé football-data.org",
+                "Collez la clé reçue par e-mail après l'inscription gratuite sur football-data.org (« API Token »).",
+                listOf(Field("value", "Clé football-data.org", "Coller ici", secret = true)),
+            )
             val TMDB = Form(
                 "Clé TMDB",
                 "Collez la clé API (v3) ou le jeton d'accès en lecture (v4) de votre compte themoviedb.org.",

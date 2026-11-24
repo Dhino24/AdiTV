@@ -64,14 +64,14 @@ class FootballTest {
             "lineups":[{"team":{"id":85,"name":"Paris Saint Germain"},"formation":"4-3-3","coach":{"name":"L. Enrique"},
               "startXI":[{"player":{"number":1,"name":"Chevalier","pos":"G"}},{"player":{"number":10,"name":"Dembélé","pos":"F"}}],"substitutes":[{"player":{"number":14,"name":"Doué","pos":"F"}}]},
              {"team":{"id":80,"name":"Lyon"},"formation":"4-2-3-1","coach":{"name":"P. Fonseca"},"startXI":[{"player":{"number":1,"name":"Perri","pos":"G"}}],"substitutes":[]}]}]}""").build())
-        val repo = FootballRepository(client(), dir)
+        val repo = FootballRepository(client(), dir = dir)
         val f = repo.fixtures(-1).single()
         assertEquals(97, repo.remaining); assertEquals(100, repo.dailyLimit)
         assertEquals(listOf("Dembélé", "Doué"), repo.goals(f, listOf(f)).map { it.player })
         assertTrue(server.takeRequest().url.toString().contains("/fixtures?date="))
         assertTrue(server.takeRequest().url.toString().contains("/fixtures?ids=7"))
         // « Redémarrage » : nouveau dépôt, même dossier → aucune requête de plus.
-        val again = FootballRepository(client(), dir)
+        val again = FootballRepository(client(), dir = dir)
         val f2 = again.fixtures(-1).single()
         val d = again.details(f2, listOf(f2))
         assertEquals(2, d.goals.size)
@@ -92,5 +92,34 @@ class FootballTest {
         assertEquals(31, rows[0].points); assertEquals(10, rows[0].win); assertEquals("WWDWW", rows[0].form)
         assertEquals(-15, rows[1].goalsDiff); assertTrue(rows[1].description!!.contains("Relegation"))
         assertTrue(server.takeRequest().url.toString().contains("/standings?league=61&season=2026"))
+    }
+
+    /** Offre gratuite d'API-Football sans classement de la saison : football-data.org prend le relais quand sa clé est là. */
+    @Test fun standingsFromFootballDataWhenKeyPresent() = runTest {
+        server.enqueue(MockResponse.Builder().body("""{"competition":{"code":"FL1"},"standings":[
+          {"stage":"REGULAR_SEASON","type":"TOTAL","group":null,"table":[
+            {"position":1,"team":{"id":524,"name":"Paris Saint-Germain FC","shortName":"PSG","crest":"https://crests.football-data.org/524.png"},
+             "playedGames":13,"form":"W,W,D,W,W","won":10,"draw":1,"lost":2,"points":31,"goalDifference":18},
+            {"position":18,"team":{"id":545,"name":"FC Metz","shortName":"Metz","crest":null},
+             "playedGames":13,"form":"L,L,D,L,L","won":1,"draw":4,"lost":8,"points":7,"goalDifference":-15}]},
+          {"stage":"REGULAR_SEASON","type":"HOME","group":null,"table":[]}]}""").build())
+        val fd = com.aditv.data.football.FootballDataClient(OkHttpClient(), { "fdkey" }, server.url("/v4").toString().trimEnd('/'))
+        val dir = kotlin.io.path.createTempDirectory("fd").toFile()
+        val repo = FootballRepository(client(), fd, { "fdkey" }, dir = dir)
+        val rows = repo.standings(61L, 2026)
+        assertEquals(listOf("PSG", "Metz"), rows.map { it.team.name })
+        assertEquals("WWDWW", rows[0].form); assertEquals(31, rows[0].points)
+        assertEquals("Champions League", rows[0].description); assertEquals("Relegation", rows[1].description)
+        val req = server.takeRequest()
+        assertTrue(req.url.toString().endsWith("/v4/competitions/FL1/standings")); assertEquals("fdkey", req.headers["X-Auth-Token"])
+        // Gardé 6 h : pas de seconde requête.
+        repo.standings(61L, 2026); assertEquals(1, server.requestCount)
+        dir.deleteRecursively()
+    }
+
+    @Test fun explainsFreePlanWhenNoFootballDataKey() = runTest {
+        server.enqueue(MockResponse.Builder().body("""{"errors":{"plan":"Free plans do not have access to this season, try from 2022 to 2024."},"response":[]}""").build())
+        try { FootballRepository(client()).standings(61L, 2026); fail() }
+        catch (e: FootballError) { assertTrue(e.message!!.contains("football-data.org")) }
     }
 }

@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.16.1) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.16.2) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.16.2 (24/11/2026) — classements via football-data.org
+- Constat d'Adama : l'offre gratuite d'API-Football ne donne pas les classements de la saison en cours.
+- **Deuxième source gratuite : football-data.org** (clé personnelle, offre gratuite à vie, 10 requêtes/minute) pour Ligue 1, Premier League, LaLiga, Serie A, Bundesliga et Ligue des champions. Utilisée en priorité dès que sa clé est enregistrée ; sinon API-Football, avec un message qui explique la solution.
+- Réglages → FootAdi : bloc « Classements » (clé football-data.org, chiffrée, testée à l'enregistrement, saisissable par QR code). Ligue 2, Europa et Conférence : non couvertes par l'offre gratuite de football-data.org.
+- Zones (LDC, Europa, Conférence, relégation) déduites du rang, football-data.org ne les fournissant pas ; gardé 6 h sur disque.
 
 ### 0.16.1 (23/11/2026) — charte couleurs « rendu premium » (docs/ADI_TV_CHARTE_COULEURS.md)
 - Palette : fond noir bleuté #07111A (dégradé très léger depuis #0B1520), surfaces #101C28 / #162433 / #1B2B3B, texte #F4F7FA / #C3CED8 / #7F93A6, turquoise #22D3C5 (focus, sélection, progression), cyan doux #7EE7F2 (halos), corail #FF6B57 (direct), vert #26C281, or #E0B75F (rare).

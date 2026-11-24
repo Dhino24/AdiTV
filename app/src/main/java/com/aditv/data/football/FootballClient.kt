@@ -50,13 +50,12 @@ data class Lineup(
 data class MatchDetails(val goals: List<Goal>, val lineups: List<Lineup>)
 
 /** Clé API-Football personnelle, chiffrée sur l'appareil comme la clé TMDB. */
-class FootballKeyStore(private val secrets: SecretStore) {
+class FootballKeyStore(private val secrets: SecretStore, private val ref: String = "football:key", private val label: String = "football") {
     @Volatile private var cached: String? = null
     @Volatile private var loaded = false
-    fun get(): String? { if (!loaded) { cached = secrets.get(REF)?.password; loaded = true; Redactor.registerSecret(cached) }; return cached }
-    fun set(key: String) { val k = key.trim(); secrets.put(REF, ProviderSecret("football", k)); cached = k; loaded = true; Redactor.registerSecret(k) }
-    fun clear() { secrets.remove(REF); cached = null; loaded = true }
-    private companion object { const val REF = "football:key" }
+    fun get(): String? { if (!loaded) { cached = secrets.get(ref)?.password; loaded = true; Redactor.registerSecret(cached) }; return cached }
+    fun set(key: String) { val k = key.trim(); secrets.put(ref, ProviderSecret(label, k)); cached = k; loaded = true; Redactor.registerSecret(k) }
+    fun clear() { secrets.remove(ref); cached = null; loaded = true }
 }
 
 /**
