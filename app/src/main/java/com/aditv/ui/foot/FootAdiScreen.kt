@@ -171,9 +171,22 @@ class FootViewModel(private val c: AppContainer, private val session: Session.Ac
         }
     }
 
+    /** Rappels actifs par match (affichage « ✓ Rappel programmé »), et message bref après un appui. */
+    var reminded by mutableStateOf<Map<Long, Boolean>>(emptyMap()); private set
+    var toast by mutableStateOf<String?>(null); private set
+    private fun reminderTitle(f: Fixture) = "${f.home.name} - ${f.away.name}"
+
+    fun checkReminder(f: Fixture) {
+        if (reminded.containsKey(f.id)) return
+        viewModelScope.launch { reminded = reminded + (f.id to c.sport.isReminded(accountId, reminderTitle(f), f.kickoff)) }
+    }
+
     fun remind(f: Fixture, b: Broadcast?) = viewModelScope.launch {
         val ch = b?.channel ?: return@launch
-        c.sport.toggleReminder(accountId, "${f.home.name} - ${f.away.name}", f.kickoff, f.kickoff + 2 * 3_600_000L, ch.id, b.name)
+        val on = c.sport.toggleReminder(accountId, reminderTitle(f), f.kickoff, f.kickoff + 2 * 3_600_000L, ch.id, b.name)
+        reminded = reminded + (f.id to on)
+        toast = if (on) "✓ Rappel programmé : ${f.home.name} – ${f.away.name}, ${timeFmt.format(Date(f.kickoff))} sur ${b.name}" else "Rappel supprimé"
+        delay(3_500); toast = null
     }
 }
 
@@ -196,7 +209,7 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
     val list = vm.fixtures
     val shown = list?.firstOrNull { it.id == focused?.id } ?: list?.firstOrNull()
     // Buteurs : seulement si l'on reste sur le match (1 requête couvre tous les matchs commencés du jour).
-    LaunchedEffect(shown?.id) { shown?.let { delay(if (session.isDemo) 0 else 1_200); vm.loadGoals(it) } }
+    LaunchedEffect(shown?.id) { shown?.let { vm.checkReminder(it); delay(if (session.isDemo) 0 else 1_200); vm.loadGoals(it) } }
     LaunchedEffect(Unit) { while (true) { delay(5 * 60_000L); vm.refreshIfLive() } }
 
     var sheet by remember { mutableStateOf<Fixture?>(null) }
@@ -257,12 +270,17 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
             Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 18.dp)) {
                 shown?.let { f -> MatchPanel(f, vm.broadcasts[f.id].orEmpty(), vm.goals[f.id].orEmpty(), vm.lineups[f.id].orEmpty(),
                     onWatch = { b -> onPlayLive(b.channel.id, "fam:SPORT_FR") }, onRemind = { vm.remind(f, vm.broadcasts[f.id]?.firstOrNull()) },
-                    onLineups = { sheet = f },
+                    onLineups = { sheet = f }, isReminded = vm.reminded[f.id] == true,
                     onStandings = if (f.competition.id in FootballRepository.standingsLeagues) ({ vm.openStandings(f.competition.id, f.competition.season) }) else null) }
             }
         }
     }
     sheet?.let { f -> LineupSheet(f, vm.lineups[f.id].orEmpty(), onClose = { back = f.id; sheet = null }) }
+    // Confirmation brève (rappel programmé / supprimé).
+    vm.toast?.let { t ->
+        Text(t, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.Text,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp).liquidGlass(RoundedCornerShape(50), strength = 1.8f).padding(horizontal = 22.dp, vertical = 11.dp))
+    }
     }
 }
 
@@ -332,7 +350,7 @@ private fun ScoreOrTime(f: Fixture, size: androidx.compose.ui.unit.TextUnit) {
 @Composable
 private fun MatchPanel(
     f: Fixture, broadcasts: List<Broadcast>, goals: List<Goal>, lineups: List<com.aditv.data.football.Lineup>,
-    onWatch: (Broadcast) -> Unit, onRemind: () -> Unit, onLineups: () -> Unit, onStandings: (() -> Unit)?,
+    onWatch: (Broadcast) -> Unit, onRemind: () -> Unit, onLineups: () -> Unit, onStandings: (() -> Unit)?, isReminded: Boolean = false,
 ) {
     Column(
         Modifier.fillMaxSize().liquidGlass(RoundedCornerShape(22.dp), strength = 1.2f)
@@ -364,7 +382,8 @@ private fun MatchPanel(
         }
         if (!f.live && !f.finished && broadcasts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            PillButton("Me rappeler le match", onRemind, icon = R.drawable.ic_bell, primary = false, small = true)
+            PillButton(if (isReminded) "✓ Rappel programmé" else "Me rappeler le match", onRemind,
+                icon = if (isReminded) R.drawable.ic_bell_on else R.drawable.ic_bell, primary = false, small = true)
         }
         if (goals.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))

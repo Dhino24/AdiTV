@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="aditv_bg">#FF090D12</color>
+    <!-- Fond de l'icône adaptative : même noir que l'image de l'icône (bords invisibles). -->
+    <color name="ic_launcher_bg">#FF090B10</color>
 </resources>

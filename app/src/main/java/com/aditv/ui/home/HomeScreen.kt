@@ -1,5 +1,8 @@
 package com.aditv.ui.home
 
+import com.aditv.ui.theme.Outfit
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentWidth
 import com.aditv.ui.cinema.spotFor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -437,11 +440,15 @@ private fun HeroBlock(
             Spacer(Modifier.height(14.dp))
             if (hero.progress != null) ResumeBar(hero.progress, hero.remaining)
         }
-        // Compteur du carrousel en bas à droite (« 01 / 03 »).
-        if (count > 1) Text(
-            "%02d / %02d".format(index + 1, count), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, letterSpacing = 1.sp),
-            color = Aditv.TextSecondary, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 12.dp),
-        )
+        // Position dans le carrousel : des points, l'élément affiché en pilule claire (transition douce).
+        if (count > 1) Row(Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+            repeat(count) { i ->
+                val active = i == index
+                val w by androidx.compose.animation.core.animateDpAsState(if (active) 18.dp else 6.dp, tween(300), label = "point")
+                val a by androidx.compose.animation.core.animateFloatAsState(if (active) 0.95f else 0.35f, tween(300), label = "point-a")
+                Box(Modifier.width(w).height(6.dp).background(Aditv.Text.copy(alpha = a), RoundedCornerShape(50)))
+            }
+        }
     }
 }
 
@@ -549,11 +556,46 @@ private fun SportChannelsRow(accountId: String, channels: List<CatalogCard>, onS
 private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, onOpen: (String) -> Unit, onCard: (CatalogCard) -> Unit) {
     Column(Modifier.padding(top = 10.dp)) {
         RowTitle(title, "tendances TMDB de la semaine, disponibles dans votre abonnement", Modifier.padding(start = 48.dp, bottom = 3.dp))
-        LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(entries.distinctBy { it.card.id }, key = { it.card.id }) { e ->
-                Box(Modifier.onFocusChanged { if (it.hasFocus) onCard(e.card) }) { RankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
-                    tmdbImage(e.poster, "w342") ?: tmdbImage(e.card.tmdbPoster, "w342") ?: e.card.imageUrl, { onOpen(e.card.id) }) }
+        // Grandes cartes (3 à 4 visibles) ; l'élément choisi glisse en douceur vers la gauche (position fixe), jusqu'au n° 10.
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val pivot = remember(density) { TopPivot(with(density) { 48.dp.toPx() }) }
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pivot) {
+            LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(start = 48.dp, end = 200.dp, top = 10.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(entries.distinctBy { it.card.id }.take(10), key = { it.card.id }) { e ->
+                    Box(Modifier.onFocusChanged { if (it.hasFocus) onCard(e.card) }) {
+                        BigRankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
+                            tmdbImage(e.poster, "w500") ?: tmdbImage(e.card.tmdbPoster, "w500") ?: e.card.imageUrl, { onOpen(e.card.id) })
+                    }
+                }
             }
         }
+    }
+}
+
+/** Défilement « pivot » animé : l'élément sélectionné se place à [pivotPx] du bord gauche, avec une glissade douce. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private class TopPivot(private val pivotPx: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    @Suppress("OVERRIDE_DEPRECATION")
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> =
+        androidx.compose.animation.core.tween(520, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - pivotPx
+}
+
+/** Grande carte du Top 10 : chiffre géant en relief à gauche (s'éclaire au focus), affiche haute. */
+@Composable
+private fun BigRankedTile(rank: Int, title: String, subtitle: String?, posterUrl: String?, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val numberColor by androidx.compose.animation.animateColorAsState(if (focused) Aditv.Text else Aditv.Text.copy(alpha = 0.42f), tween(260), label = "rang")
+    val lift by androidx.compose.animation.core.animateDpAsState(if (focused) (-6).dp else 0.dp, tween(260), label = "lift")
+    Row(Modifier.onFocusChanged { focused = it.hasFocus }.offset(y = lift), verticalAlignment = Alignment.Top) {
+        Box(Modifier.width(if (rank >= 10) 118.dp else 70.dp).height(214.dp), contentAlignment = Alignment.BottomEnd) {
+            Text(
+                rank.toString(), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 132.sp, lineHeight = 132.sp,
+                style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f)), color = numberColor,
+                maxLines = 1, softWrap = false, letterSpacing = (-6).sp,
+                modifier = Modifier.wrapContentWidth(Alignment.End, unbounded = true).offset(x = 8.dp, y = 22.dp),
+            )
+        }
+        PosterTile(title, subtitle, posterUrl, onClick, width = 142.dp)
     }
 }

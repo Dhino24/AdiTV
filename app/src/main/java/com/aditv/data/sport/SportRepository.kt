@@ -139,6 +139,10 @@ class SportRepository(
         scheduler?.rescheduleAll()
     }
 
+    /** Un rappel actif existe-t-il pour ce match ? (bouton « ✓ Rappel programmé ») */
+    suspend fun isReminded(accountId: String, title: String, startUtc: Long): Boolean =
+        dao.reminderByKey(accountId, SportMatcher.matchKey(title, startUtc))?.let { !it.dismissed } ?: false
+
     /** « Me rappeler » depuis le guide ou une carte de match. Renvoie true si un rappel est désormais actif. */
     suspend fun toggleReminder(accountId: String, title: String, startUtc: Long, endUtc: Long, channelItemId: String, channelName: String): Boolean {
         val key = SportMatcher.matchKey(title, startUtc)
