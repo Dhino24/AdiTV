@@ -324,7 +324,12 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
             HomeSkeleton()
         } else {
             // Une rangée à la fois sous la vedette : la liste ne défile que dans la moitié basse de l'écran.
-            LazyColumn(Modifier.fillMaxSize().padding(top = 278.dp), state = listState, contentPadding = PaddingValues(bottom = 40.dp)) {
+            // Rangée choisie calée en HAUT de la zone (la précédente disparaît entièrement : pas de légendes orphelines,
+            // affiches jamais coupées en bas) ; dans les rangées, l'élément choisi glisse vers la gauche.
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val homePivot = remember(density) { HomePivot(with(density) { 48.dp.toPx() }, with(density) { 600.dp.toPx() }, with(density) { 44.dp.toPx() }) }
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides homePivot) {
+            LazyColumn(Modifier.fillMaxSize().padding(top = 256.dp), state = listState, contentPadding = PaddingValues(bottom = 300.dp)) {
                 item(key = "hero") {
                     if (hero != null) HeroBlock(
                         hero, heroIndex, state.hero.size, inList = hero.itemId in state.watchlist,
@@ -360,6 +365,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                         Text("Synchronisation incomplète : voir Réglages → Catalogue local", style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
                     }
                 }
+            }
             }
         }
         openMatch?.let { m ->
@@ -570,6 +576,21 @@ private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, o
             }
         }
     }
+}
+
+/**
+ * Accueil : en vertical (zone des rangées, moins de [wideThresholdPx] de haut), la rangée choisie se cale en haut
+ * (affiche à [titlePx] du bord, pour laisser son titre) ;
+ * en horizontal (rangées pleine largeur), l'élément choisi se place à [pivotPx] du bord gauche. Glissade douce.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private class HomePivot(private val pivotPx: Float, private val wideThresholdPx: Float, private val titlePx: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    @Suppress("OVERRIDE_DEPRECATION")
+    override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> =
+        androidx.compose.animation.core.tween(480, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+        // Vertical : l'affiche choisie juste sous le titre de sa rangée (titre visible, affiche entière).
+        if (containerSize >= wideThresholdPx) offset - pivotPx else offset - titlePx
 }
 
 /** Défilement « pivot » animé : l'élément sélectionné se place à [pivotPx] du bord gauche, avec une glissade douce. */
