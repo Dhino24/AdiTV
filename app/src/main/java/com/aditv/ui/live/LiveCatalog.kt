@@ -20,6 +20,7 @@ data class ChampionsMatch(val title: String, val startUtc: Long, val endUtc: Lon
 object LiveCatalog {
     const val FAV = "fav"
     const val UCL = "ucl"
+    const val CANAL = "canal"
     private class Index(val stamp: String, val placed: List<Pair<CatalogCard, ChannelPlace>>)
     @Volatile private var cache: Index? = null
 
@@ -70,6 +71,8 @@ object LiveCatalog {
         return buildList {
             if (favCount > 0) add(FamilyEntry(FAV, "★ Favoris", favCount))
             add(FamilyEntry(UCL, "Ligue des champions", ucl))
+            val canal = idx.placed.count { ChannelFamilies.isCanalSport(it.first.title) }
+            if (canal > 0) add(FamilyEntry(CANAL, "Canal+ Sport", canal))
             Family.entries.sortedBy { it.order }.forEach { f -> counts[f]?.let { add(FamilyEntry("fam:${f.name}", f.label, it)) } }
         }
     }
@@ -85,6 +88,10 @@ object LiveCatalog {
             // Diffuseurs de la Ligue des champions : France (Canal+, M6) puis Afrique francophone (Canal+ Afrique, New World TV).
             key == UCL -> sorted(idx.placed.filter { it.second.ucl && it.second.family != Family.MONDE })
                 .sortedBy { if (it.second.french) 0 else 1 }
+            // Canal+ sport (dont les Canal+ Live) : France métropolitaine d'abord, puis outre-mer et Afrique ; numéros dans l'ordre.
+            key == CANAL -> idx.placed.filter { ChannelFamilies.isCanalSport(it.first.title) }
+                .sortedWith(compareBy({ if (it.second.french && it.second.family != Family.MONDE && it.second.family != Family.AFRIQUE) 0 else 1 },
+                    { if (Regex("(?i)live").containsMatchIn(it.first.title)) 1 else 0 }, { it.second.number }, { it.first.title.lowercase() }))
             key.startsWith("fam:") -> sorted(idx.placed.filter { it.second.family.name == key.removePrefix("fam:") })
             else -> sorted(idx.placed)
         }

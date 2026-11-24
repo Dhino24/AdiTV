@@ -135,13 +135,14 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     fun touch() { lastInteraction = System.currentTimeMillis(); controlsVisible = true }
     fun exit() { vm.close(); onExit() }
 
-    // Mise en veille / changement d'application : sauvegarde + libération, réouverture en pause.
+    // Mise en veille / changement d'application : sauvegarde + libération (après 5 s), réouverture en pause.
+    // Arrêt bref (changement de fréquence de l'écran au lancement, écran système) : la lecture continue.
     val owner = LocalLifecycleOwner.current
     DisposableEffect(owner) {
         val obs = LifecycleEventObserver { _, e ->
             when (e) {
-                Lifecycle.Event.ON_STOP -> vm.suspendSession()
-                Lifecycle.Event.ON_START -> vm.resumeSession()
+                Lifecycle.Event.ON_STOP -> vm.onStop()
+                Lifecycle.Event.ON_START -> vm.onStart()
                 else -> Unit
             }
         }
@@ -199,9 +200,9 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                 if ((sleepLeft ?: Long.MAX_VALUE) < 60_000) { sleepAt = System.currentTimeMillis() + 30 * 60_000L; return@onPreviewKeyEvent true }
                 val p = engine
                 when (ev.key) {
-                    Key.MediaPlayPause -> { p?.let { if (it.isPlaying) it.pause() else it.play() }; touch(); true }
+                    Key.MediaPlayPause -> { p?.let { if (it.isPlaying) { vm.userPaused = true; it.pause() } else it.play() }; touch(); true }
                     Key.MediaPlay -> { p?.play(); touch(); true }
-                    Key.MediaPause -> { p?.pause(); touch(); true }
+                    Key.MediaPause -> { vm.userPaused = true; p?.pause(); touch(); true }
                     Key.MediaFastForward -> { seekBy(30_000); touch(); true }
                     Key.MediaRewind -> { seekBy(-30_000); touch(); true }
                     else -> {
@@ -311,7 +312,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                         if (!vm.isLive) RoundButton(R.drawable.ic_back10, "Reculer de 10 s", { seekBy(-10_000); touch() }, overlay = "10")
                         else RoundButton(R.drawable.ic_up, "Chaîne précédente", { vm.zap(-1); touch() })
                         RoundButton(if (playing) R.drawable.ic_pause else R.drawable.ic_play, if (playing) "Pause" else "Lecture",
-                            { engine.let { if (it.isPlaying) it.pause() else it.play() }; touch() }, Modifier.focusRequester(playFocus), size = 46.dp, active = true)
+                            { engine.let { if (it.isPlaying) { vm.userPaused = true; it.pause() } else it.play() }; touch() }, Modifier.focusRequester(playFocus), size = 46.dp, active = true)
                         if (!vm.isLive) RoundButton(R.drawable.ic_fwd10, "Avancer de 10 s", { seekBy(10_000); touch() }, overlay = "10")
                         else RoundButton(R.drawable.ic_down, "Chaîne suivante", { vm.zap(1); touch() })
                     }

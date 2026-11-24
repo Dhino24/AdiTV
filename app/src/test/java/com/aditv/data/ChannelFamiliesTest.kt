@@ -47,4 +47,10 @@ class ChannelFamiliesTest {
         assertTrue(ChannelFamilies.isChampionsLeagueBroadcaster("AF| Canal+ Sport 1 Afrique"))
         assertFalse(ChannelFamilies.isChampionsLeagueBroadcaster("FR| beIN SPORTS 1"))
     }
+
+    @Test fun canalSportIncludesLiveChannels() {
+        listOf("FR| CANAL+ SPORT HD", "CANAL+ FOOT", "FR: Canal+ Live 3", "C+ RÉU| CANAL+ SPORT", "FR| CANAL+ SPORT 360", "Canal+ Premier League")
+            .forEach { assertTrue(it, ChannelFamilies.isCanalSport(it)) }
+        listOf("FR| CANAL+ HD", "FR| Canal+ Cinéma(s)", "FR| CANAL+ SÉRIES", "beIN SPORTS 1").forEach { assertFalse(it, ChannelFamilies.isCanalSport(it)) }
+    }
 }

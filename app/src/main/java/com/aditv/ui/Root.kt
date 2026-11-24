@@ -66,7 +66,13 @@ fun Root() {
         // Accessibilité : taille du texte choisie dans Réglages (agrandit les textes, pas la mise en page).
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, density.fontScale * BASE_TEXT_SCALE * textScale / 100f),
     ) {
-        Box(Modifier.fillMaxSize().background(Aditv.Bg).onPreviewKeyEvent {
+        // Bande-annonce à l'écran : fenêtre et fond transparents, sinon l'image (affichée derrière la fenêtre) est masquée.
+        val activity = androidx.activity.compose.LocalActivity.current
+        val hole = com.aditv.ui.common.VideoHole.active
+        androidx.compose.runtime.LaunchedEffect(hole) {
+            activity?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(if (hole) android.graphics.Color.TRANSPARENT else 0xFF07111A.toInt()))
+        }
+        Box(Modifier.fillMaxSize().background(if (hole) Color.Transparent else Aditv.Bg).onPreviewKeyEvent {
             if (showIntro) { if (it.type == KeyEventType.KeyDown) endIntro(); true }
             else {
                 // Validation (OK) : petit son de sélection, sans bloquer la touche.

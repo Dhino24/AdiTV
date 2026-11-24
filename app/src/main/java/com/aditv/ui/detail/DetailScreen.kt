@@ -180,6 +180,7 @@ fun DetailScreen(
     Box(Modifier.fillMaxSize()) {
         // Fond : visuel TMDB plein écran ; sinon l'affiche (ou le logo de la chaîne) à droite, fondue dans l'anthracite.
         when {
+            com.aditv.ui.common.VideoHole.backgroundPlaying -> Unit
             backdrop != null -> RemoteImage(backdrop, title, Modifier.fillMaxSize(), fallbackTitle = false)
             it.type == "LIVE" -> Box(Modifier.fillMaxHeight().fillMaxWidth(0.45f).align(Alignment.TopEnd).padding(top = 70.dp, end = 60.dp, bottom = 170.dp), contentAlignment = Alignment.Center) {
                 RemoteImage(it.imageUrl, title, Modifier.fillMaxSize(), ContentScale.Fit, fallbackTitle = false)

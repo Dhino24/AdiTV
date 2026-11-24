@@ -44,7 +44,7 @@ fun TrailerScreen(videoId: String, onClose: () -> Unit) {
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() }; delay(4_000); hint = false }
     BackHandler { onClose() }
     Box(
-        Modifier.fillMaxSize().background(Color.Black).focusRequester(focus).focusable()
+        Modifier.fillMaxSize().focusRequester(focus).focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type == KeyEventType.KeyDown && (ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.MediaPlayPause)) { control.toggle(); hint = true; true } else false
             },

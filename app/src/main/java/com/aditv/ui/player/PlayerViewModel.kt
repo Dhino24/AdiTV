@@ -159,6 +159,7 @@ class PlayerViewModel(
         logSession()
         request = effective
         title = req.title; subtitle = req.subtitle; isLive = req.isLive
+        if (resumeAtMs == null || req.isLive) guardStart()
         error = null
         engineChoice = store.choiceFor(choiceKey) ?: store.defaultChoice
         if (kind == null) { fellBack = false; engineNote = null }
@@ -377,6 +378,46 @@ class PlayerViewModel(
         play(r, resumeAtMs = engine?.positionMs?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs, kind = engine?.kind)
     }
 
+    private var stopJob: kotlinx.coroutines.Job? = null
+    /** Pause demandée à la télécommande : seule pause respectée pendant le démarrage. */
+    var userPaused = false
+    private var startGuard: kotlinx.coroutines.Job? = null
+
+    /** 4 premières secondes : toute pause non demandée (système, focus audio, touche OK parasite) est annulée. */
+    private fun guardStart() {
+        userPaused = false
+        startGuard?.cancel()
+        startGuard = viewModelScope.launch {
+            repeat(8) {
+                kotlinx.coroutines.delay(500)
+                val e = engine ?: return@repeat
+                if (!userPaused && error == null && stopJob?.isActive != true && !e.isPlaying) e.play()
+            }
+        }
+    }
+    private var playingBeforeStop = false
+
+    /**
+     * L'activité s'arrête. Souvent bref : la Fire TV change la fréquence de l'écran au lancement d'une vidéo, ou affiche
+     * un écran système → on met en pause et on attend 5 s avant de libérer la session (pas de reconnexion inutile).
+     */
+    fun onStop() {
+        if (stopJob?.isActive == true) return
+        playingBeforeStop = engine?.isPlaying == true || (engine != null && request?.isLive == true)
+        engine?.pause()
+        stopJob = viewModelScope.launch { kotlinx.coroutines.delay(5_000); suspendSession() }
+    }
+
+    /** Retour : arrêt bref → la lecture reprend d'elle-même ; long arrêt → réouverture (direct : en lecture, VOD : en pause). */
+    fun onStart() {
+        if (stopJob?.isActive == true) {
+            stopJob?.cancel(); stopJob = null
+            if (playingBeforeStop) engine?.play()
+            return
+        }
+        resumeSession()
+    }
+
     /** Mise en veille / sortie de l'app : on enregistre puis on libère la session (aucune seconde session au réveil). */
     fun suspendSession() {
         persistSnapshot()
@@ -394,7 +435,8 @@ class PlayerViewModel(
         val r = request ?: return
         if (engine != null) return
         play(r, resumeAtMs = suspendedAt, kind = if (fellBack) EngineKind.VLC else null)
-        engine?.holdPaused()
+        // Direct : on reprend en lecture (une chaîne en pause n'a pas de sens) ; film/série : en pause à la même position.
+        if (!r.isLive) engine?.holdPaused()
     }
 
     override fun onCleared() = close()

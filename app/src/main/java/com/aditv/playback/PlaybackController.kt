@@ -71,7 +71,7 @@ class PlaybackController(private val context: Context, private val streamClient:
             .setLoadControl(load)
             .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), /* focus audio : non — une bande-annonce (WebView) qui le prendrait mettrait la lecture en pause */ false)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setSeekBackIncrementMs(10_000)

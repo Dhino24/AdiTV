@@ -110,6 +110,10 @@ object ChannelFamilies {
         return ChannelPlace(family, broadcaster, number, country, french, uclBroadcasters.containsMatchIn(name))
     }
 
+    /** Canal+ qui diffuse du sport : Canal+ Sport, Foot, Sport 360, Premier League, les « Canal+ Live », versions outre-mer. */
+    private val canalSport = Regex("""(canal\+?|\bc\+) ?(sport|foot|live|premier|formula|f1|motogp|moto|rugby|top 14|golf|euro|ligue|champions|360)""")
+    fun isCanalSport(rawTitle: String): Boolean = canalSport.containsMatchIn(norm(rawTitle))
+
     /** Ligue des champions : programme du guide (titre ou catégorie). */
     private val ucl = Regex("""(ligue des champions|champions league|uefa champions|\bldc\b|\bucl\b)""")
     fun isChampionsLeague(title: String, category: String?) = ucl.containsMatchIn(norm("$title ${category.orEmpty()}"))

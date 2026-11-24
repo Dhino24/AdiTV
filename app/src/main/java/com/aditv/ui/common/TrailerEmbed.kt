@@ -33,13 +33,16 @@ fun TrailerEmbed(
     val ended = rememberUpdatedState(onEnded)
     val error = rememberUpdatedState(onError)
     val id = videoId.filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+    androidx.compose.runtime.DisposableEffect(Unit) { VideoHole.embeds++; onDispose { VideoHole.embeds-- } }
     key(id) {
         AndroidView(
             factory = { ctx ->
                 WebView(ctx).apply {
                     // La télécommande reste à ADI TV (le WebView ne prend jamais le focus).
                     isFocusable = false; isFocusableInTouchMode = false
-                    setBackgroundColor(android.graphics.Color.BLACK)
+                    // Transparent + accélération matérielle : la vidéo (affichée derrière la fenêtre sur Fire TV) reste visible.
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.mediaPlaybackRequiresUserGesture = false
@@ -51,7 +54,7 @@ fun TrailerEmbed(
                         @JavascriptInterface fun error(@Suppress("UNUSED_PARAMETER") code: Int) { main.post { error.value() } }
                     }, "AdiTv")
                     val html = """<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#p{position:absolute;inset:0;width:100%;height:100%}</style></head>
+<style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}#p{position:absolute;inset:0;width:100%;height:100%}</style></head>
 <body><div id="p"></div><script>
 var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';document.head.appendChild(tag);
 var player;function onYouTubeIframeAPIReady(){player=new YT.Player('p',{width:'100%',height:'100%',videoId:'$id',

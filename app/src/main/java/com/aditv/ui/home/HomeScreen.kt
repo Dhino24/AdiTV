@@ -554,13 +554,13 @@ private fun SportChannelsRow(accountId: String, channels: List<CatalogCard>, onS
 
 @Composable
 private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, onOpen: (String) -> Unit, onCard: (CatalogCard) -> Unit) {
-    Column(Modifier.padding(top = 10.dp)) {
+    Column(Modifier.padding(top = 4.dp)) {
         RowTitle(title, "tendances TMDB de la semaine, disponibles dans votre abonnement", Modifier.padding(start = 48.dp, bottom = 3.dp))
         // Grandes cartes (3 à 4 visibles) ; l'élément choisi glisse en douceur vers la gauche (position fixe), jusqu'au n° 10.
         val density = androidx.compose.ui.platform.LocalDensity.current
         val pivot = remember(density) { TopPivot(with(density) { 48.dp.toPx() }) }
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pivot) {
-            LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(start = 48.dp, end = 200.dp, top = 10.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(start = 48.dp, end = 200.dp, top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(entries.distinctBy { it.card.id }.take(10), key = { it.card.id }) { e ->
                     Box(Modifier.onFocusChanged { if (it.hasFocus) onCard(e.card) }) {
                         BigRankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
@@ -588,14 +588,14 @@ private fun BigRankedTile(rank: Int, title: String, subtitle: String?, posterUrl
     val numberColor by androidx.compose.animation.animateColorAsState(if (focused) Aditv.Text else Aditv.Text.copy(alpha = 0.42f), tween(260), label = "rang")
     val lift by androidx.compose.animation.core.animateDpAsState(if (focused) (-6).dp else 0.dp, tween(260), label = "lift")
     Row(Modifier.onFocusChanged { focused = it.hasFocus }.offset(y = lift), verticalAlignment = Alignment.Top) {
-        Box(Modifier.width(if (rank >= 10) 118.dp else 70.dp).height(214.dp), contentAlignment = Alignment.BottomEnd) {
+        Box(Modifier.width(if (rank >= 10) 104.dp else 62.dp).height(180.dp), contentAlignment = Alignment.BottomEnd) {
             Text(
-                rank.toString(), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 132.sp, lineHeight = 132.sp,
+                rank.toString(), fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 112.sp, lineHeight = 112.sp,
                 style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f)), color = numberColor,
                 maxLines = 1, softWrap = false, letterSpacing = (-6).sp,
-                modifier = Modifier.wrapContentWidth(Alignment.End, unbounded = true).offset(x = 8.dp, y = 22.dp),
+                modifier = Modifier.wrapContentWidth(Alignment.End, unbounded = true).offset(x = 8.dp, y = 18.dp),
             )
         }
-        PosterTile(title, subtitle, posterUrl, onClick, width = 142.dp)
+        PosterTile(title, subtitle, posterUrl, onClick, width = 120.dp)
     }
 }

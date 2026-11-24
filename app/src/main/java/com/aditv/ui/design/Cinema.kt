@@ -57,7 +57,8 @@ fun CinemaBackdrop(spot: Spot?, reduced: Boolean, dim: Float = 0f) {
         val byKey = androidx.compose.runtime.remember { LinkedHashMap<String?, Spot?>() }
         byKey[key] = spot
         while (byKey.size > 12) byKey.remove(byKey.keys.first())
-        Crossfade(targetState = key, animationSpec = tween(if (reduced) 0 else 450), label = "fond") { k ->
+        // Bande-annonce de fond en lecture : le visuel n'est plus dessiné (il masquerait la vidéo sur Fire TV).
+        if (!com.aditv.ui.common.VideoHole.backgroundPlaying) Crossfade(targetState = key, animationSpec = tween(if (reduced) 0 else 450), label = "fond") { k ->
             val s = byKey[k]
             Box(Modifier.fillMaxSize()) {
                 when {
@@ -113,12 +114,17 @@ fun TrailerBackground(trailer: String?, spotKey: String?) {
     var visible by androidx.compose.runtime.remember(spotKey) { androidx.compose.runtime.mutableStateOf(false) }
     var failed by androidx.compose.runtime.remember(spotKey) { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(spotKey, trailer) { ready = false; kotlinx.coroutines.delay(3_000); ready = true }
-    val alpha by androidx.compose.animation.core.animateFloatAsState(if (visible) 1f else 0f, tween(700), label = "bande-annonce")
-    if (ready && !failed) com.aditv.ui.common.TrailerEmbed(
-        trailer, muted = true, loop = true,
-        modifier = Modifier.fillMaxSize().androidx_alpha(alpha),
-        onPlaying = { visible = true }, onError = { failed = true },
-    )
+    androidx.compose.runtime.DisposableEffect(spotKey) { onDispose { com.aditv.ui.common.VideoHole.backgroundPlaying = false } }
+    // Pas de transparence sur le WebView lui-même (la vidéo ne la suivrait pas) : un voile au-dessus s'efface en fondu.
+    val veil by androidx.compose.animation.core.animateFloatAsState(if (visible) 0f else 1f, tween(700), label = "bande-annonce")
+    if (ready && !failed) {
+        com.aditv.ui.common.TrailerEmbed(
+            trailer, muted = true, loop = true, modifier = Modifier.fillMaxSize(),
+            onPlaying = { visible = true; com.aditv.ui.common.VideoHole.backgroundPlaying = true },
+            onError = { failed = true; com.aditv.ui.common.VideoHole.backgroundPlaying = false },
+        )
+        if (veil > 0f) Box(Modifier.fillMaxSize().background(Aditv.Bg.copy(alpha = veil)))
+    }
 }
 
-private fun Modifier.androidx_alpha(a: Float) = this.then(androidx.compose.ui.Modifier.graphicsLayer { alpha = a })
+

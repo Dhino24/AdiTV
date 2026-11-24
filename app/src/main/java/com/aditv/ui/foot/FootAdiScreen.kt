@@ -267,7 +267,7 @@ fun FootAdiScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit
                 }
             }
             Spacer(Modifier.width(24.dp))
-            Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 18.dp)) {
+            Box(Modifier.weight(1f).fillMaxHeight().padding(bottom = 28.dp)) {
                 shown?.let { f -> MatchPanel(f, vm.broadcasts[f.id].orEmpty(), vm.goals[f.id].orEmpty(), vm.lineups[f.id].orEmpty(),
                     onWatch = { b -> onPlayLive(b.channel.id, "fam:SPORT_FR") }, onRemind = { vm.remind(f, vm.broadcasts[f.id]?.firstOrNull()) },
                     onLineups = { sheet = f }, isReminded = vm.reminded[f.id] == true,
@@ -415,7 +415,7 @@ private fun MatchPanel(
 /** Classements : compétitions à gauche, tableau à droite (rang, équipe, J G N P, différence, points, forme). */
 @Composable
 private fun StandingsView(vm: FootViewModel, firstFocus: FocusRequester, upTo: FocusRequester) {
-    Row(Modifier.fillMaxSize().padding(bottom = 18.dp)) {
+    Row(Modifier.fillMaxSize().padding(bottom = 28.dp)) {
         Column(Modifier.width(230.dp).fillMaxHeight().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(2.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             FootballRepository.standingsLeagues.forEachIndexed { i, id ->
                 val name = FootballRepository.COMPETITIONS[id] ?: id.toString()

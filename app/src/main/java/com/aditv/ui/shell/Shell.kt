@@ -1,5 +1,6 @@
 package com.aditv.ui.shell
 
+import com.aditv.ui.design.premiumBackground
 import androidx.compose.ui.layout.layout
 import com.aditv.ui.design.liquidGlass
 import androidx.compose.ui.semantics.contentDescription
@@ -168,7 +169,7 @@ fun Shell(session: Session.Active) {
     LaunchedEffect(pendingChannel) { pendingChannel?.let { com.aditv.data.sport.PendingLaunch.channel.value = null; playLive(it, "sport") } }
 
     CompositionLocalProvider(LocalNavChrome provides chrome) {
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Aditv.BgAlt, Aditv.Bg))).onPreviewKeyEvent { ev ->
+        Box(Modifier.fillMaxSize().then(if (com.aditv.ui.common.VideoHole.active) Modifier else Modifier.premiumBackground()).onPreviewKeyEvent { ev ->
             val r = reminder
             if (r != null && ev.type == KeyEventType.KeyDown && ev.key == Key.Menu) {
                 com.aditv.data.sport.ReminderBus.clear(); playLive(r.channelItemId, "sport"); true
