@@ -65,6 +65,12 @@ class RemoteEntryServer(
                 "Collez la clé reçue par e-mail après l'inscription gratuite sur football-data.org (« API Token »).",
                 listOf(Field("value", "Clé football-data.org", "Coller ici", secret = true)),
             )
+            /** Copie depuis une autre TV de la maison (envoyée par ADI TV, pas saisie au téléphone). */
+            val TRANSFER = Form(
+                "Recevoir la configuration d'une autre TV",
+                "Sur votre autre TV ADI TV : Réglages → « Copier vers une autre TV », puis saisissez l'adresse et le code affichés ici.",
+                listOf(Field("payload", "Configuration", "", secret = true)),
+            )
             val TMDB = Form(
                 "Clé TMDB",
                 "Collez la clé API (v3) ou le jeton d'accès en lecture (v4) de votre compte themoviedb.org.",

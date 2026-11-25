@@ -83,6 +83,11 @@ class AppPrefs(private val context: Context) {
     }
 
     /** Dernier filtre choisi dans le Direct (catégorie, favoris, sport), par compte. */
+    // Assistant de premier démarrage (équipes, options gratuites) : montré une seule fois.
+    private val onboarding = booleanPreferencesKey("onboarding_done")
+    val onboardingDone: Flow<Boolean> = context.dataStore.data.map { it[onboarding] ?: false }
+    suspend fun setOnboardingDone() = context.dataStore.edit { it[onboarding] = true }
+
     // Démarrage sur la dernière chaîne (option) ; dernière chaîne regardée par profil (« id|liste de zapping »).
     private val startOnLast = booleanPreferencesKey("start_on_last_channel")
     val startOnLastChannel: Flow<Boolean> = context.dataStore.data.map { it[startOnLast] ?: false }

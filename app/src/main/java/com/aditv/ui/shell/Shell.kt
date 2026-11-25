@@ -171,6 +171,13 @@ fun Shell(session: Session.Active) {
     LaunchedEffect(reminder) { if (reminder != null) { delay(60_000); com.aditv.data.sport.ReminderBus.clear() } }
     // Notification de rappel choisie alors qu'ADITV était fermée : lecture de la chaîne.
     LaunchedEffect(accountId) { com.aditv.ui.foot.FootAlerts.watch(c, session.isDemo) }
+    var showOnboarding by remember { mutableStateOf(false) }
+    LaunchedEffect(accountId) {
+        if (session.isDemo || c.prefs.onboardingDone.first()) return@LaunchedEffect
+        // Utilisateur déjà installé (clés présentes) : rien à proposer.
+        if (c.tmdbKey.get() != null && c.footballKey.get() != null) { c.prefs.setOnboardingDone(); return@LaunchedEffect }
+        showOnboarding = true
+    }
     // Mise à jour d'ADI TV : vérifiée une fois par lancement (dépôt GitHub public), proposée si plus récente.
     var update by remember { mutableStateOf<com.aditv.data.update.UpdateInfo?>(null) }
     LaunchedEffect(Unit) {
@@ -272,7 +279,9 @@ fun Shell(session: Session.Active) {
                 com.aditv.ui.sport.ReminderBanner(r.title, r.channelName, r.startUtc, Modifier.align(Alignment.TopEnd).padding(top = 62.dp, end = 24.dp))
             }
 
-            update?.let { u -> com.aditv.ui.update.UpdateDialog(u, onClose = { update = null }) }
+            // Nouvel utilisateur : assistant (équipes, options gratuites), une seule fois ; jamais si les clés sont déjà là.
+            if (showOnboarding) com.aditv.ui.onboarding.OnboardingWizard(accountId) { showOnboarding = false }
+                        update?.let { u -> com.aditv.ui.update.UpdateDialog(u, onClose = { update = null }) }
 
             if (exitAsked) ExitDialog(onStay = { exitAsked = false; runCatching { requesters.getValue(selected).requestFocus() } }, onQuit = { activity?.finish() })
         }

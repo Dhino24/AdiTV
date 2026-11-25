@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.17.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.18.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.18.0 (25/11/2026) — partage simplifié
+- **Guide d'installation** public : `docs/INSTALLER_ADI_TV.md` (Downloader, adresses « dernière version » `releases/latest/download/ADITV-stick|cube.apk`, premier lancement, clés gratuites, mises à jour, plusieurs TV, dépannage). Codes courts is.gd / aftv.news à créer par Adama (réseau de l'environnement de dev bloqué vers ces sites).
+- **Assistant de premier démarrage** (nouvel utilisateur, une fois ; jamais si TMDB + API-Football déjà là) : 1) ses équipes (sélection vide au départ, pas celles d'Adama), 2) options gratuites TMDB / API-Football / football-data.org saisies par QR code ; tout facultatif.
+- **Copier vers une autre TV de la maison** : Réglages → saisir l'adresse + code affichés par l'autre TV (écran de connexion → « Recevoir d'une autre TV ») ; abonnement + 3 clés copiés ; réseau local seulement, code 4 chiffres + jeton, usage unique (`ConfigTransfer`, `RemoteEntryServer.Form.TRANSFER`).
+- Première version publiée par GitHub Actions.
 
 ### Clé de signature et publication (choix A d'Adama, 25/11/2026)
 - Les versions installées sont signées avec LA clé d'ADI TV (certificat SHA-256 `8ff3e1ce…9b694e`). Une mise à jour signée autrement est refusée par Android → désinstallation, perte des réglages.

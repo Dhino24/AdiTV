@@ -49,13 +49,14 @@ fun LoginScreen(notice: String?) {
     val consentRequester = remember { FocusRequester() }
     val saveRequester = remember { FocusRequester() }
     val testRequester = remember { FocusRequester() }
+    var tvEntry by remember { mutableStateOf(false) }
     var phoneEntry by remember { mutableStateOf(false) }
     var gotFromPhone by remember { mutableStateOf(false) }
     var panelUsed by remember { mutableStateOf(false) }
     com.aditv.ui.common.InitialFocus(first)
     // Panneau fermé : focus sur « Tester la connexion » si des accès sont arrivés, sinon sur le premier champ.
-    LaunchedEffect(phoneEntry) {
-        if (!phoneEntry && panelUsed) runCatching { (if (gotFromPhone) testRequester else first).requestFocus() }
+    LaunchedEffect(phoneEntry, tvEntry) {
+        if (!phoneEntry && !tvEntry && panelUsed) runCatching { (if (gotFromPhone) testRequester else first).requestFocus() }
     }
     LaunchedEffect(vm.phase) {
         when (vm.phase) {
@@ -105,6 +106,8 @@ fun LoginScreen(notice: String?) {
                     }
                     Spacer(Modifier.height(12.dp))
                     AditvButton("Saisir depuis mon téléphone (QR code)", { phoneEntry = true; panelUsed = true }, enabled = p !is LoginPhase.Testing && p !is LoginPhase.Saving)
+                    // Copie depuis une autre TV de la maison (abonnement + clés), envoyée depuis ses Réglages.
+                    AditvButton("Recevoir d'une autre TV", { tvEntry = true; panelUsed = true }, enabled = p !is LoginPhase.Testing && p !is LoginPhase.Saving)
                     if (p is LoginPhase.Failed) {
                         Spacer(Modifier.height(14.dp))
                         Text(p.message, style = MaterialTheme.typography.bodyLarge, color = Aditv.Error)
@@ -114,6 +117,18 @@ fun LoginScreen(notice: String?) {
             }
         }
     }
+    if (tvEntry) com.aditv.ui.common.RemoteEntryPanel(
+        com.aditv.net.RemoteEntryServer.Form.TRANSFER,
+        onReceived = { v ->
+            com.aditv.net.ConfigTransfer.decode(v["payload"].orEmpty())?.let { t ->
+                t.server?.let { vm.server = it }; t.username?.let { vm.username = it }; t.password?.let { vm.password = it }
+                t.tmdb?.let { container.tmdbKey.set(it) }; t.football?.let { container.footballKey.set(it) }; t.footballData?.let { container.footballDataKey.set(it) }
+                vm.onEdited()
+                gotFromPhone = true
+            }
+        },
+        onClose = { tvEntry = false },
+    )
     if (phoneEntry) com.aditv.ui.common.RemoteEntryPanel(
         com.aditv.net.RemoteEntryServer.Form.LOGIN,
         onReceived = { v ->

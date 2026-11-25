@@ -63,6 +63,7 @@ fun SettingsScreen(session: Session.Active) {
         Text("Réglages", style = MaterialTheme.typography.displaySmall, color = Aditv.Text)
 
         Section("Profils") { ProfilesSection() }
+        if (!session.isDemo) Section("Copier vers une autre TV de la maison") { TransferSection(session) }
         Section("Compte fournisseur") {
             Fact("Type", if (session.isDemo) "Démo (contenu fictif, sans lecture)" else "API compatible Xtream (vérifiée à la connexion)")
             if (!session.isDemo) {
@@ -602,4 +603,35 @@ private fun UpdateCheck() {
         status?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
     }
     found?.let { com.aditv.ui.update.UpdateDialog(it, onClose = { found = null }) }
+}
+
+/** Envoie abonnement + clés à une autre TV de la maison (qui affiche « Recevoir d'une autre TV » sur son écran de connexion). */
+@Composable
+private fun TransferSection(session: com.aditv.data.Session.Active) {
+    val c = LocalContainer.current
+    val scope = rememberCoroutineScope()
+    var address by remember { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    Text("Pour vos propres TV uniquement (ce sont VOS accès). Sur l'autre Fire TV : installez ADI TV, puis sur l'écran de connexion choisissez « Recevoir d'une autre TV » : elle affiche une adresse et un code. Saisissez-les ici. Les deux TV doivent être sur le même Wi-Fi.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        com.aditv.ui.common.TvTextField("Adresse affichée (ex. 192.168.1.20:41234)", address, { address = it; message = null }, Modifier.widthIn(max = 360.dp), placeholder = "OK pour saisir")
+        com.aditv.ui.common.TvTextField("Code", pin, { pin = it.filter(Char::isDigit).take(4); message = null }, Modifier.widthIn(max = 140.dp), placeholder = "4 chiffres")
+    }
+    AditvButton(if (busy) "Envoi…" else "Envoyer abonnement et clés", {
+        if (pin.length != 4) { message = "Saisissez le code à 4 chiffres affiché sur l'autre TV."; return@AditvButton }
+        busy = true
+        scope.launch {
+            message = try {
+                val secret = session.account.secretRef?.let { c.secrets.get(it) }
+                com.aditv.net.ConfigTransfer.send(address, pin, com.aditv.net.ConfigTransfer.Payload(
+                    session.account.endpoint, secret?.username, secret?.password, c.tmdbKey.get(), c.footballKey.get(), c.footballDataKey.get(),
+                ))
+            } catch (e: Exception) { "Autre TV injoignable (même Wi-Fi ? écran « Recevoir » toujours ouvert ?)." }
+            busy = false
+        }
+    }, enabled = !busy)
+    message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text) }
 }
