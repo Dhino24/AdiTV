@@ -559,7 +559,7 @@ private fun SportChannelsRow(accountId: String, channels: List<CatalogCard>, onS
 }
 
 @Composable
-private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, onOpen: (String) -> Unit, onCard: (CatalogCard) -> Unit) {
+internal fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, onOpen: (String) -> Unit, firstModifier: Modifier = Modifier, onCard: (CatalogCard) -> Unit) {
     Column(Modifier.padding(top = 4.dp)) {
         RowTitle(title, "tendances TMDB de la semaine, disponibles dans votre abonnement", Modifier.padding(start = 48.dp, bottom = 3.dp))
         // Grandes cartes (3 à 4 visibles) ; l'élément choisi glisse en douceur vers la gauche (position fixe), jusqu'au n° 10.
@@ -567,8 +567,9 @@ private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, o
         val pivot = remember(density) { TopPivot(with(density) { 48.dp.toPx() }) }
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pivot) {
             LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(start = 48.dp, end = 200.dp, top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(entries.distinctBy { it.card.id }.take(10), key = { it.card.id }) { e ->
-                    Box(Modifier.onFocusChanged { if (it.hasFocus) onCard(e.card) }) {
+                val list = entries.distinctBy { it.card.id }.take(10)
+                items(list, key = { it.card.id }) { e ->
+                    Box((if (e === list.first()) firstModifier else Modifier).onFocusChanged { if (it.hasFocus) onCard(e.card) }) {
                         BigRankedTile(e.rank, e.card.title, listOfNotNull(e.card.year?.toString(), variantBadge(e.card.lang, e.card.quality)).joinToString(" · ").ifEmpty { null },
                             tmdbImage(e.poster, "w500") ?: tmdbImage(e.card.tmdbPoster, "w500") ?: e.card.imageUrl, { onOpen(e.card.id) })
                     }
@@ -584,7 +585,7 @@ private fun TopRow(title: String, entries: List<com.aditv.data.tmdb.TopEntry>, o
  * en horizontal (rangées pleine largeur), l'élément choisi se place à [pivotPx] du bord gauche. Glissade douce.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private class HomePivot(private val pivotPx: Float, private val wideThresholdPx: Float, private val titlePx: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
+internal class HomePivot(private val pivotPx: Float, private val wideThresholdPx: Float, private val titlePx: Float) : androidx.compose.foundation.gestures.BringIntoViewSpec {
     @Suppress("OVERRIDE_DEPRECATION")
     override val scrollAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> =
         androidx.compose.animation.core.tween(480, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))

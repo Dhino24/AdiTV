@@ -5,16 +5,23 @@ import android.content.Intent
 import android.net.Uri
 
 /**
- * Bande-annonce : TMDB ne fournit qu'une référence YouTube, pas de flux vidéo lisible directement.
- * On l'ouvre donc dans l'application YouTube de la Fire TV (ou un navigateur) si elle est installée ;
- * sinon le bouton n'est pas affiché. Pas d'extraction de flux YouTube (interdite par ses conditions).
+ * Bande-annonce dans l'appli YouTube officielle de la Fire TV (image et son garantis). Le lecteur YouTube intégré
+ * (WebView) ne montre pas l'image sur Fire TV — seulement le son — : il ne sert plus qu'en dernier recours.
+ * Retour sur la télécommande : revient dans ADI TV.
  */
 object Trailer {
-    private fun intent(key: String) = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$key"))
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    /** Appli YouTube Fire TV, YouTube pour Android TV, puis tout ce qui ouvre un lien YouTube. */
+    private val packages = listOf("com.amazon.firetv.youtube", "com.google.android.youtube.tv", "com.google.android.youtube")
 
-    fun canOpen(context: Context): Boolean =
-        intent("aditv-test").resolveActivity(context.packageManager) != null
+    private fun intents(key: String): List<Intent> = packages.flatMap { pkg ->
+        listOf(Intent(Intent.ACTION_VIEW, Uri.parse("vnd.youtube:$key")), Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$key")))
+            .map { it.setPackage(pkg) }
+    } + Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$key"))
 
-    fun open(context: Context, key: String): Boolean = runCatching { context.startActivity(intent(key)); true }.getOrDefault(false)
+    private fun first(context: Context, key: String): Intent? =
+        intents(key).firstOrNull { it.resolveActivity(context.packageManager) != null }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun canOpen(context: Context): Boolean = first(context, "aditv-test") != null
+
+    fun open(context: Context, key: String): Boolean = runCatching { context.startActivity(first(context, key) ?: return false); true }.getOrDefault(false)
 }

@@ -200,7 +200,8 @@ fun Shell(session: Session.Active) {
                             onPlay = { pid, fs -> if (pid.contains("|LIVE|")) playLive(pid, "all") else play(pid, fs) },
                             onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
                             onMapGuide = { nav.navigate("epgmap/" + Uri.encode(it)) },
-                            onTrailer = { nav.navigate("trailer/" + Uri.encode(it)) },
+                            // Appli YouTube (image et son) ; lecteur intégré seulement si aucune appli YouTube n'est installée.
+                            onTrailer = { k -> if (!com.aditv.ui.common.Trailer.open(activity ?: return@DetailScreen, k)) nav.navigate("trailer/" + Uri.encode(k)) },
                         )
                     }
                     composable("trailer/{key}") { e -> com.aditv.ui.detail.TrailerScreen(Uri.decode(e.arguments?.getString("key").orEmpty()), onClose = { nav.popBackStack() }) }

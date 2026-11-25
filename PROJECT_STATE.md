@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.16.5) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.16.6) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,10 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.16.6 (25/11/2026) — bandes-annonces dans l'appli YouTube, Top 10 dans Films / Séries
+- **Bandes-annonces** : toujours le son sans l'image avec le lecteur YouTube intégré (WebView) sur la Fire TV d'Adama, malgré la 0.16.4. Désormais ouvertes dans l'**appli YouTube officielle** (Fire TV, puis YouTube Android TV, puis tout lecteur de liens YouTube) ; Retour revient dans ADI TV. Lecteur intégré seulement si aucune appli YouTube. Bandes-annonces de fond (Cube) désactivées.
+- **Top 10 du moment en tête de l'onglet Séries** (et des films dans l'onglet Films), sélectionné à l'ouverture ; même calage de rangée que l'accueil (affiches entières).
 
 ### 0.16.5 (24/11/2026) — accueil : rangée choisie calée en haut, affiches entières
 - La rangée précédente restait à moitié visible (seulement ses légendes : espace perdu) et la rangée choisie, calée en bas, avait ses affiches coupées. Désormais (défilement « pivot » vertical) : l'affiche choisie se place juste sous le titre de sa rangée, en haut de la zone ; la rangée précédente disparaît entièrement ; glissade douce. Dans les rangées, l'élément choisi glisse vers la gauche (même règle partout).

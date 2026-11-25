@@ -1,5 +1,7 @@
 package com.aditv.ui.cinema
 
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapLatest
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,13 +65,20 @@ fun CinemaBrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> U
                 .collapsed(prefs).map { it.first }.distinctBy { it.id }.take(30)
         }
     }
+    // Top 10 du moment (tendances TMDB disponibles dans l'abonnement), en tête de Films / Séries.
+    val tmdbType = if (type == MediaType.SERIES) "tv" else "movie"
+    val top by remember(accountId, type) {
+        kotlinx.coroutines.flow.combine(c.db.sport().observeTrending(tmdbType), c.prefs.variantPrefs) { t, p -> t to p }
+            .mapLatest { (t, p) -> c.trending.top(accountId, tmdbType, t, p) }.flowOn(Dispatchers.Default)
+    }.collectAsStateWithLifecycle(emptyList())
     var spot by remember { mutableStateOf<Spot?>(null) }
     var focused by remember { mutableStateOf<Pair<CatalogCard, String>?>(null) }
     LaunchedEffect(focused) { val (card, k) = focused ?: return@LaunchedEffect; delay(140); spot = c.spotFor(card, k) }
     val onCard: (CatalogCard, String) -> Unit = { card, k -> spot = quickSpot(card, k); focused = card to k }
     val first = remember { FocusRequester() }
     val entry = com.aditv.ui.LocalScreenEntry.current
-    com.aditv.ui.common.InitialFocus(first, key = recent?.isNotEmpty() == true, enabled = recent?.isNotEmpty() == true)
+    val hasTop = top.isNotEmpty()
+    com.aditv.ui.common.InitialFocus(first, key = (recent?.isNotEmpty() == true) to hasTop, enabled = recent?.isNotEmpty() == true || hasTop)
     LaunchedEffect(recent) { if (spot == null) recent?.firstOrNull()?.let { spot = c.spotFor(it, "Ajouts récents") } }
 
     Box(Modifier.fillMaxSize()) {
@@ -80,16 +89,27 @@ fun CinemaBrowseScreen(accountId: String, type: MediaType, onOpen: (String) -> U
             recent!!.isEmpty() && categories.isNullOrEmpty() -> Box(Modifier.fillMaxSize().padding(top = 120.dp), contentAlignment = Alignment.TopCenter) {
                 StateBox(R.drawable.ic_film, "Aucun titre pour l'instant", "Le catalogue se met à jour : Réglages → Catalogue local pour suivre l'import.")
             }
-            else -> LazyColumn(Modifier.fillMaxSize().padding(top = 250.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
+            else -> {
+              // Même règle que l'accueil : rangée choisie calée en haut, affiches entières.
+              val density = androidx.compose.ui.platform.LocalDensity.current
+              val pivot = remember(density) { com.aditv.ui.home.HomePivot(with(density) { 48.dp.toPx() }, with(density) { 600.dp.toPx() }, with(density) { 44.dp.toPx() }) }
+              androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pivot) {
+              LazyColumn(Modifier.fillMaxSize().padding(top = 250.dp), contentPadding = PaddingValues(bottom = 300.dp)) {
                 item(key = "actions") {
                     Row(Modifier.padding(start = 48.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         PillButton("Tout parcourir", onBrowseAll, icon = R.drawable.ic_layers, primary = false, small = true)
                     }
                 }
+                if (top.isNotEmpty()) item(key = "top10") {
+                    val label = if (type == MediaType.SERIES) "séries" else "films"
+                    com.aditv.ui.home.TopRow("Top 10 des $label du moment", top, onOpen, Modifier.focusRequester(first).focusRequester(entry)) { onCard(it, "Top 10 des $label") }
+                }
                 recent?.takeIf { it.isNotEmpty() }?.let { list ->
-                    item(key = "recent") { PosterRow("Ajouts récents", list, onOpen, onCard, Modifier.focusRequester(first).focusRequester(entry)) }
+                    item(key = "recent") { PosterRow("Ajouts récents", list, onOpen, onCard, if (hasTop) Modifier else Modifier.focusRequester(first).focusRequester(entry)) }
                 }
                 items(categories.orEmpty().distinctBy { it.id }, key = { it.id }) { cat -> CategoryRow(accountId, type, cat.id, cat.name, onOpen, onCard) }
+            }
+              }
             }
         }
     }
