@@ -170,6 +170,8 @@ class PlayerViewModel(
         saver?.cancel()
         saver = viewModelScope.launch { while (isActive) { delay(10_000); if (e.isPlaying) persistSnapshot() } }
         refreshLiveInfo()
+        // Dernière chaîne regardée (démarrage direct sur la dernière chaîne, option des Réglages).
+        if (req.isLive) currentItem?.id?.let { id -> viewModelScope.launch { c.prefs.setLastLive(com.aditv.data.profile.Profiles.key(accountId), id, liveList) } }
     }
 
     /** Choix du moteur pour ce contenu (mémorisé), appliqué tout de suite à la même position. */
@@ -278,7 +280,7 @@ class PlayerViewModel(
             updatePosition(); return
         }
         val raw = when {
-            liveList == "fav" -> c.db.live().favorites(accountId).first()
+            liveList == "fav" -> c.db.live().favorites(com.aditv.data.profile.Profiles.key(accountId)).first()
             // Chaînes de sport françaises (rangée « Sport en direct ») : zapping entre elles.
             liveList == "sport" -> c.sport.frenchSportChannels(accountId)
             liveList?.startsWith("cat:") == true -> c.db.catalog().cardsInCategory(accountId, "LIVE", liveList.removePrefix("cat:")).first()
@@ -318,7 +320,7 @@ class PlayerViewModel(
         }
     }
 
-    private suspend fun isFav(item: CatalogItemEntity): Boolean = c.db.live().favoriteIds(accountId).first().let { ids ->
+    private suspend fun isFav(item: CatalogItemEntity): Boolean = c.db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId)).first().let { ids ->
         item.id in ids || (item.variantKey != null && c.db.catalog().variantSiblings(accountId, "LIVE", item.variantKey).any { it.id in ids })
     }
 
@@ -326,8 +328,8 @@ class PlayerViewModel(
         val item = currentItem ?: return
         viewModelScope.launch {
             val siblings = item.variantKey?.let { c.db.catalog().variantSiblings(accountId, "LIVE", it) }.orEmpty() + item
-            if (isFavorite) siblings.forEach { c.db.live().removeFavorite(accountId, it.id) }
-            else c.db.live().addFavorite(FavoriteChannelEntity(accountId, item.id, System.currentTimeMillis()))
+            if (isFavorite) siblings.forEach { c.db.live().removeFavorite(com.aditv.data.profile.Profiles.key(accountId), it.id) }
+            else c.db.live().addFavorite(FavoriteChannelEntity(com.aditv.data.profile.Profiles.key(accountId), item.id, System.currentTimeMillis()))
             isFavorite = !isFavorite
         }
     }

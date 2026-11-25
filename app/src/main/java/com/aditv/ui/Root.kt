@@ -1,5 +1,6 @@
 package com.aditv.ui
 
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -87,7 +88,15 @@ fun Root() {
                     Image(painterResource(R.drawable.logo_full), contentDescription = "ADI TV", modifier = Modifier.width(220.dp).aspectRatio(com.aditv.ui.intro.LOGO_RATIO))
                 }
                 is Session.SignedOut -> LoginScreen(s.notice)
-                is Session.Active -> Shell(s)
+                is Session.Active -> {
+                    // Profils : « Qui regarde ? » au lancement s'il y en a plusieurs ; tout se recharge au changement de profil.
+                    val profiles by com.aditv.data.profile.Profiles.list.collectAsState()
+                    val active by com.aditv.data.profile.Profiles.active.collectAsState()
+                    var chosen by remember { mutableStateOf(com.aditv.ui.profile.ProfileGate.chosen || profiles.size < 2) }
+                    if (!chosen && !showIntro) com.aditv.ui.profile.ProfilePicker(profiles, active) { p ->
+                        com.aditv.data.profile.Profiles.select(p.id); com.aditv.ui.profile.ProfileGate.chosen = true; chosen = true
+                    } else if (chosen) androidx.compose.runtime.key(active) { Shell(s) }
+                }
             }
             val prefs = intro
             if (showIntro && prefs != null) com.aditv.ui.intro.IntroOverlay(prefs.first, prefs.second, reduced) { endIntro() }

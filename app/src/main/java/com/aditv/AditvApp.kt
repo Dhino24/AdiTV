@@ -18,6 +18,7 @@ class AditvApp : Application(), SingletonImageLoader.Factory {
         androidx.media3.common.util.Log.setLogLevel(
             if (BuildConfig.DEBUG) androidx.media3.common.util.Log.LOG_LEVEL_WARNING else androidx.media3.common.util.Log.LOG_LEVEL_OFF
         )
+        com.aditv.data.profile.Profiles.init(this)
         container = AppContainer(this)
         com.aditv.core.CrashReporter.extraState = {
             container.sync.running.value.values.joinToString(" · ") { "Synchro ${it.type.name} : ${it.stage}, ${it.count} reçus" }.ifEmpty { "Aucune synchro en cours" }

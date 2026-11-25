@@ -83,6 +83,14 @@ class AppPrefs(private val context: Context) {
     }
 
     /** Dernier filtre choisi dans le Direct (catégorie, favoris, sport), par compte. */
+    // Démarrage sur la dernière chaîne (option) ; dernière chaîne regardée par profil (« id|liste de zapping »).
+    private val startOnLast = booleanPreferencesKey("start_on_last_channel")
+    val startOnLastChannel: Flow<Boolean> = context.dataStore.data.map { it[startOnLast] ?: false }
+    suspend fun setStartOnLastChannel(v: Boolean) = context.dataStore.edit { it[startOnLast] = v }
+    fun lastLive(profileKey: String): Flow<String?> = context.dataStore.data.map { it[stringPreferencesKey("last_live_$profileKey")] }
+    suspend fun setLastLive(profileKey: String, itemId: String, list: String?) =
+        context.dataStore.edit { it[stringPreferencesKey("last_live_$profileKey")] = itemId + "|" + (list ?: "all") }
+
     fun guideFilter(accountId: String): Flow<String?> = context.dataStore.data.map { it[stringPreferencesKey("guide_filter_$accountId")] }
     suspend fun setGuideFilter(accountId: String, key: String) = context.dataStore.edit { it[stringPreferencesKey("guide_filter_$accountId")] = key }
 

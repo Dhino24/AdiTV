@@ -112,10 +112,10 @@ fun DetailScreen(
         val m = match
         if (m?.status == "confirmed" && m.tmdbId != null) c.db.metadata().observeMetadata(m.mediaType, m.tmdbId) else flowOf(null)
     }.collectAsStateWithLifecycle(null)
-    val inList by remember(id) { c.db.library().inWatchlist(accountId, id) }.collectAsStateWithLifecycle(false)
-    val progress by remember(id) { c.db.library().observeProgress(accountId, id) }.collectAsStateWithLifecycle(null)
+    val inList by remember(id) { c.db.library().inWatchlist(com.aditv.data.profile.Profiles.key(accountId), id) }.collectAsStateWithLifecycle(false)
+    val progress by remember(id) { c.db.library().observeProgress(com.aditv.data.profile.Profiles.key(accountId), id) }.collectAsStateWithLifecycle(null)
     val episodes by remember(id) { c.db.library().episodes(id) }.collectAsStateWithLifecycle(emptyList())
-    val seriesProgress by remember(id) { c.db.library().progressForSeries(accountId, id) }.collectAsStateWithLifecycle(emptyList())
+    val seriesProgress by remember(id) { c.db.library().progressForSeries(com.aditv.data.profile.Profiles.key(accountId), id) }.collectAsStateWithLifecycle(emptyList())
     var tmdbProblem by remember { mutableStateOf<String?>(null) }
     var episodesError by remember { mutableStateOf<String?>(null) }
     var categoryName by remember { mutableStateOf<String?>(null) }
@@ -127,7 +127,7 @@ fun DetailScreen(
     val prefs by c.prefs.variantPrefs.collectAsStateWithLifecycle(com.aditv.data.variants.VariantPrefs())
     var siblings by remember { mutableStateOf<List<com.aditv.data.db.CatalogItemEntity>>(emptyList()) }
     var chosenVersion by remember { mutableStateOf<String?>(null) }
-    val favIds by remember(accountId) { c.db.live().favoriteIds(accountId) }.collectAsStateWithLifecycle(emptyList())
+    val favIds by remember(accountId) { c.db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId)) }.collectAsStateWithLifecycle(emptyList())
     var nowNext by remember { mutableStateOf<List<com.aditv.data.epg.Programme>>(emptyList()) }
     val mapping by remember(id) { c.db.live().observeMapping(id) }.collectAsStateWithLifecycle(null)
     var primaryFocused by remember { mutableStateOf(false) }
@@ -233,8 +233,8 @@ fun DetailScreen(
                         } else {
                             RoundButton(if (inFav) R.drawable.ic_star else R.drawable.ic_star_outline, if (inFav) "Chaîne favorite" else "Ajouter aux favoris", {
                                 scope.launch {
-                                    if (inFav) (siblings.map { s -> s.id } + id).forEach { x -> c.db.live().removeFavorite(accountId, x) }
-                                    else c.db.live().addFavorite(com.aditv.data.db.FavoriteChannelEntity(accountId, playId, System.currentTimeMillis()))
+                                    if (inFav) (siblings.map { s -> s.id } + id).forEach { x -> c.db.live().removeFavorite(com.aditv.data.profile.Profiles.key(accountId), x) }
+                                    else c.db.live().addFavorite(com.aditv.data.db.FavoriteChannelEntity(com.aditv.data.profile.Profiles.key(accountId), playId, System.currentTimeMillis()))
                                 }
                             }, active = inFav)
                             if (siblings.size > 1) RoundButton(R.drawable.ic_layers, "Versions", { versionsOpen = true })

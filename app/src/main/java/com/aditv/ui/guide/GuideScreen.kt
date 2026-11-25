@@ -103,7 +103,7 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
 
     init {
         viewModelScope.launch {
-            val favs = c.db.live().favorites(accountId).first()
+            val favs = c.db.live().favorites(com.aditv.data.profile.Profiles.key(accountId)).first()
             val cats: List<CategoryEntity> = c.db.catalog().categories(accountId, "LIVE").first()
             filters = buildList {
                 if (favs.isNotEmpty()) add(GuideFilter("fav", "★ Favoris"))
@@ -159,7 +159,7 @@ class GuideViewModel(private val c: AppContainer, private val accountId: String)
     private suspend fun compute(f: GuideFilter, windowStart: Long): Loaded {
         val prefs = c.prefs.variantPrefs.first()
         val raw = when {
-            f.key == "fav" -> c.db.live().favorites(accountId).first()
+            f.key == "fav" -> c.db.live().favorites(com.aditv.data.profile.Profiles.key(accountId)).first()
             // Chaînes de sport (nom ou catégorie), les françaises d'abord.
             f.key == "sport" -> {
                 val names = c.db.catalog().categories(accountId, "LIVE").first().associate { it.id to it.name }
@@ -213,7 +213,7 @@ fun GuideScreen(session: Session.Active, onPlayLive: (String, String?) -> Unit, 
     val entry = LocalScreenEntry.current
     val dayFmt = remember { SimpleDateFormat("EEEE d MMMM", Locale.FRANCE) }
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.FRANCE) }
-    val favIds by remember { c.db.live().favoriteIds(session.account.id) }.collectAsStateWithLifecycle(emptyList())
+    val favIds by remember { c.db.live().favoriteIds(com.aditv.data.profile.Profiles.key(session.account.id)) }.collectAsStateWithLifecycle(emptyList())
     val reminders by remember { c.sport.upcomingReminders(session.account.id) }.collectAsStateWithLifecycle(emptyList())
     val remindedKeys = remember(reminders) { reminders.map { it.matchKey }.toSet() }
     val scope = androidx.compose.runtime.rememberCoroutineScope()

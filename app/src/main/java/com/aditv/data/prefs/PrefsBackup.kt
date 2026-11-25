@@ -36,10 +36,10 @@ class PrefsBackup(
         o.put("engineDefault", engines.defaultChoice.name)
         o.put("turboDefault", engines.turboDefault)
         o.put("follows", JSONArray(db.sport().follows(accountId).map { it.key }))
-        val favIds = db.live().favoriteIds(accountId).first().toSet()
+        val favIds = db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId)).first().toSet()
         val favTitles = db.catalog().allChannels(accountId).filter { it.id in favIds }.mapNotNull { db.catalog().observeItem(it.id).first()?.rawTitle }
         o.put("favoriteChannels", JSONArray(favTitles))
-        o.put("myList", JSONArray(db.library().watchlist(accountId).first().mapNotNull { c -> db.catalog().observeItem(c.id).first()?.let { "${it.type}|${it.rawTitle}" } }))
+        o.put("myList", JSONArray(db.library().watchlist(com.aditv.data.profile.Profiles.key(accountId)).first().mapNotNull { c -> db.catalog().observeItem(c.id).first()?.let { "${it.type}|${it.rawTitle}" } }))
         file.writeText(o.toString(2))
         file
     }
@@ -62,7 +62,7 @@ class PrefsBackup(
             val wanted = (0 until a.length()).map { a.getString(it) }.toSet()
             channels.forEach { c ->
                 val raw = db.catalog().observeItem(c.id).first()?.rawTitle
-                if (raw in wanted) { db.live().addFavorite(FavoriteChannelEntity(accountId, c.id, System.currentTimeMillis())); favs++ }
+                if (raw in wanted) { db.live().addFavorite(FavoriteChannelEntity(com.aditv.data.profile.Profiles.key(accountId), c.id, System.currentTimeMillis())); favs++ }
             }
         }
         var list = 0
@@ -71,7 +71,7 @@ class PrefsBackup(
                 val (type, raw) = a.getString(i).split('|', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
                 val key = com.aditv.core.TitleNormalizer.clean(raw).searchKey
                 db.catalog().search(accountId, key, 20).firstOrNull { it.type == type }?.let {
-                    db.library().addToWatchlist(com.aditv.data.db.WatchlistEntity(accountId, it.id, System.currentTimeMillis())); list++
+                    db.library().addToWatchlist(com.aditv.data.db.WatchlistEntity(com.aditv.data.profile.Profiles.key(accountId), it.id, System.currentTimeMillis())); list++
                 }
             }
         }

@@ -37,13 +37,13 @@ class LibraryRepository(private val db: AditvDatabase, private val clock: () -> 
         if (durationMs <= 0 && positionMs <= 0) return
         dao.upsertProgress(
             WatchProgressEntity(
-                accountId, contentId, kind, seriesItemId, positionMs.coerceAtLeast(0), durationMs.coerceAtLeast(0), clock(),
+                com.aditv.data.profile.Profiles.key(accountId), contentId, kind, seriesItemId, positionMs.coerceAtLeast(0), durationMs.coerceAtLeast(0), clock(),
                 ProgressPolicy.isCompleted(positionMs, durationMs),
             )
         )
     }
 
-    suspend fun progress(accountId: String, contentId: String) = dao.progress(accountId, contentId)
+    suspend fun progress(accountId: String, contentId: String) = dao.progress(com.aditv.data.profile.Profiles.key(accountId), contentId)
 
     /** Épisode suivant dans l'ordre fournisseur (saison puis numéro), sans en inventer. */
     suspend fun nextEpisode(seriesItemId: String, currentEpisodeId: String): EpisodeEntity? {
@@ -55,17 +55,17 @@ class LibraryRepository(private val db: AditvDatabase, private val clock: () -> 
     /** Épisode à proposer : celui en cours, sinon le suivant du dernier terminé, sinon le premier. */
     suspend fun episodeToResume(accountId: String, seriesItemId: String): Pair<EpisodeEntity, Long?>? {
         val list = dao.episodesNow(seriesItemId).ifEmpty { return null }
-        val last = dao.lastForSeries(accountId, seriesItemId) ?: return list.first() to null
+        val last = dao.lastForSeries(com.aditv.data.profile.Profiles.key(accountId), seriesItemId) ?: return list.first() to null
         val current = list.firstOrNull { it.id == last.contentId } ?: return list.first() to null
         return if (last.completed) (list.getOrNull(list.indexOf(current) + 1) ?: current) to null
         else current to ProgressPolicy.resumePosition(last.positionMs, last.durationMs, false)
     }
 
     suspend fun toggleWatchlist(accountId: String, itemId: String, add: Boolean) =
-        if (add) dao.addToWatchlist(WatchlistEntity(accountId, itemId, clock())) else dao.removeFromWatchlist(accountId, itemId)
+        if (add) dao.addToWatchlist(WatchlistEntity(com.aditv.data.profile.Profiles.key(accountId), itemId, clock())) else dao.removeFromWatchlist(com.aditv.data.profile.Profiles.key(accountId), itemId)
 
     /** Retire un élément de « Reprendre » (historique effaçable). */
-    suspend fun forget(accountId: String, itemId: String) = dao.clearProgressFor(accountId, itemId)
+    suspend fun forget(accountId: String, itemId: String) = dao.clearProgressFor(com.aditv.data.profile.Profiles.key(accountId), itemId)
 
     companion object {
         fun movieItemId(accountId: String, providerId: String) = CatalogMapping.itemId(accountId, MediaType.MOVIE, providerId)

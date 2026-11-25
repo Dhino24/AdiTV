@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.16.6) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.17.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,14 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.17.0 (25/11/2026) — profils, dernière chaîne, alertes FootAdi, mise à jour automatique, bandes-annonces dans ADI TV
+- **Pause au lancement** : confirmée corrigée par Adama (0.16.4).
+- **Bandes-annonces dans ADI TV** : écran Android dédié (`TrailerActivity`, WebView seul plein écran, sans Compose autour) — OK pause/lecture, Menu ≡ = appli YouTube, Retour = fiche ; fin ou erreur → appli YouTube.
+- **Profils** (`Profiles`) : chacun sa liste, sa progression (« Reprendre ») et ses chaînes favorites (clé « compte~profil » ; le profil principal garde les données d'avant). « Qui regarde ? » au démarrage s'il y en a plusieurs ; initiale du profil à côté de l'heure ; Réglages → Profils (ajouter, renommer, supprimer, utiliser).
+- **Démarrage sur la dernière chaîne** (Réglages → Démarrage) : dernière chaîne du profil, une fois par lancement ; Retour → accueil.
+- **Alertes FootAdi** : « Vos équipes aujourd'hui » sur l'accueil (OK → FootAdi) ; « ⚽ BUT ! » en haut de l'écran pendant les matchs des équipes suivies, même en lecture (1 requête / 5 min au plus pendant le match, rien en mode économie).
+- **Mise à jour automatique** : `updates/latest.json` + APK sur le dépôt GitHub public (`scripts/publish_update.py`) ; vérifiée au lancement (et Réglages → Application) ; téléchargement avec progression, contrôle taille + SHA-256, puis installeur Android. Autorisation « Installer des applis inconnues » demandée une fois. ⚠️ Les mises à jour exigent la même clé de signature : voir « Clé de signature » ci-dessous.
 
 ### 0.16.6 (25/11/2026) — bandes-annonces dans l'appli YouTube, Top 10 dans Films / Séries
 - **Bandes-annonces** : toujours le son sans l'image avec le lecteur YouTube intégré (WebView) sur la Fire TV d'Adama, malgré la 0.16.4. Désormais ouvertes dans l'**appli YouTube officielle** (Fire TV, puis YouTube Android TV, puis tout lecteur de liens YouTube) ; Retour revient dans ADI TV. Lecteur intégré seulement si aucune appli YouTube. Bandes-annonces de fond (Cube) désactivées.

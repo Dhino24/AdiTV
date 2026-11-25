@@ -160,11 +160,11 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
         dao.recentlyAdded(accountId, MediaType.MOVIE.name, 1).flatMapLatest { recent ->
             if (recent.isEmpty()) dao.firstItems(accountId, MediaType.MOVIE.name, 200) else kotlinx.coroutines.flow.flowOf(emptyList())
         },
-        c.db.library().watchlist(accountId),
+        c.db.library().watchlist(com.aditv.data.profile.Profiles.key(accountId)),
     ) { recentMovies, recentSeries, channels, anyMovies, myList -> listOf(recentMovies, recentSeries, channels, anyMovies, myList) }
         .throttleLatest(3_000)
 
-    private val catalogRows = combine(rawRows, c.db.live().favorites(accountId).throttleLatest(3_000), c.prefs.variantPrefs) { lists, favorites, prefs ->
+    private val catalogRows = combine(rawRows, c.db.live().favorites(com.aditv.data.profile.Profiles.key(accountId)).throttleLatest(3_000), c.prefs.variantPrefs) { lists, favorites, prefs ->
         val (recentMovies, recentSeries, channels, anyMovies, myList) = lists.map { it.collapsed(prefs).take(24) }
         val rows = buildList {
             // « Ajoutés récemment » = date d'ajout déclarée par le fournisseur, pas des sorties récentes.
@@ -181,7 +181,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
     }.flowOn(Dispatchers.Default) // regroupement des versions hors du fil de l'interface
 
     val state: StateFlow<HomeState> = combine(
-        catalogRows, c.db.library().resumeRows(accountId, 20), dao.observeSyncStates(accountId).throttleLatest(3_000),
+        catalogRows, c.db.library().resumeRows(com.aditv.data.profile.Profiles.key(accountId), 20), dao.observeSyncStates(accountId).throttleLatest(3_000),
     ) { rowsAndHero, resume, syncStates -> Triple(rowsAndHero, resume, syncStates) }
         .mapLatest { (rowsAndHero, resume, syncStates) ->
             val (rows, heroCards, myList) = rowsAndHero
@@ -262,7 +262,7 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
 fun typeLabel(type: String) = when (type) { "LIVE" -> "Direct"; "MOVIE" -> "Films"; else -> "Séries" }
 
 @Composable
-fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit, onPlayLive: (String, String?) -> Unit) {
+fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit, onPlayLive: (String, String?) -> Unit, onFoot: () -> Unit = {}) {
     val c = LocalContainer.current
     val vm: HomeViewModel = viewModel(key = "home-$accountId") { HomeViewModel(c, accountId) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -341,6 +341,8 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                         modifier = Modifier.onFocusChanged { heroFocused = it.hasFocus },
                     ) else Spacer(Modifier.height(10.dp))
                 }
+                // FootAdi : vos équipes suivies jouent aujourd'hui.
+                item(key = "myteams") { com.aditv.ui.foot.MyTeamsToday(c, isDemo, onFoot) }
                 // Films et séries : mise à jour proposée toutes les 3 semaines (jamais à chaque ouverture).
                 vodDue?.let { days -> item(key = "vodupdate") { VodUpdatePrompt(days, onUpdate = { c.syncVodNow() }, onLater = { scope.launch { c.snoozeVodUpdate() } }) } }
                 // Demandé par Adama : les chaînes de sport françaises tout de suite à l'écran.

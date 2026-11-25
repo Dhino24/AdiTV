@@ -73,7 +73,7 @@ fun SearchScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (Strin
     var digits by rememberSaveable { mutableStateOf(false) }
     var raw by remember { mutableStateOf<List<CatalogCard>?>(emptyList()) }
     val results = remember(raw, prefs) { raw?.collapsed(prefs)?.map { it.first } }
-    val myList by remember(accountId) { c.db.library().watchlist(accountId) }.collectAsStateWithLifecycle(emptyList())
+    val myList by remember(accountId) { c.db.library().watchlist(com.aditv.data.profile.Profiles.key(accountId)) }.collectAsStateWithLifecycle(emptyList())
     val firstKey = remember { FocusRequester() }
     InitialFocus(firstKey)
     LaunchedEffect(query) {

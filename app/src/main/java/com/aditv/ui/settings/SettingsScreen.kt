@@ -1,5 +1,7 @@
 package com.aditv.ui.settings
 
+import androidx.compose.ui.Alignment
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -60,6 +62,7 @@ fun SettingsScreen(session: Session.Active) {
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 48.dp, top = 84.dp, end = 48.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Réglages", style = MaterialTheme.typography.displaySmall, color = Aditv.Text)
 
+        Section("Profils") { ProfilesSection() }
         Section("Compte fournisseur") {
             Fact("Type", if (session.isDemo) "Démo (contenu fictif, sans lecture)" else "API compatible Xtream (vérifiée à la connexion)")
             if (!session.isDemo) {
@@ -115,6 +118,7 @@ fun SettingsScreen(session: Session.Active) {
                 style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
         }
 
+        Section("Démarrage") { StartupSection() }
         Section("Lecture : langue et qualité") {
             PlaybackPrefsSection()
         }
@@ -155,6 +159,7 @@ fun SettingsScreen(session: Session.Active) {
 
         Section("Plantages") { CrashSection() }
         Section("Application") {
+            UpdateCheck()
             Fact("Version", BuildConfig.VERSION_NAME + if (BuildConfig.DEBUG) " (build de test)" else "")
             Fact("Appareil", com.aditv.core.DeviceProfile.label + " · Android " + android.os.Build.VERSION.RELEASE)
             Fact("Confidentialité", "Aucune télémétrie. Accès chiffrés (Android Keystore), exclus des sauvegardes et des journaux.")
@@ -528,4 +533,73 @@ private fun KeyBlock(
         if (configured) AditvButton("Supprimer la clé", { store.clear(); configured = false; message = "Clé supprimée." })
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+}
+
+/** Profils : chacun sa liste, sa progression, ses favoris et sa dernière chaîne. Le catalogue et l'abonnement sont communs. */
+@Composable
+private fun ProfilesSection() {
+    val profiles by com.aditv.data.profile.Profiles.list.collectAsState()
+    val active by com.aditv.data.profile.Profiles.active.collectAsState()
+    var name by remember { mutableStateOf("") }
+    var renaming by remember { mutableStateOf<String?>(null) }
+    Text("Chaque profil a sa propre liste, sa progression (« Reprendre ») et ses chaînes favorites. Avec plusieurs profils, ADI TV demande « Qui regarde ? » au démarrage.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+    profiles.forEach { p ->
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            com.aditv.ui.profile.Avatar(p, 30.dp)
+            Text(p.name + if (p.id == active) "  · actif" else "", style = MaterialTheme.typography.bodyLarge, color = if (p.id == active) Aditv.Text else Aditv.TextSecondary, modifier = Modifier.widthIn(min = 160.dp))
+            if (p.id != active) AditvButton("Utiliser", { com.aditv.data.profile.Profiles.select(p.id) })
+            AditvButton("Renommer", { renaming = p.id; name = p.name })
+            if (p.id != com.aditv.data.profile.Profiles.MAIN) AditvButton("Supprimer", { com.aditv.data.profile.Profiles.remove(p.id) })
+        }
+    }
+    com.aditv.ui.common.TvTextField(if (renaming != null) "Nouveau nom" else "Nom du nouveau profil", name, { name = it }, Modifier.widthIn(max = 420.dp), placeholder = "OK pour saisir")
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AditvButton(if (renaming != null) "Renommer" else "Ajouter un profil", {
+            val n = name.trim(); if (n.isEmpty()) return@AditvButton
+            renaming?.let { com.aditv.data.profile.Profiles.rename(it, n) } ?: com.aditv.data.profile.Profiles.add(n)
+            name = ""; renaming = null
+        })
+        if (renaming != null) AditvButton("Annuler", { name = ""; renaming = null })
+    }
+}
+
+/** Au lancement : l'accueil, ou directement la dernière chaîne regardée (comme une box TV). */
+@Composable
+private fun StartupSection() {
+    val c = LocalContainer.current
+    val scope = rememberCoroutineScope()
+    val onLast by c.prefs.startOnLastChannel.collectAsState(false)
+    Text("Au lancement d'ADI TV :", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        com.aditv.ui.design.FilterChip("Accueil", !onLast, { scope.launch { c.prefs.setStartOnLastChannel(false) } })
+        com.aditv.ui.design.FilterChip("Dernière chaîne regardée", onLast, { scope.launch { c.prefs.setStartOnLastChannel(true) } })
+    }
+    Text("Avec « Dernière chaîne », le direct démarre tout seul sur la dernière chaîne du profil ; Retour ramène à l'accueil.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
+}
+
+/** Recherche manuelle d'une mise à jour (Réglages → Application). */
+@Composable
+private fun UpdateCheck() {
+    val c = LocalContainer.current
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf<String?>(null) }
+    var found by remember { mutableStateOf<com.aditv.data.update.UpdateInfo?>(null) }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        AditvButton("Rechercher une mise à jour", {
+            status = "Recherche…"
+            scope.launch {
+                val r = runCatching { c.updater.check() }
+                found = r.getOrNull()
+                status = when {
+                    r.isFailure -> "Impossible de vérifier (réseau)."
+                    found == null -> "ADI TV est à jour (${com.aditv.BuildConfig.VERSION_NAME})."
+                    else -> null
+                }
+            }
+        })
+        status?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary) }
+    }
+    found?.let { com.aditv.ui.update.UpdateDialog(it, onClose = { found = null }) }
 }

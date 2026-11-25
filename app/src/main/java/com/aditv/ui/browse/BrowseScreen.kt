@@ -80,7 +80,7 @@ class BrowseViewModel(c: AppContainer, private val accountId: String, private va
     private val dao = c.db.catalog()
     val categories: StateFlow<List<CategoryEntity>?> =
         dao.categories(accountId, type.name)
-            .combine(c.db.live().favoriteIds(accountId)) { cats, favs ->
+            .combine(c.db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId))) { cats, favs ->
                 buildList {
                     // « ★ Favoris » en tête du Direct dès qu'une chaîne est favorite.
                     if (type == MediaType.LIVE && favs.isNotEmpty()) add(CategoryEntity(FAVORITES, accountId, type.name, FAVORITES, "★ Favoris", -2, true, 0))
@@ -101,7 +101,7 @@ class BrowseViewModel(c: AppContainer, private val accountId: String, private va
             window.value = PAGE; grownFrom = -1
             val source = when (id) {
                 null -> flowOf(emptyList())
-                FAVORITES -> c.db.live().favorites(accountId)
+                FAVORITES -> c.db.live().favorites(com.aditv.data.profile.Profiles.key(accountId))
                 else -> window.flatMapLatest { n ->
                     dao.cardsWindow(accountId, type.name, id.takeIf { it != ALL }, s.ordinal, n).map { rows -> rawCount = rows.size; rows }
                 }

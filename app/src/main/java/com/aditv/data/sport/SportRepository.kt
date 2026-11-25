@@ -77,7 +77,7 @@ class SportRepository(
         val follows = dao.follows(accountId)
         if (follows.isEmpty()) return emptyList()
         val variantPrefs = prefs.variantPrefs.first()
-        val favorites = db.live().favoriteIds(accountId).first().toSet()
+        val favorites = db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId)).first().toSet()
         val catNames = db.catalog().categories(accountId, "LIVE").first().associate { it.id to it.name }
         val mappings = db.live().mappings(accountId).associateBy { it.itemId }
         val sources = db.live().sources(accountId).associateBy { it.id }

@@ -1,5 +1,6 @@
 package com.aditv.ui.shell
 
+import kotlinx.coroutines.flow.first
 import com.aditv.ui.design.premiumBackground
 import androidx.compose.ui.layout.layout
 import com.aditv.ui.design.liquidGlass
@@ -108,6 +109,9 @@ private val navItems = listOf(Tab("search", "Rechercher", R.drawable.ic_search))
 /** À droite de la barre : Recherche, Ma liste (signet), Réglages. */
 private val topRoutes = tabs.map { it.route } + listOf("search", "mylist", "settings")
 
+/** Démarrage sur la dernière chaîne : une seule fois par lancement (pas à chaque retour sur l'accueil). */
+object StartGate { var done = false }
+
 /** Barre de navigation : les écrans qui défilent la masquent ; elle réapparaît dès qu'elle reçoit le focus. */
 @Stable
 class NavChrome { var scrolled by mutableStateOf(false) }
@@ -120,6 +124,7 @@ val LocalNavChrome = staticCompositionLocalOf { NavChrome() }
  */
 @Composable
 fun Shell(session: Session.Active) {
+    val c = LocalContainer.current
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val currentRoute = entry?.destination?.route
@@ -165,6 +170,25 @@ fun Shell(session: Session.Active) {
     val reminder by com.aditv.data.sport.ReminderBus.current.collectAsStateWithLifecycle()
     LaunchedEffect(reminder) { if (reminder != null) { delay(60_000); com.aditv.data.sport.ReminderBus.clear() } }
     // Notification de rappel choisie alors qu'ADITV était fermée : lecture de la chaîne.
+    LaunchedEffect(accountId) { com.aditv.ui.foot.FootAlerts.watch(c, session.isDemo) }
+    // Mise à jour d'ADI TV : vérifiée une fois par lancement (dépôt GitHub public), proposée si plus récente.
+    var update by remember { mutableStateOf<com.aditv.data.update.UpdateInfo?>(null) }
+    LaunchedEffect(Unit) {
+        // Versions de développement (et tests) : pas de proposition de mise à jour.
+        if (com.aditv.ui.update.UpdateGate.asked || com.aditv.BuildConfig.DEBUG) return@LaunchedEffect
+        com.aditv.ui.update.UpdateGate.asked = true
+        delay(4_000)
+        update = runCatching { c.updater.check() }.getOrNull()
+    }
+    // Option « Démarrer sur la dernière chaîne » : une fois par lancement de l'appli, la dernière chaîne du profil.
+    LaunchedEffect(Unit) {
+        if (StartGate.done) return@LaunchedEffect
+        StartGate.done = true
+        if (!c.prefs.startOnLastChannel.first()) return@LaunchedEffect
+        val last = c.prefs.lastLive(com.aditv.data.profile.Profiles.key(accountId)).first() ?: return@LaunchedEffect
+        val id = last.substringBefore('|'); val list = last.substringAfter('|', "all")
+        if (c.db.catalog().observeItem(id).first() != null) playLive(id, list)
+    }
     val pendingChannel by com.aditv.data.sport.PendingLaunch.channel.collectAsStateWithLifecycle()
     LaunchedEffect(pendingChannel) { pendingChannel?.let { com.aditv.data.sport.PendingLaunch.channel.value = null; playLive(it, "sport") } }
 
@@ -182,7 +206,7 @@ fun Shell(session: Session.Active) {
                     enterTransition = { fadeIn(tween(120)) }, exitTransition = { fadeOut(tween(80)) },
                     popEnterTransition = { fadeIn(tween(120)) }, popExitTransition = { fadeOut(tween(80)) },
                 ) {
-                    composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive) } }
+                    composable("home") { Entry(entries, "home") { HomeScreen(accountId, session.isDemo, onOpen = openItem, onPlay = play, onPlayLive = playLive, onFoot = { go("foot") }) } }
                     composable("search") { Entry(entries, "search") { SearchScreen(accountId, onOpen = openItem, onPlayLive = { playLive(it, "all") }) } }
                     composable("live") { Entry(entries, "live") { com.aditv.ui.live.LiveScreen(session, onPlayLive = playLive, onGuide = { nav.navigate("guide") }) } }
                     composable("foot") { Entry(entries, "foot") { com.aditv.ui.foot.FootAdiScreen(session, onPlayLive = playLive, onSettings = { go("settings") }) } }
@@ -200,8 +224,8 @@ fun Shell(session: Session.Active) {
                             onPlay = { pid, fs -> if (pid.contains("|LIVE|")) playLive(pid, "all") else play(pid, fs) },
                             onOpen = openItem, onCorrect = { nav.navigate("match/" + Uri.encode(it)) },
                             onMapGuide = { nav.navigate("epgmap/" + Uri.encode(it)) },
-                            // Appli YouTube (image et son) ; lecteur intégré seulement si aucune appli YouTube n'est installée.
-                            onTrailer = { k -> if (!com.aditv.ui.common.Trailer.open(activity ?: return@DetailScreen, k)) nav.navigate("trailer/" + Uri.encode(k)) },
+                            // Bande-annonce dans ADI TV (écran dédié plein écran) ; Menu ≡ l'ouvre dans l'appli YouTube.
+                            onTrailer = { k -> activity?.startActivity(android.content.Intent(activity, com.aditv.TrailerActivity::class.java).putExtra(com.aditv.TrailerActivity.EXTRA_KEY, k)) },
                         )
                     }
                     composable("trailer/{key}") { e -> com.aditv.ui.detail.TrailerScreen(Uri.decode(e.arguments?.getString("key").orEmpty()), onClose = { nav.popBackStack() }) }
@@ -241,9 +265,14 @@ fun Shell(session: Session.Active) {
                 }
             }
 
+            // Alertes de but de vos équipes (FootAdi), par-dessus tout, même pendant une lecture.
+            com.aditv.ui.foot.FootAlerts.current?.let { a -> com.aditv.ui.foot.GoalBanner(a, Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) }
+
             reminder?.let { r ->
                 com.aditv.ui.sport.ReminderBanner(r.title, r.channelName, r.startUtc, Modifier.align(Alignment.TopEnd).padding(top = 62.dp, end = 24.dp))
             }
+
+            update?.let { u -> com.aditv.ui.update.UpdateDialog(u, onClose = { update = null }) }
 
             if (exitAsked) ExitDialog(onStay = { exitAsked = false; runCatching { requesters.getValue(selected).requestFocus() } }, onQuit = { activity?.finish() })
         }
@@ -298,6 +327,9 @@ private fun TopNav(
                 }
             }
             Text(clock, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
+            // Profil actif (s'il y en a plusieurs) : son initiale à côté de l'heure.
+            val profiles by com.aditv.data.profile.Profiles.list.collectAsStateWithLifecycle()
+            if (profiles.size > 1) com.aditv.ui.profile.Avatar(com.aditv.data.profile.Profiles.current(), 24.dp)
         }
     }
 }

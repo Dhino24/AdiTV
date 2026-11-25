@@ -114,7 +114,7 @@ class LiveViewModel(private val c: AppContainer, private val accountId: String) 
             family = families.firstOrNull { it.key == last } ?: families.firstOrNull { it.key == "fam:SPORT_FR" } ?: families.firstOrNull()
             reload()
         }
-        viewModelScope.launch { c.db.live().favoriteIds(accountId).collect { favorites = it.toSet() } }
+        viewModelScope.launch { c.db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId)).collect { favorites = it.toSet() } }
         viewModelScope.launch { while (true) { delay(60_000 - System.currentTimeMillis() % 60_000 + 500); if (items != null) reload() } }
     }
 
@@ -164,8 +164,8 @@ class LiveViewModel(private val c: AppContainer, private val accountId: String) 
     }
 
     fun toggleFavorite(id: String) = viewModelScope.launch {
-        if (id in favorites) c.db.live().removeFavorite(accountId, id)
-        else c.db.live().addFavorite(com.aditv.data.db.FavoriteChannelEntity(accountId, id, System.currentTimeMillis()))
+        if (id in favorites) c.db.live().removeFavorite(com.aditv.data.profile.Profiles.key(accountId), id)
+        else c.db.live().addFavorite(com.aditv.data.db.FavoriteChannelEntity(com.aditv.data.profile.Profiles.key(accountId), id, System.currentTimeMillis()))
         LiveCatalog.invalidate(); reload(refreshFamilies = true)
     }
 

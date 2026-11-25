@@ -65,7 +65,7 @@ object LiveCatalog {
 
     suspend fun families(c: AppContainer, accountId: String): List<FamilyEntry> {
         val idx = index(c, accountId)
-        val favCount = c.db.live().favoriteIds(accountId).first().size
+        val favCount = c.db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId)).first().size
         val counts = idx.placed.groupingBy { it.second.family }.eachCount()
         val ucl = idx.placed.count { it.second.ucl && it.second.family != Family.MONDE }
         return buildList {
@@ -82,7 +82,7 @@ object LiveCatalog {
         val idx = index(c, accountId)
         return when {
             key == FAV -> {
-                val favs = c.db.live().favoriteIds(accountId).first().toSet()
+                val favs = c.db.live().favoriteIds(com.aditv.data.profile.Profiles.key(accountId)).first().toSet()
                 sorted(idx.placed.filter { it.first.id in favs })
             }
             // Diffuseurs de la Ligue des champions : France (Canal+, M6) puis Afrique francophone (Canal+ Afrique, New World TV).

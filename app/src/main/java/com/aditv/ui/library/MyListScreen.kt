@@ -56,8 +56,8 @@ import com.aditv.ui.theme.Aditv
 @Composable
 fun MyListScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (String, String?) -> Unit, onBrowse: (String) -> Unit) {
     val c = LocalContainer.current
-    val list by remember(accountId) { c.db.library().watchlist(accountId) }.collectAsStateWithLifecycle(null)
-    val favRaw by remember(accountId) { c.db.live().favorites(accountId) }.collectAsStateWithLifecycle(null)
+    val list by remember(accountId) { c.db.library().watchlist(com.aditv.data.profile.Profiles.key(accountId)) }.collectAsStateWithLifecycle(null)
+    val favRaw by remember(accountId) { c.db.live().favorites(com.aditv.data.profile.Profiles.key(accountId)) }.collectAsStateWithLifecycle(null)
     val prefs by c.prefs.variantPrefs.collectAsStateWithLifecycle(com.aditv.data.variants.VariantPrefs())
     val favorites = remember(favRaw, prefs) { favRaw?.collapsed(prefs)?.map { it.first } }
     var filter by rememberSaveable { mutableStateOf("all") }
