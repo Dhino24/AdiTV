@@ -1,15 +1,15 @@
 {
-  "versionCode": 50,
-  "versionName": "0.20.0",
-  "notes": "Nouveau : mode Multiplex (2 chaînes à l'écran, focus sur l'une), thème Nuit OLED (noir pur, automatique le soir), notifications redessinées. Correction : plus de rappels pour le basket du Real Madrid.",
+  "versionCode": 51,
+  "versionName": "0.21.0",
+  "notes": "Nouveau : réalisateur du Multiplex (score en direct sur chaque écran, bascule automatique sur le match où il y a but — touche Menu pour l'activer ou non) et pause automatique « Toujours là ? » après plusieurs heures sans télécommande (réglable dans Paramètres).",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.20.0/ADITV-cube.apk",
-    "sha256": "2aa9bc23207d327c4c31db7cea1036c00505703cf891e774aec6e0745b6012bb",
-    "size": 27281395
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.0/ADITV-cube.apk",
+    "sha256": "5ec2159ee57c44df6cd61f6e50bd156e495fa51d610573ed851d6e356c78a143",
+    "size": 27291659
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.20.0/ADITV-stick.apk",
-    "sha256": "68a0c8ba70e1b9ba4812b7a1e1625fe858c1880f78fab1a2602b61cbbbbb235e",
-    "size": 24727247
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.0/ADITV-stick.apk",
+    "sha256": "ff76b311ea0b398930e6990fe194a09027ad0373b1603c8c10fed666c5668a35",
+    "size": 24730831
   }
 }
