@@ -1,15 +1,15 @@
 {
-  "versionCode": 52,
-  "versionName": "0.21.1",
-  "notes": "Fiches films et séries : photos des acteurs, on peut enfin descendre jusqu'en bas (distribution, À propos), le titre n'est plus coupé en haut.",
+  "versionCode": 53,
+  "versionName": "0.21.2",
+  "notes": "Alertes de but plus rapides : pendant les matchs de vos équipes (et dans le Multiplex), les scores sont relevés en direct jusqu'à chaque minute selon le quota API-Football restant.",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.1/ADITV-cube.apk",
-    "sha256": "e03d5663ebd8cb28ca4f58748c3bf64d45816c34a9c9c0d53db62681276c012f",
-    "size": 27293347
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.2/ADITV-cube.apk",
+    "sha256": "dc71127ff93c93ed928f5fc8d67f21b23d406a9cb787d77394cbe09e00d24f8c",
+    "size": 27295167
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.1/ADITV-stick.apk",
-    "sha256": "5f9dd4375f21475274294b678cdbdb2d55c6f2d57ed62e17a61b7a3b6e033c0f",
-    "size": 24731651
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.2/ADITV-stick.apk",
+    "sha256": "aec41f3b181bca7c303db817106becb8c03c1944e43783146c2dfe48b416fccc",
+    "size": 24731951
   }
 }
