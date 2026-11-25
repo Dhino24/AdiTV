@@ -3,13 +3,13 @@
   "versionName": "0.17.0",
   "notes": "Profils, démarrage sur la dernière chaîne, alertes de buts FootAdi, bandes-annonces dans ADI TV, mise à jour automatique.",
   "cube": {
-    "url": "https://raw.githubusercontent.com/dhino24/aditv/claude/new-session-9assu0/updates/ADITV-cube.apk",
-    "sha256": "24a9f0c5055eae47fac79e74671cb1101509a20f0643a3457db6a26c393e4a4c",
-    "size": 27201367
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.17.0/ADITV-cube.apk",
+    "sha256": "c5242643acbad3bfb9fc69fe3fdc8ddb107ec55841b2bda37910220959767abe",
+    "size": 27201371
   },
   "stick": {
-    "url": "https://raw.githubusercontent.com/dhino24/aditv/claude/new-session-9assu0/updates/ADITV-stick.apk",
-    "sha256": "ed4c3b8a4641e2e3ff950f3b206bf128d1f5f81a5d8166a236497c1a7bfc0cb5",
-    "size": 24684423
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.17.0/ADITV-stick.apk",
+    "sha256": "2a272ecbbccd31e733b4dcce2acbd0570b47f7be5347b8648845d92c66624e8b",
+    "size": 24684427
   }
 }
