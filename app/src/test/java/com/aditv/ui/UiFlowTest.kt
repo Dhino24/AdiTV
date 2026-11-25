@@ -345,6 +345,25 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
         shot("14_reglages_sport")
     }
 
+    /** Thème Nuit OLED : le fond de l'appli doit devenir noir pur (demande d'Adama : « je ne vois pas de noir pur »). */
+    @Test fun oledThemeIsPureBlack() {
+        waitText("Connectez votre abonnement")
+        press("Essayer le mode démo")
+        waitText("Regarder")
+        val app = rule.activity.application as com.aditv.AditvApp
+        kotlinx.coroutines.runBlocking { app.container.prefs.setThemeMode("oled") }
+        rule.waitUntil(5_000) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100)); com.aditv.ui.theme.Aditv.theme == com.aditv.ui.theme.ThemeKind.OLED }
+        rule.waitForIdle()
+        shot("18_theme_oled")
+        val bmp = rule.onRoot().captureToImage().asAndroidBitmap()
+        // Coin bas droit (fond, hors visuels) : noir pur attendu.
+        val px = bmp.getPixel(bmp.width - 10, bmp.height - 10)
+        val rgb = Triple(android.graphics.Color.red(px), android.graphics.Color.green(px), android.graphics.Color.blue(px))
+        System.err.println("OLED pixel = $rgb")
+        kotlinx.coroutines.runBlocking { app.container.prefs.setThemeMode("cinema") }
+        org.junit.Assert.assertTrue("fond non noir : $rgb", rgb.first <= 6 && rgb.second <= 6 && rgb.third <= 6)
+    }
+
     /** Fiche série (saisons, épisodes) depuis l'onglet Séries. */
     @Test fun seriesDetailWithEpisodes() {
         waitText("Connectez votre abonnement")
