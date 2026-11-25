@@ -181,7 +181,8 @@ fun Shell(session: Session.Active) {
         while (true) {
             delay(15_000)
             val minutes = c.prefs.screensaverMinutes.first()
-            val playing = nav.currentDestination?.route?.startsWith("play") == true || nav.currentDestination?.route?.startsWith("trailer") == true
+            val route = nav.currentDestination?.route.orEmpty()
+            val playing = route.startsWith("play") || route.startsWith("trailer") || route.startsWith("multi")
             // Seulement quand ADI TV est à l'écran (pas pendant Netflix ou l'écran d'accueil Fire TV).
             val visible = saverLifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
             if (!saver && visible && minutes > 0 && !playing && com.aditv.core.UserActivity.idleFor(minutes * 60_000L)) saver = true
@@ -204,7 +205,7 @@ fun Shell(session: Session.Active) {
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             delay(3_000)
             // Jamais par-dessus une vidéo en cours : on attend le retour aux menus.
-            while (nav.currentDestination?.route?.startsWith("play") == true) delay(5_000)
+            while (nav.currentDestination?.route.orEmpty().let { it.startsWith("play") || it.startsWith("multi") }) delay(5_000)
             if (!com.aditv.ui.update.UpdateGate.due()) return@repeatOnLifecycle
             val found = runCatching { c.updater.check() }
                 .onFailure { com.aditv.core.CrashReporter.event("Mise à jour : vérification impossible (${it.javaClass.simpleName})") }
@@ -274,7 +275,13 @@ fun Shell(session: Session.Active) {
                             session, Uri.decode(e.arguments?.getString("id").orEmpty()), e.arguments?.getBoolean("start") ?: false,
                             liveList = e.arguments?.getString("list")?.let(Uri::decode),
                             onExit = { nav.popBackStack() },
+                            onMultiplex = { a, b -> nav.navigate("multi/" + Uri.encode(a) + "/" + Uri.encode(b)) { popUpTo("play/{id}?start={start}&list={list}") { inclusive = true } } },
                         )
+                    }
+                    // Multiplex : 2 chaînes ; Retour = la chaîne active en plein écran.
+                    composable("multi/{a}/{b}") { e ->
+                        com.aditv.ui.multiplex.MultiplexScreen(session, Uri.decode(e.arguments?.getString("a").orEmpty()), Uri.decode(e.arguments?.getString("b").orEmpty()),
+                            onSingle = { id -> nav.popBackStack(); playLive(id, "fam:SPORT_FR") })
                     }
                 }
             }
@@ -299,7 +306,7 @@ fun Shell(session: Session.Active) {
             }
 
             // Alertes de but de vos équipes (FootAdi), par-dessus tout, même pendant une lecture.
-            com.aditv.ui.foot.FootAlerts.current?.let { a -> com.aditv.ui.foot.GoalBanner(a, Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) }
+            com.aditv.ui.foot.FootAlerts.current?.let { a -> com.aditv.ui.foot.GoalBanner(a, Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 24.dp)) }
 
             reminder?.let { r ->
                 com.aditv.ui.sport.ReminderBanner(r.title, r.channelName, r.startUtc, Modifier.align(Alignment.TopEnd).padding(top = 62.dp, end = 24.dp))

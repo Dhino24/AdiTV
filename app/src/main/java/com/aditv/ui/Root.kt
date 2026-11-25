@@ -1,5 +1,7 @@
 package com.aditv.ui
 
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -67,11 +69,23 @@ fun Root() {
         // Accessibilité : taille du texte choisie dans Réglages (agrandit les textes, pas la mise en page).
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, density.fontScale * BASE_TEXT_SCALE * textScale / 100f),
     ) {
+        // Thème (Cinéma / Nuit OLED / automatique le soir), réévalué chaque minute en mode automatique.
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            c.prefs.themeMode.collectLatest { mode ->
+                while (true) {
+                    val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                    Aditv.theme = when (mode) { "oled" -> com.aditv.ui.theme.ThemeKind.OLED; "auto" -> if (h >= 20 || h < 7) com.aditv.ui.theme.ThemeKind.OLED else com.aditv.ui.theme.ThemeKind.CINEMA; else -> com.aditv.ui.theme.ThemeKind.CINEMA }
+                    if (mode != "auto") break
+                    kotlinx.coroutines.delay(60_000)
+                }
+            }
+        }
         // Bande-annonce à l'écran : fenêtre et fond transparents, sinon l'image (affichée derrière la fenêtre) est masquée.
         val activity = androidx.activity.compose.LocalActivity.current
         val hole = com.aditv.ui.common.VideoHole.active
-        androidx.compose.runtime.LaunchedEffect(hole) {
-            activity?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(if (hole) android.graphics.Color.TRANSPARENT else 0xFF07111A.toInt()))
+        val themeNow = Aditv.theme
+        androidx.compose.runtime.LaunchedEffect(hole, themeNow) {
+            activity?.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(if (hole) android.graphics.Color.TRANSPARENT else Aditv.Bg.toArgb()))
         }
         Box(Modifier.fillMaxSize().background(if (hole) Color.Transparent else Aditv.Bg).onPreviewKeyEvent {
             if (showIntro) { if (it.type == KeyEventType.KeyDown) endIntro(); true }

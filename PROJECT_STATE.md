@@ -5,7 +5,7 @@ _Mis à jour : 20/11/2026_
 Fire TV Stick 4K **1re génération**, Fire OS **6.7.1.1** = Android 7.1 (API 25), ARMv7 32 bits, ~1 Go de stockage libre.
 Codecs/HDR annoncés par Amazon : **à mesurer**, rien n'est supposé acquis. Le lint bloque tout appel d'API postérieur à Android 7.1.
 
-## Phase actuelle : toutes les phases terminées côté code (0.19.0) — recette sur la Stick (`docs/RECETTE.md`)
+## Phase actuelle : toutes les phases terminées côté code (0.20.0) — recette sur la Stick (`docs/RECETTE.md`)
 Films et séries synchronisés et clé TMDB opérationnelle (confirmé par Adama sur la 0.5.0).
 
 ### 0.8.7 (21/11/2026) — demande d'Adama : accélérer l'ouverture de l'accueil
@@ -158,6 +158,12 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Suivre une équipe / compétition : rappels automatiques sur les programmes correspondants, confirmation si le nom est ambigu.
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
+
+### 0.20.0 (25/11/2026) — multiplex, thème OLED, notifications
+- **Multiplex** (lecteur → Plus → « Multiplex : 2 chaînes à l'écran » → 2e chaîne de la liste de zapping) : 2 lecteurs Media3, partage 50/50 ; ←/→ écran actif (liseré turquoise, le son suit) ; OK = focus (actif 76 %, l'autre en vignette) ↔ partage ; Retour = chaîne active en plein écran. Session principale libérée avant ; 2e flux ouvert 1,2 s après ; HTTP 458 → « abonnement : pas 2 chaînes en même temps ». 2 connexions requises.
+- **Thèmes** (Réglages → Démarrage, thème et veille) : Cinéma (charte), **Nuit OLED** (noir pur, surfaces très sombres, aucun halo), **Automatique** (OLED 20 h – 7 h). Palette `ThemeKind` commutable (état Compose), fenêtre et verre suivent.
+- **Notifications redessinées** (`AditvNotification`) : carte de verre glissant depuis la droite, liseré + pastille colorés (turquoise rappel, corail direct/but, pulsation), petites capitales, touche « ≡ » dessinée, barre de temps restant. Rappels et buts.
+- **Rappels** : plus de rappel automatique pour un autre sport du même club (basket, Euroligue, rugby…, chaînes Motorsport) — cas « Real Madrid – Zalgiris Kaunas » sur Motorsport 02.
 
 ### 0.19.0 (25/11/2026) — suggestions, Mes applis, écran de veille
 - **« Parce que vous avez regardé « X » »** (accueil) : 2 derniers titres regardés > 5 min par le profil → recommandations TMDB (1 requête/titre, 12 h) limitées à l'abonnement (titres déjà reconnus), ordre TMDB, 15 max.

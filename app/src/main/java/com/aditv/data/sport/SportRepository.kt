@@ -103,6 +103,8 @@ class SportRepository(
                 if (!SportMatcher.mentions(p.title, aliases, excludes)) continue
                 val sportChannel = candidates.any { c -> SportMatcher.isSportChannel(c.title, c.categoryId?.let(catNames::get)) }
                 if (!SportMatcher.isSportContext(p.title, p.category, sportChannel)) continue
+                // Équipes suivies = foot : pas de rappel pour le basket, le rugby… du même club.
+                if (SportMatcher.isOtherSport(p.title, p.category, candidates.map { it.title })) continue
                 val best = candidates.minWith(compareBy<CatalogCard>(
                     { if (it.id in favorites) 0 else 1 },
                     { if (it.lang == "fr") 0 else 1 },

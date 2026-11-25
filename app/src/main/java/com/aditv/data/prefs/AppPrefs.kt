@@ -83,6 +83,11 @@ class AppPrefs(private val context: Context) {
     }
 
     /** Dernier filtre choisi dans le Direct (catégorie, favoris, sport), par compte. */
+    // Thème : « cinema », « oled » ou « auto » (Nuit OLED de 20 h à 7 h).
+    private val themeKey = stringPreferencesKey("theme_mode")
+    val themeMode: Flow<String> = context.dataStore.data.map { it[themeKey] ?: "cinema" }
+    suspend fun setThemeMode(v: String) = context.dataStore.edit { it[themeKey] = v }
+
     // Écran de veille cinéma : minutes d'inactivité avant affichage (0 = désactivé).
     private val saverKey = intPreferencesKey("screensaver_minutes")
     val screensaverMinutes: Flow<Int> = context.dataStore.data.map { it[saverKey] ?: 3 }

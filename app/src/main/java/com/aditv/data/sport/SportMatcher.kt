@@ -60,6 +60,21 @@ object SportMatcher {
     fun isSportContext(title: String, category: String?, onSportChannel: Boolean): Boolean =
         onSportChannel || isMatchTitle(title) || (category != null && SPORT_WORDS.containsMatchIn(normalize(category)))
 
+    /**
+     * Autre sport que le foot (les équipes suivies sont des clubs de foot) : catégorie ou titre qui le dit, chaîne de sport
+     * mécanique ou de basket, ou adversaire qui n'existe qu'en basket (Real Madrid – Zalgiris Kaunas = Euroligue).
+     */
+    private val OTHER_SPORT = Regex("\\b(basket|basketball|nba|euroleague|euroligue|eurocup|handball|volley|volleyball|rugby|top 14|hockey|tennis|padel|f1|formule 1|motogp|moto gp|cyclisme|boxe|mma|ufc|nfl)\\b")
+    private val OTHER_SPORT_CHANNEL = Regex("\\b(motorsport|automoto|basket|nba|rugby|golf|tennis|equidia)\\b")
+    private val BASKET_ONLY_CLUBS = Regex("\\b(zalgiris|baskonia|efes|asvel|virtus|olimpia milano|armani|alba berlin|valencia basket|unicaja|paris basketball|monaco basket|maccabi playtika|partizan mozzart|crvena zvezda meridianbet|hapoel ibi|dubai basketball|real madrid baloncesto)\\b")
+
+    fun isOtherSport(title: String, category: String?, channelNames: List<String>): Boolean {
+        val t = normalize(title)
+        return OTHER_SPORT.containsMatchIn(t) || BASKET_ONLY_CLUBS.containsMatchIn(t) ||
+            (category != null && OTHER_SPORT.containsMatchIn(normalize(category))) ||
+            channelNames.isNotEmpty() && channelNames.all { OTHER_SPORT_CHANNEL.containsMatchIn(normalize(it)) }
+    }
+
     /** Rediffusion, résumé, magazine : affichés, mais jamais de rappel automatique. */
     fun isLikelyNotLive(title: String, description: String?) =
         NOT_LIVE.containsMatchIn(normalize(title)) || (description != null && Regex("\\b(rediffusion|en differe)\\b").containsMatchIn(normalize(description)))

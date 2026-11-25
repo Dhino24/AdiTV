@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 object LiquidGlass {
     /** Corps : sombre et translucide (le fond reste visible), un peu plus clair en haut. */
     fun body(strength: Float = 1f) = Brush.verticalGradient(
-        listOf(Color(0xFF162433).copy(alpha = (0.42f * strength + 0.14f).coerceAtMost(0.97f)), Color(0xFF101C28).copy(alpha = (0.50f * strength + 0.14f).coerceAtMost(0.98f))),
+        listOf(com.aditv.ui.theme.Aditv.Surface2.copy(alpha = (0.42f * strength + 0.14f).coerceAtMost(0.97f)), com.aditv.ui.theme.Aditv.Surface1.copy(alpha = (0.50f * strength + 0.14f).coerceAtMost(0.98f))),
     )
     /** Arête : blanche en haut, presque invisible au milieu, reflet discret en bas. */
     val rim = Brush.verticalGradient(

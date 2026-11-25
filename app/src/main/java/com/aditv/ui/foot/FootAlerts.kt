@@ -82,14 +82,11 @@ object FootAlerts {
 @Composable
 fun GoalBanner(alert: GoalAlert, modifier: Modifier = Modifier) {
     LaunchedEffect(alert.at) { delay(8_000); FootAlerts.dismiss() }
-    Row(modifier.widthIn(max = 460.dp).liquidGlass(RoundedCornerShape(14.dp), strength = 1.8f).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(10.dp).background(Aditv.Live, CircleShape))
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(alert.text, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 14.sp), color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(alert.detail, style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary, maxLines = 1)
-        }
-    }
+    com.aditv.ui.design.AditvNotification(
+        kicker = "But · " + alert.detail, title = alert.text.removePrefix("⚽ BUT !").trim(), subtitle = null,
+        icon = com.aditv.R.drawable.ic_ball, accent = Aditv.Live, lifetimeMs = 8_000, actionKey = null, actionLabel = null, pulse = true,
+        modifier = modifier, key = alert.at,
+    )
 }
 
 private val hour = SimpleDateFormat("HH:mm", Locale.FRANCE)

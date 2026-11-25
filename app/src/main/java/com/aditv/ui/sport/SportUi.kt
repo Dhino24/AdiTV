@@ -142,19 +142,11 @@ fun MatchDialog(m: UpcomingMatch, reminded: Boolean, leadMinutes: Int, onToggleR
 @Composable
 fun ReminderBanner(title: String, channel: String, startUtc: Long, modifier: Modifier = Modifier) {
     val minutes = ((startUtc - System.currentTimeMillis()) / 60_000).coerceAtLeast(0)
-    Row(
-        modifier.widthIn(max = 380.dp).liquidGlass(RoundedCornerShape(12.dp), strength = 1.6f).padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(30.dp).background(Aditv.Accent.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
-            Icon(painterResource(R.drawable.ic_bell_on), contentDescription = null, tint = Aditv.Accent, modifier = Modifier.size(15.dp))
-        }
-        Spacer(Modifier.width(11.dp))
-        Column {
-            Text((if (minutes > 0) "DANS $minutes MIN" else "COMMENCE MAINTENANT") + " · " + channel.uppercase(), fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = Aditv.Accent, maxLines = 1)
-            Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 13.sp), color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("Menu ≡ : regarder · le bandeau se ferme seul", style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
-        }
-    }
+    com.aditv.ui.design.AditvNotification(
+        kicker = (if (minutes > 0) "Dans $minutes min" else "Commence maintenant") + " · " + channel,
+        title = title, subtitle = "se ferme seul", icon = R.drawable.ic_bell_on,
+        accent = if (minutes > 0) Aditv.Accent else Aditv.Live, lifetimeMs = 60_000, pulse = minutes == 0L,
+        modifier = modifier, key = title + startUtc,
+    )
 }
 

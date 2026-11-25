@@ -119,7 +119,7 @@ fun SettingsScreen(session: Session.Active) {
                 style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
         }
 
-        Section("Démarrage") { StartupSection() }
+        Section("Démarrage, thème et veille") { StartupSection() }
         Section("Lecture : langue et qualité") {
             PlaybackPrefsSection()
         }
@@ -575,6 +575,13 @@ private fun StartupSection() {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         com.aditv.ui.design.FilterChip("Accueil", !onLast, { scope.launch { c.prefs.setStartOnLastChannel(false) } })
         com.aditv.ui.design.FilterChip("Dernière chaîne regardée", onLast, { scope.launch { c.prefs.setStartOnLastChannel(true) } })
+    }
+    val themeMode by c.prefs.themeMode.collectAsState("cinema")
+    Text("Thème :", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        listOf("cinema" to "Cinéma (noir bleuté)", "oled" to "Nuit OLED (noir pur)", "auto" to "Automatique : OLED le soir (20 h – 7 h)").forEach { (k, l) ->
+            com.aditv.ui.design.FilterChip(l, themeMode == k, { scope.launch { c.prefs.setThemeMode(k) } })
+        }
     }
     val saverMin by c.prefs.screensaverMinutes.collectAsState(3)
     Text("Écran de veille cinéma (grands visuels du catalogue, heure) après :", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)

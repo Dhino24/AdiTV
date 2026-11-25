@@ -2,6 +2,9 @@ package com.aditv.ui.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -16,13 +19,31 @@ import com.aditv.R
  * Charte ADI TV « rendu premium » : noir bleuté profond, turquoise rare, blanc cassé élégant.
  * Le prototype est dessiné à 1920 × 1080 px ; la Fire TV affiche 960 × 540 dp : 1 dp = 2 px du prototype.
  */
+/** Palette d'un thème. */
+data class Palette(
+    val bg: Color, val bgAlt: Color, val surface1: Color, val surface2: Color, val surface3: Color,
+    /** Halo du fond (haut droite) et reflet (bas gauche) ; transparents en OLED. */
+    val glow: Color, val glow2: Color,
+)
+
+/** Thèmes : « Cinéma » (charte, noir bleuté) et « Nuit OLED » (noir pur, surfaces très sombres, aucun halo). */
+enum class ThemeKind(val label: String, val palette: Palette) {
+    CINEMA("Cinéma", Palette(Color(0xFF07111A), Color(0xFF0B1520), Color(0xFF101C28), Color(0xFF162433), Color(0xFF1B2B3B), Color(0xFF1A3A5A), Color(0xFF0F2C3C))),
+    OLED("Nuit OLED (noir pur)", Palette(Color(0xFF000000), Color(0xFF000000), Color(0xFF0A0D11), Color(0xFF11151A), Color(0xFF181D23), Color.Transparent, Color.Transparent)),
+}
+
 object Aditv {
     // Charte « rendu premium » (docs/ADI_TV_CHARTE_COULEURS.md) : noir bleuté profond, turquoise rare, blanc cassé.
-    val Bg = Color(0xFF07111A)
-    val BgAlt = Color(0xFF0B1520)
-    val Surface1 = Color(0xFF101C28)
-    val Surface2 = Color(0xFF162433)
-    val Surface3 = Color(0xFF1B2B3B)
+    /** Thème actif (état Compose : changer de thème redessine toute l'appli). */
+    var theme by mutableStateOf(ThemeKind.CINEMA)
+    private val p get() = theme.palette
+    val Bg get() = p.bg
+    val BgAlt get() = p.bgAlt
+    val Surface1 get() = p.surface1
+    val Surface2 get() = p.surface2
+    val Surface3 get() = p.surface3
+    val Glow get() = p.glow
+    val Glow2 get() = p.glow2
     val Text = Color(0xFFF4F7FA)
     val TextSecondary = Color(0xFFC3CED8)
     val TextTertiary = Color(0xFF7F93A6)
@@ -47,7 +68,7 @@ val Inter = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal), Font(R.font.inter_medium, FontWeight.Medium), Font(R.font.inter_semibold, FontWeight.SemiBold),
 )
 
-private val scheme = darkColorScheme(
+private fun scheme() = darkColorScheme(
     primary = Aditv.Accent,
     onPrimary = Aditv.OnLight,
     secondary = Aditv.Accent,
@@ -87,4 +108,4 @@ private val typography = Typography(
 )
 
 @Composable
-fun AditvTheme(content: @Composable () -> Unit) = MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+fun AditvTheme(content: @Composable () -> Unit) = MaterialTheme(colorScheme = scheme(), typography = typography, content = content)

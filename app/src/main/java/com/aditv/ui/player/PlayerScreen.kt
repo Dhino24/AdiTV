@@ -89,11 +89,11 @@ import com.aditv.ui.theme.Aditv
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private enum class Panel { NONE, AUDIO, SUBS, VERSION, ENGINE, SLEEP, MORE }
+private enum class Panel { NONE, AUDIO, SUBS, VERSION, ENGINE, SLEEP, MORE, MULTI }
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean, liveList: String? = null, onExit: () -> Unit) {
+fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean, liveList: String? = null, onExit: () -> Unit, onMultiplex: (String, String) -> Unit = { _, _ -> }) {
     val c = LocalContainer.current
     val vm: PlayerViewModel = viewModel(key = "player-$contentId") { PlayerViewModel(c, session, contentId, fromStart, liveList) }
     val engine = vm.engine
@@ -350,6 +350,13 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         } else if (panel == Panel.ENGINE) {
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
             EnginePanel(vm.engineChoice, engine?.kind, vm.engineNote, onPick = { vm.chooseEngine(it); panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+        } else if (panel == Panel.MULTI) {
+            BackHandler { panel = Panel.MORE }
+            Box(Modifier.fillMaxSize().background(Color(0x80030508)))
+            MultiplexPicker(vm.multiplexCandidates(), onPick = { second ->
+                val first = vm.currentChannelId ?: return@MultiplexPicker
+                vm.close(); onMultiplex(first, second)
+            }, modifier = Modifier.align(Alignment.CenterEnd))
         } else if (panel == Panel.MORE) {
             BackHandler { panel = Panel.NONE }
             MorePanel(
@@ -359,6 +366,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                 favorite = if (vm.isLive) vm.isFavorite else null,
                 onEngine = { panel = Panel.ENGINE }, onVersion = { panel = Panel.VERSION }, onSleep = { panel = Panel.SLEEP },
                 onFavorite = { vm.toggleFavorite(); panel = Panel.NONE; touch() },
+                onMultiplex = if (vm.isLive) ({ panel = Panel.MULTI }) else null,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         } else if (panel != Panel.NONE && engine != null) {
@@ -644,6 +652,7 @@ private fun DisplayRateMatcher(fps: Float?) {
 private fun MorePanel(
     engineLabel: String, versionLabel: String?, sleepLabel: String?, favorite: Boolean?,
     onEngine: () -> Unit, onVersion: () -> Unit, onSleep: () -> Unit, onFavorite: () -> Unit, modifier: Modifier,
+    onMultiplex: (() -> Unit)? = null,
 ) {
     val first = remember { FocusRequester() }
     InitialFocus(first)
@@ -653,6 +662,23 @@ private fun MorePanel(
             if (versionLabel != null) SheetOption("Version", onVersion, detail = versionLabel)
             SheetOption("Minuterie de veille", onSleep, detail = sleepLabel ?: "Désactivée")
             if (favorite != null) SheetOption(if (favorite) "Retirer des favoris" else "Ajouter aux favoris", onFavorite)
+            if (onMultiplex != null) SheetOption("Multiplex : 2 chaînes à l'écran", onMultiplex, detail = "Nouveau")
+        }
+    }
+}
+
+/** Multiplex : choix de la 2e chaîne (dans la liste de zapping en cours). */
+@Composable
+private fun MultiplexPicker(channels: List<com.aditv.data.db.CatalogCard>, onPick: (String) -> Unit, modifier: Modifier) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first, enabled = channels.isNotEmpty())
+    SideSheet("Multiplex", "Choisissez la 2e chaîne. Deux écrans côte à côte ; OK agrandit l'écran actif. Utilise 2 connexions de votre abonnement.", modifier) {
+        if (channels.isEmpty()) Text("Aucune autre chaîne dans cette liste.", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+        else androidx.compose.foundation.lazy.LazyColumn {
+            items(channels.size) { i ->
+                val ch = channels[i]
+                SheetOption(com.aditv.data.live.ChannelFamilies.cleanName(ch.title), { onPick(ch.id) }, if (i == 0) Modifier.focusRequester(first) else Modifier)
+            }
         }
     }
 }

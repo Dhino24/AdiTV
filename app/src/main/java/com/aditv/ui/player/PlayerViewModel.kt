@@ -81,6 +81,9 @@ class PlayerViewModel(
     /** Qualité et langue annoncées par le fournisseur (badges en haut à droite du lecteur). */
     var badges by mutableStateOf<List<String>>(emptyList()); private set
     private var channels: List<CatalogCard> = emptyList()
+    /** Multiplex : chaînes proposées pour le 2e écran (liste de zapping, sans la chaîne en cours). */
+    fun multiplexCandidates(): List<CatalogCard> = channels.filter { it.id != currentItem?.id }.take(80)
+    val currentChannelId: String? get() = currentItem?.id
     private var prefs = VariantPrefs()
     private var forceHighest = true
     private var saver: Job? = null

@@ -15,10 +15,11 @@ fun Modifier.premiumBackground(): Modifier = this.drawBehind {
     drawRect(Aditv.Bg)
     val w = size.width; val h = size.height
     // Halo principal : bleu nuit lumineux, haut droite.
-    drawRect(Brush.radialGradient(listOf(Color(0xFF1A3A5A).copy(alpha = 0.85f), Color(0xFF12283E).copy(alpha = 0.45f), Color.Transparent),
+    if (Aditv.Glow.alpha == 0f) return@drawBehind // Nuit OLED : noir pur, sans halo
+    drawRect(Brush.radialGradient(listOf(Aditv.Glow.copy(alpha = 0.85f), Aditv.Glow.copy(alpha = 0.4f), Color.Transparent),
         center = Offset(w * 0.86f, -h * 0.12f), radius = w * 0.95f))
     // Reflet secondaire : bas gauche, plus froid.
-    drawRect(Brush.radialGradient(listOf(Color(0xFF0F2C3C).copy(alpha = 0.7f), Color.Transparent),
+    drawRect(Brush.radialGradient(listOf(Aditv.Glow2.copy(alpha = 0.7f), Color.Transparent),
         center = Offset(w * 0.04f, h * 1.08f), radius = w * 0.6f))
     // Pointe de turquoise presque invisible : signature ADI TV.
     drawRect(Brush.radialGradient(listOf(Aditv.Accent.copy(alpha = 0.045f), Color.Transparent),
