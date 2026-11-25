@@ -88,6 +88,11 @@ class AppPrefs(private val context: Context) {
     val themeMode: Flow<String> = context.dataStore.data.map { it[themeKey] ?: "cinema" }
     suspend fun setThemeMode(v: String) = context.dataStore.edit { it[themeKey] = v }
 
+    // « Toujours là ? » : heures sans télécommande pendant une lecture avant la pause automatique (0 = jamais).
+    private val autoPauseKey = intPreferencesKey("auto_pause_hours")
+    val autoPauseHours: Flow<Int> = context.dataStore.data.map { it[autoPauseKey] ?: 3 }
+    suspend fun setAutoPauseHours(v: Int) = context.dataStore.edit { it[autoPauseKey] = v }
+
     // Écran de veille cinéma : minutes d'inactivité avant affichage (0 = désactivé).
     private val saverKey = intPreferencesKey("screensaver_minutes")
     val screensaverMinutes: Flow<Int> = context.dataStore.data.map { it[saverKey] ?: 3 }

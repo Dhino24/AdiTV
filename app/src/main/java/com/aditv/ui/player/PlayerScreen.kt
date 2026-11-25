@@ -1,5 +1,6 @@
 package com.aditv.ui.player
 
+import kotlinx.coroutines.flow.first
 import com.aditv.ui.design.liquidGlass
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.border
@@ -134,6 +135,22 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     LaunchedEffect(Unit) { vm.start() }
     fun touch() { lastInteraction = System.currentTimeMillis(); controlsVisible = true }
     fun exit() { vm.close(); onExit() }
+
+    // « Toujours là ? » : après N heures sans télécommande pendant la lecture, pause + question ; sans réponse
+    // en 2 min, arrêt (connexion libérée, la TV peut se mettre en veille).
+    var stillThere by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val hours = c.prefs.autoPauseHours.first()
+        if (hours <= 0) return@LaunchedEffect
+        while (true) {
+            delay(30_000)
+            val e = vm.engine ?: continue
+            if (!stillThere && e.isPlaying && com.aditv.core.UserActivity.idleFor(hours * 3_600_000L)) {
+                vm.userPaused = true; e.pause(); stillThere = true
+            }
+        }
+    }
+    LaunchedEffect(stillThere) { if (stillThere) { delay(120_000); if (stillThere) exit() } }
 
     // Mise en veille / changement d'application : sauvegarde + libération (après 5 s), réouverture en pause.
     // Arrêt bref (changement de fréquence de l'écran au lancement, écran système) : la lecture continue.
@@ -373,6 +390,11 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
             TrackPanel(engine, subtitlesFirst = panel == Panel.SUBS, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         }
+
+        if (stillThere) StillThereDialog(
+            onResume = { com.aditv.core.UserActivity.touch(); stillThere = false; vm.engine?.play() },
+            onStop = { stillThere = false; exit() },
+        )
 
         vm.error?.let { msg ->
             Box(Modifier.fillMaxSize().background(Color(0x9E030508)), contentAlignment = Alignment.Center) {
@@ -678,6 +700,28 @@ private fun MultiplexPicker(channels: List<com.aditv.data.db.CatalogCard>, onPic
             items(channels.size) { i ->
                 val ch = channels[i]
                 SheetOption(com.aditv.data.live.ChannelFamilies.cleanName(ch.title), { onPick(ch.id) }, if (i == 0) Modifier.focusRequester(first) else Modifier)
+            }
+        }
+    }
+}
+
+/** « Toujours là ? » (lecture en pause après une longue période sans télécommande). */
+@Composable
+private fun StillThereDialog(onResume: () -> Unit, onStop: () -> Unit) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first)
+    BackHandler { onStop() }
+    Box(Modifier.fillMaxSize().background(Color(0xB0030508)), contentAlignment = Alignment.Center) {
+        Column(Modifier.widthIn(max = 460.dp).liquidGlass(RoundedCornerShape(18.dp), strength = 1.9f).padding(horizontal = 30.dp, vertical = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Toujours là ?", style = MaterialTheme.typography.headlineMedium, color = Aditv.Text)
+            Spacer(Modifier.height(7.dp))
+            Text("La lecture est en pause. Sans réponse, elle s'arrête dans 2 minutes pour libérer votre abonnement et laisser la TV se mettre en veille.",
+                style = MaterialTheme.typography.bodyLarge, color = Aditv.TextSecondary, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PillButton("Reprendre", onResume, Modifier.focusRequester(first), icon = R.drawable.ic_play)
+                PillButton("Arrêter", onStop, icon = R.drawable.ic_power, primary = false)
             }
         }
     }

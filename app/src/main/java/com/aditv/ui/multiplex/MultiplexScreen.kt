@@ -58,6 +58,10 @@ import kotlinx.coroutines.flow.first
 /** Un écran du multiplex : chaîne, lecteur, erreur éventuelle. */
 private class Slot(val id: String) {
     var title by mutableStateOf("")
+    /** Match diffusé sur cette chaîne (FootAdi), score et alerte de but. */
+    var fixture by mutableStateOf<com.aditv.data.football.Fixture?>(null)
+    var goalFlash by mutableStateOf<String?>(null)
+    var lastTotal: Int? = null
     var player by mutableStateOf<ExoPlayer?>(null)
     var error by mutableStateOf<String?>(null)
 }
@@ -105,6 +109,38 @@ fun MultiplexScreen(session: Session.Active, firstId: String, secondId: String, 
         delay(5_000); hint = false
     }
     DisposableEffect(Unit) { onDispose { slots.forEach { it.player?.release(); it.player = null } } }
+    // Réalisateur : repère le match de chaque écran (guide + FootAdi), suit les scores et, à chaque but,
+    // donne le son et l'image en grand à l'écran concerné. Un choix manuel (← →) est respecté 3 minutes.
+    var director by remember { mutableStateOf(true) }
+    var manualAt by remember { mutableStateOf(0L) }
+    var directorNote by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        if (session.isDemo || c.footballKey.get() == null) { directorNote = "Réalisateur : clé API-Football nécessaire (Réglages → FootAdi)."; return@LaunchedEffect }
+        delay(2_000)
+        while (true) {
+            runCatching {
+                val today = c.football.fixtures(0).filter { it.live || (it.kickoff - System.currentTimeMillis()) in 0..15 * 60_000L }
+                val map = com.aditv.ui.foot.Broadcasts.findAll(c, session.account.id, today)
+                slots.forEachIndexed { i, s ->
+                    val f = today.firstOrNull { f -> map[f.id].orEmpty().any { b -> b.channel.id == s.id || com.aditv.data.live.ChannelFamilies.cleanName(b.channel.title).equals(s.title, true) } }
+                        ?.let { found -> c.football.fixtures(0).firstOrNull { it.id == found.id } ?: found }
+                    s.fixture = f
+                    val total = f?.let { (it.homeGoals ?: 0) + (it.awayGoals ?: 0) }
+                    val before = s.lastTotal
+                    if (f != null && total != null && before != null && total > before) {
+                        s.goalFlash = "⚽ BUT !  ${f.home.name} ${f.homeGoals ?: 0} – ${f.awayGoals ?: 0} ${f.away.name}"
+                        if (director && System.currentTimeMillis() - manualAt > 3 * 60_000L) { active = i; focusMode = true }
+                    }
+                    s.lastTotal = total
+                }
+                directorNote = if (slots.none { it.fixture != null }) "Réalisateur : aucun match reconnu sur ces chaînes (guide TV)." else null
+            }
+            // Scores rafraîchis par FootAdi au plus toutes les 5 min (cache) : coup d'œil toutes les 2 min.
+            delay(2 * 60_000L)
+        }
+    }
+    slots.forEach { s -> LaunchedEffect(s.goalFlash) { if (s.goalFlash != null) { delay(10_000); s.goalFlash = null } } }
+
     // Le son suit l'écran actif.
     LaunchedEffect(active) { slots.forEachIndexed { i, s -> s.player?.volume = if (i == active) 1f else 0f } }
     BackHandler { onSingle(slots[active].id) }
@@ -114,8 +150,9 @@ fun MultiplexScreen(session: Session.Active, firstId: String, secondId: String, 
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (ev.key) {
-                    Key.DirectionLeft -> { active = 0; hint = true; true }
-                    Key.DirectionRight -> { active = 1; hint = true; true }
+                    Key.DirectionLeft -> { active = 0; manualAt = System.currentTimeMillis(); hint = true; true }
+                    Key.DirectionRight -> { active = 1; manualAt = System.currentTimeMillis(); hint = true; true }
+                    Key.Menu -> { director = !director; hint = true; true }
                     Key.DirectionCenter, Key.Enter -> { if (ev.nativeKeyEvent.repeatCount == 0) focusMode = !focusMode; true }
                     else -> false
                 }
@@ -140,13 +177,22 @@ fun MultiplexScreen(session: Session.Active, firstId: String, secondId: String, 
                     AndroidView(factory = { ctx -> PlayerView(ctx).apply { useController = false; keepScreenOn = true; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT; player = p } },
                         update = { it.player = p }, modifier = Modifier.fillMaxSize())
                 }
+                // Score du match en cours (FootAdi), en haut à droite de l'écran.
+                s.fixture?.takeIf { it.live || it.finished }?.let { f ->
+                    Text("${f.elapsed?.let { "$it' · " } ?: ""}${f.homeGoals ?: 0} – ${f.awayGoals ?: 0}", style = MaterialTheme.typography.labelLarge, color = Aditv.Text,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp))
+                }
+                s.goalFlash?.let { g ->
+                    Text(g, style = MaterialTheme.typography.titleMedium, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp).background(Aditv.Live, RoundedCornerShape(50)).padding(horizontal = 14.dp, vertical = 6.dp))
+                }
                 s.error?.let { e -> Text(e, style = MaterialTheme.typography.bodyMedium, color = Aditv.Warn, modifier = Modifier.align(Alignment.Center).padding(16.dp)) }
                 if (hint || !isActive) Column(Modifier.align(Alignment.TopStart).padding(10.dp).background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
                     Text((if (isActive) "🔊 " else "") + s.title, style = MaterialTheme.typography.labelLarge, color = Aditv.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-        if (hint) Text("← → : écran actif (le son suit)  ·  OK : agrandir / partager  ·  Retour : plein écran",
+        if (hint) Text("← → : écran actif (le son suit)  ·  OK : agrandir / partager  ·  ≡ : réalisateur ${if (director) "activé" else "désactivé"}  ·  Retour : plein écran" + (directorNote?.let { "\n$it" } ?: ""),
             style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(50)).padding(horizontal = 14.dp, vertical = 6.dp))
     }

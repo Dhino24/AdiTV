@@ -347,6 +347,7 @@ abstract class UiFlowBase(private val screenshots: Boolean) {
 
     /** Thème Nuit OLED : le fond de l'appli doit devenir noir pur (demande d'Adama : « je ne vois pas de noir pur »). */
     @Test fun oledThemeIsPureBlack() {
+        org.junit.Assume.assumeTrue(screenshots) // capture pixel indisponible sous API 25 (Robolectric)
         waitText("Connectez votre abonnement")
         press("Essayer le mode démo")
         waitText("Regarder")

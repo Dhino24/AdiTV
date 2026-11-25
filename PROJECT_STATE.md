@@ -341,3 +341,7 @@ Plan proposé : 1) APK arm64 (Stick conservée en secours) ; 2) multiplex 2 flux
 
 ## Étape précédente
 Recette sur la Stick (`docs/RECETTE.md`), puis corrections selon les retours d'Adama. Version finale signée quand Adama aura créé sa clé (`docs/BUILD_ET_INSTALLATION.md`).
+
+## 0.21.0
+- Multiplex « réalisateur » : score en direct sur chaque panneau (API-Football, cache), pastille « BUT ! » et bascule automatique du son/focus sur le match où il y a but (sauf choix manuel < 3 min). Touche Menu = activer/désactiver.
+- Pause automatique « Toujours là ? » : après N h sans télécommande (2/3/4 h/Jamais, défaut 3 h, Paramètres > Démarrage, thème et veille), pause + question ; sans réponse en 2 min, arrêt de la lecture (connexion libérée).

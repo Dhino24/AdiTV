@@ -583,6 +583,13 @@ private fun StartupSection() {
             com.aditv.ui.design.FilterChip(l, themeMode == k, { scope.launch { c.prefs.setThemeMode(k) } })
         }
     }
+    val pauseH by c.prefs.autoPauseHours.collectAsState(3)
+    Text("« Toujours là ? » : pause automatique d'un film ou d'une chaîne après, sans toucher la télécommande :", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        listOf(0 to "Jamais", 2 to "2 h", 3 to "3 h", 4 to "4 h").forEach { (h, l) ->
+            com.aditv.ui.design.FilterChip(l, pauseH == h, { scope.launch { c.prefs.setAutoPauseHours(h) } })
+        }
+    }
     val saverMin by c.prefs.screensaverMinutes.collectAsState(3)
     Text("Écran de veille cinéma (grands visuels du catalogue, heure) après :", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
