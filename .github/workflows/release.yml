@@ -1,0 +1,72 @@
+# Construit, signe et publie chaque nouvelle version d'ADI TV pour la mise à jour automatique des Fire TV.
+# Déclenché quand le numéro de version change (app/build.gradle.kts) ; ne fait rien si la version est déjà publiée.
+# Secret requis (Settings → Secrets and variables → Actions) : ADITV_KEYSTORE_B64 = clé d'ADI TV en base64.
+name: Publier une version d'ADI TV
+
+on:
+  push:
+    branches: [claude/new-session-9assu0]
+    paths: [app/build.gradle.kts]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version à publier
+        id: v
+        run: |
+          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "tag=v$NAME" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$NAME" >/dev/null; then echo "skip=true" >> "$GITHUB_OUTPUT"; echo "v$NAME déjà publiée."; fi
+
+      - name: Vérifier la clé
+        if: steps.v.outputs.skip != 'true'
+        env:
+          KEY_B64: ${{ secrets.ADITV_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEY_B64" ]; then echo "::error::Secret ADITV_KEYSTORE_B64 manquant (voir PROJECT_STATE.md)."; exit 1; fi
+          echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/aditv.keystore"
+
+      - uses: actions/setup-java@v4
+        if: steps.v.outputs.skip != 'true'
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.v.outputs.skip != 'true'
+
+      - name: Construire et signer (Cube + Stick)
+        if: steps.v.outputs.skip != 'true'
+        env:
+          ADITV_SIGNING_STORE: ${{ runner.temp }}/aditv.keystore
+        run: ./gradlew --no-daemon :app:assembleCubeRapide :app:assembleStickRapide
+
+      - name: Vérifier la signature et préparer latest.json
+        if: steps.v.outputs.skip != 'true'
+        run: python3 scripts/publish_update.py --release "${{ steps.v.outputs.tag }}"
+
+      - name: Publier
+        if: steps.v.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.v.outputs.tag }}" app/build/dist/ADITV-cube.apk app/build/dist/ADITV-stick.apk updates/latest.json \
+            --title "ADI TV ${{ steps.v.outputs.tag }}" --notes-file updates/NOTES.txt --target "${GITHUB_SHA}"
+          # Les Fire TV lisent updates/latest.json sur la branche : on le met à jour (APK servis par la release).
+          git config user.name "ADI TV (publication)"
+          git config user.email "actions@users.noreply.github.com"
+          git rm -q --ignore-unmatch updates/ADITV-cube.apk updates/ADITV-stick.apk
+          git add updates/latest.json
+          git commit -m "Publication ${{ steps.v.outputs.tag }} (mise à jour automatique)" || exit 0
+          git push origin HEAD:${GITHUB_REF_NAME}

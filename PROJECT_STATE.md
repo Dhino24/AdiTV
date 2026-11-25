@@ -159,6 +159,11 @@ Reprise fidèle du prototype `design/prototype/` (validé), sur les vraies donn�
   - Liste des rappels, suppression, survie au redémarrage (alarmes reprogrammées), nettoyage des rappels passés.
   - Limites : dépend de la qualité du guide fournisseur ; horaires du guide ≠ coup d'envoi exact.
 
+### Clé de signature et publication (choix A d'Adama, 25/11/2026)
+- Les versions installées sont signées avec LA clé d'ADI TV (certificat SHA-256 `8ff3e1ce…9b694e`). Une mise à jour signée autrement est refusée par Android → désinstallation, perte des réglages.
+- **Publication = GitHub Actions** (`.github/workflows/release.yml`) : à chaque changement du numéro de version sur la branche, GitHub construit Cube + Stick, signe avec le secret `ADITV_KEYSTORE_B64`, vérifie l'empreinte (`scripts/publish_update.py`), crée la release `vX.Y.Z` (APK + latest.json) et met à jour `updates/latest.json`.
+- **Sessions suivantes** : ne JAMAIS livrer un APK construit localement sans vérifier l'empreinte (`publish_update.py` le fait et refuse sinon) ; livrer de préférence les APK de la release GitHub. Notes de version : `updates/NOTES.txt`.
+
 ### 0.17.0 (25/11/2026) — profils, dernière chaîne, alertes FootAdi, mise à jour automatique, bandes-annonces dans ADI TV
 - **Pause au lancement** : confirmée corrigée par Adama (0.16.4).
 - **Bandes-annonces dans ADI TV** : écran Android dédié (`TrailerActivity`, WebView seul plein écran, sans Compose autour) — OK pause/lecture, Menu ≡ = appli YouTube, Retour = fiche ; fin ou erreur → appli YouTube.

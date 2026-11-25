@@ -51,6 +51,17 @@ android {
     }
 
     signingConfigs {
+        // Clé des versions installées chez Adama (« rapide ») : fournie par GitHub Actions (secret ADITV_KEYSTORE_B64)
+        // via ADITV_SIGNING_STORE ; sinon la clé de débogage de la machine. Une mise à jour n'est acceptée par Android
+        // qu'avec la MÊME clé : scripts/publish_update.py vérifie l'empreinte avant toute publication.
+        System.getenv("ADITV_SIGNING_STORE")?.takeIf { file(it).exists() }?.let { store ->
+            create("aditv") {
+                storeFile = file(store)
+                storePassword = System.getenv("ADITV_SIGNING_PASSWORD") ?: "android"
+                keyAlias = System.getenv("ADITV_SIGNING_ALIAS") ?: "androiddebugkey"
+                keyPassword = System.getenv("ADITV_SIGNING_KEY_PASSWORD") ?: "android"
+            }
+        }
         releaseKeys?.let { k: Properties ->
             create("release") {
                 storeFile = rootProject.file(k.getProperty("storeFile"))
@@ -81,7 +92,7 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-rapide"
             isDebuggable = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("aditv") ?: signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
     }
