@@ -1,5 +1,6 @@
 package com.aditv.ui.shell
 
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.first
 import com.aditv.ui.design.premiumBackground
 import androidx.compose.ui.layout.layout
@@ -178,14 +179,24 @@ fun Shell(session: Session.Active) {
         if (c.tmdbKey.get() != null && c.footballKey.get() != null) { c.prefs.setOnboardingDone(); return@LaunchedEffect }
         showOnboarding = true
     }
-    // Mise à jour d'ADI TV : vérifiée une fois par lancement (dépôt GitHub public), proposée si plus récente.
+    // Mise à jour d'ADI TV : vérifiée au démarrage ET à chaque retour sur l'appli (la Fire TV garde ADI TV en mémoire :
+    // sans cela, la vérification n'avait lieu qu'après un redémarrage complet). Au plus toutes les 30 min ;
+    // « Plus tard » : pas de nouvelle proposition de la même version avant 12 h.
     var update by remember { mutableStateOf<com.aditv.data.update.UpdateInfo?>(null) }
-    LaunchedEffect(Unit) {
-        // Versions de développement (et tests) : pas de proposition de mise à jour.
-        if (com.aditv.ui.update.UpdateGate.asked || com.aditv.BuildConfig.DEBUG) return@LaunchedEffect
-        com.aditv.ui.update.UpdateGate.asked = true
-        delay(4_000)
-        update = runCatching { c.updater.check() }.getOrNull()
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        if (com.aditv.BuildConfig.DEBUG) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            delay(3_000)
+            // Jamais par-dessus une vidéo en cours : on attend le retour aux menus.
+            while (nav.currentDestination?.route?.startsWith("play") == true) delay(5_000)
+            if (!com.aditv.ui.update.UpdateGate.due()) return@repeatOnLifecycle
+            val found = runCatching { c.updater.check() }
+                .onFailure { com.aditv.core.CrashReporter.event("Mise à jour : vérification impossible (${it.javaClass.simpleName})") }
+                .getOrNull()
+            com.aditv.ui.update.UpdateGate.checked()
+            if (found != null && com.aditv.ui.update.UpdateGate.shouldOffer(found.versionCode)) update = found
+        }
     }
     // Option « Démarrer sur la dernière chaîne » : une fois par lancement de l'appli, la dernière chaîne du profil.
     LaunchedEffect(Unit) {
@@ -281,7 +292,7 @@ fun Shell(session: Session.Active) {
 
             // Nouvel utilisateur : assistant (équipes, options gratuites), une seule fois ; jamais si les clés sont déjà là.
             if (showOnboarding) com.aditv.ui.onboarding.OnboardingWizard(accountId) { showOnboarding = false }
-                        update?.let { u -> com.aditv.ui.update.UpdateDialog(u, onClose = { update = null }) }
+                        update?.let { u -> com.aditv.ui.update.UpdateDialog(u, onClose = { com.aditv.ui.update.UpdateGate.snooze(u.versionCode); update = null }) }
 
             if (exitAsked) ExitDialog(onStay = { exitAsked = false; runCatching { requesters.getValue(selected).requestFocus() } }, onQuit = { activity?.finish() })
         }

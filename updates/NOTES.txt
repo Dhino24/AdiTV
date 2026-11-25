@@ -1,1 +1,1 @@
-Partage simplifié : assistant de premier démarrage (équipes, options gratuites par QR code), copie de la configuration vers une autre TV de la maison, guide d'installation.
+Les mises à jour sont désormais vérifiées à chaque retour sur ADI TV (et plus seulement après un redémarrage complet), jamais pendant une vidéo.

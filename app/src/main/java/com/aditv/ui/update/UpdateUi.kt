@@ -38,8 +38,16 @@ import com.aditv.ui.design.liquidGlass
 import com.aditv.ui.theme.Aditv
 import kotlinx.coroutines.launch
 
-/** Une seule proposition par lancement (« Plus tard » = au prochain lancement). */
-object UpdateGate { var asked = false }
+/** Rythme des vérifications : au plus toutes les 30 min ; « Plus tard » met la version de côté 12 h. */
+object UpdateGate {
+    private var lastCheck = 0L
+    private var snoozedVersion = -1
+    private var snoozedUntil = 0L
+    fun due(now: Long = System.currentTimeMillis()) = now - lastCheck > 30 * 60_000L
+    fun checked(now: Long = System.currentTimeMillis()) { lastCheck = now }
+    fun snooze(versionCode: Int, now: Long = System.currentTimeMillis()) { snoozedVersion = versionCode; snoozedUntil = now + 12 * 3_600_000L }
+    fun shouldOffer(versionCode: Int, now: Long = System.currentTimeMillis()) = !(versionCode == snoozedVersion && now < snoozedUntil)
+}
 
 /** « Mise à jour disponible » : téléchargement vérifié puis installeur Android (Retour ou « Plus tard » ferme). */
 @Composable
