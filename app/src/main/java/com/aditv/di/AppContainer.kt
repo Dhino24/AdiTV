@@ -76,6 +76,7 @@ class AppContainer(context: Context) {
     )
     val metadata = MetadataRepository(db, tmdbClient)
     val trending = com.aditv.data.tmdb.TrendingRepository(db, tmdbClient)
+    val recommendations = com.aditv.data.tmdb.RecommendationRepository(db, tmdbClient, { tmdbKey.get() != null })
     val playback = PlaybackController(context, http.streams)
     val engineStore = com.aditv.playback.engine.EngineStore(context)
     val epg = com.aditv.data.epg.EpgRepository(db, http.providerApi, http.images)

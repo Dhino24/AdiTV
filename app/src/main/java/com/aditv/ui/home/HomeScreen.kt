@@ -252,6 +252,17 @@ class HomeViewModel(private val c: AppContainer, private val accountId: String) 
     val topMovies = top("movie")
     val topSeries = top("tv")
 
+    /** « Parce que vous avez regardé… » (profil actif), recalculé quand la progression change. */
+    val because: StateFlow<List<HomeRow>> = c.db.library().resumeRows(com.aditv.data.profile.Profiles.key(accountId), 1)
+        .throttleLatest(10_000)
+        .mapLatest {
+            c.recommendations.becauseYouWatched(accountId, com.aditv.data.profile.Profiles.key(accountId)).map { r ->
+                HomeRow("Parce que vous avez regardé « ${r.seedTitle} »", "suggestions TMDB disponibles dans votre abonnement",
+                    if (r.mediaType == "tv") MediaType.SERIES else MediaType.MOVIE, r.cards.map { it to 1 })
+            }
+        }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     fun toggleReminder(m: com.aditv.data.sport.UpcomingMatch) = viewModelScope.launch {
         c.sport.toggleReminder(accountId, m.title, m.startUtc, m.endUtc, m.channelItemId, m.channelName)
     }
@@ -280,6 +291,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
     val leadMinutes by vm.leadMinutes.collectAsStateWithLifecycle()
     val topMovies by vm.topMovies.collectAsStateWithLifecycle()
     val topSeries by vm.topSeries.collectAsStateWithLifecycle()
+    val because by vm.because.collectAsStateWithLifecycle()
     val remindedKeys = remember(reminders) { reminders.map { it.matchKey }.toSet() }
     val matches = remember(allMatches) { val now = System.currentTimeMillis(); allMatches.filter { it.endUtc > now }.take(20) }
     var openMatch by remember { mutableStateOf<com.aditv.data.sport.UpcomingMatch?>(null) }
@@ -358,7 +370,10 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                     }
                 }
                 if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay, onSpot) }
+                // Netflix, Prime Video, YouTube… installées sur la Fire TV.
+                if (!isDemo) item(key = "apps") { AppsRow() }
                 if (topMovies.isNotEmpty()) item(key = "top-movies") { TopRow("Top 10 des films du moment", topMovies, onOpen) { onCard(it, "Top 10 des films") } }
+                items(because, key = { "because-" + it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive, onCard, onSpot) }
                 if (topSeries.isNotEmpty()) item(key = "top-series") { TopRow("Top 10 des séries du moment", topSeries, onOpen) { onCard(it, "Top 10 des séries") } }
                 items(state.rows.distinctBy { it.title }, key = { it.title }) { row -> ContentRow(accountId, row, onOpen, onPlayLive, onCard, onSpot) }
                 if (state.syncErrors.isNotEmpty()) item(key = "sync") {

@@ -37,6 +37,11 @@ class TmdbClient(
         get("trending/$mediaType/week", mapOf("language" to "fr-FR", "page" to page.toString()))?.arr("results").orEmpty()
             .mapNotNull { (it as? JsonObject)?.let { o -> candidate(mediaType, o) } }
 
+    /** Recommandations TMDB pour un titre (« Parce que vous avez regardé… »), en français. */
+    suspend fun recommendations(mediaType: String, id: Int): List<TmdbCandidate> =
+        get("$mediaType/$id/recommendations", mapOf("language" to "fr-FR"))?.arr("results").orEmpty()
+            .mapNotNull { (it as? JsonObject)?.let { o -> candidate(mediaType, o) } }
+
     suspend fun search(mediaType: String, query: String, year: Int?): List<TmdbCandidate> {
         val params = buildMap {
             put("query", query); put("language", "fr-FR"); put("include_adult", "false")

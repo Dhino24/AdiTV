@@ -113,6 +113,27 @@ interface MetadataDao {
     )
     suspend fun availableAmong(accountId: String, mediaType: String, tmdbIds: List<Int>, excludeId: String): List<CatalogCard>
 
+    /** Écran de veille : grands visuels TMDB du catalogue, au hasard. */
+    @Query(
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+           FROM metadata_match mm JOIN catalog_items ci ON ci.id = mm.itemId
+           JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE mm.accountId = :accountId AND mm.status = 'confirmed' AND ci.available = 1 AND tm.backdropPath IS NOT NULL
+           ORDER BY RANDOM() LIMIT :limit"""
+    )
+    suspend fun randomBackdrops(accountId: String, limit: Int): List<CatalogCard>
+
+    /** Titres récemment regardés par ce profil (clé de bibliothèque), reconnus sur TMDB : base des recommandations. */
+    @Query(
+        """SELECT mm.mediaType AS mediaType, mm.tmdbId AS tmdbId, COALESCE(tm.title, ci.title) AS title, MAX(wp.updatedAt) AS lastAt
+           FROM watch_progress wp JOIN catalog_items ci ON ci.id = COALESCE(wp.seriesItemId, wp.contentId)
+           JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE wp.accountId = :libraryKey AND wp.positionMs > 300000
+           GROUP BY mm.mediaType, mm.tmdbId ORDER BY lastAt DESC LIMIT :limit"""
+    )
+    suspend fun recentlyWatchedTmdb(libraryKey: String, limit: Int): List<WatchedTmdb>
+
     /** Toutes les versions disponibles des titres TMDB donnés (Top 10), avec leur identifiant TMDB. */
     @Query(
         """SELECT mm.tmdbId AS tmdbId, ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
@@ -144,4 +165,6 @@ interface MetadataDao {
 }
 
 /** Carte du catalogue reliée à son identifiant TMDB. */
+data class WatchedTmdb(val mediaType: String, val tmdbId: Int, val title: String, val lastAt: Long)
+
 data class TmdbLinkedCard(val tmdbId: Int, @androidx.room.Embedded val card: CatalogCard)

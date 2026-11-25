@@ -576,6 +576,13 @@ private fun StartupSection() {
         com.aditv.ui.design.FilterChip("Accueil", !onLast, { scope.launch { c.prefs.setStartOnLastChannel(false) } })
         com.aditv.ui.design.FilterChip("Dernière chaîne regardée", onLast, { scope.launch { c.prefs.setStartOnLastChannel(true) } })
     }
+    val saverMin by c.prefs.screensaverMinutes.collectAsState(3)
+    Text("Écran de veille cinéma (grands visuels du catalogue, heure) après :", style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        listOf(0 to "Jamais", 3 to "3 min", 5 to "5 min", 10 to "10 min").forEach { (m, l) ->
+            com.aditv.ui.design.FilterChip(l, saverMin == m, { scope.launch { c.prefs.setScreensaverMinutes(m) } })
+        }
+    }
     Text("Avec « Dernière chaîne », le direct démarre tout seul sur la dernière chaîne du profil ; Retour ramène à l'accueil.",
         style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
 }

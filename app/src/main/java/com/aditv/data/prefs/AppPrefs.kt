@@ -83,6 +83,11 @@ class AppPrefs(private val context: Context) {
     }
 
     /** Dernier filtre choisi dans le Direct (catégorie, favoris, sport), par compte. */
+    // Écran de veille cinéma : minutes d'inactivité avant affichage (0 = désactivé).
+    private val saverKey = intPreferencesKey("screensaver_minutes")
+    val screensaverMinutes: Flow<Int> = context.dataStore.data.map { it[saverKey] ?: 3 }
+    suspend fun setScreensaverMinutes(v: Int) = context.dataStore.edit { it[saverKey] = v }
+
     // Assistant de premier démarrage (équipes, options gratuites) : montré une seule fois.
     private val onboarding = booleanPreferencesKey("onboarding_done")
     val onboardingDone: Flow<Boolean> = context.dataStore.data.map { it[onboarding] ?: false }

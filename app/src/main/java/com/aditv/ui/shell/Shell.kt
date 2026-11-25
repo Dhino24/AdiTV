@@ -172,6 +172,21 @@ fun Shell(session: Session.Active) {
     LaunchedEffect(reminder) { if (reminder != null) { delay(60_000); com.aditv.data.sport.ReminderBus.clear() } }
     // Notification de rappel choisie alors qu'ADITV était fermée : lecture de la chaîne.
     LaunchedEffect(accountId) { com.aditv.ui.foot.FootAlerts.watch(c, session.isDemo) }
+    // Écran de veille cinéma : après N minutes sans toucher la télécommande, hors lecture (réglable, 0 = jamais).
+    var saver by remember { mutableStateOf(false) }
+    val saverLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(Unit) {
+        com.aditv.core.UserActivity.touch() // le compte à rebours part de l'ouverture de l'appli
+        if (com.aditv.BuildConfig.DEBUG) return@LaunchedEffect // versions de test : pas de veille
+        while (true) {
+            delay(15_000)
+            val minutes = c.prefs.screensaverMinutes.first()
+            val playing = nav.currentDestination?.route?.startsWith("play") == true || nav.currentDestination?.route?.startsWith("trailer") == true
+            // Seulement quand ADI TV est à l'écran (pas pendant Netflix ou l'écran d'accueil Fire TV).
+            val visible = saverLifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+            if (!saver && visible && minutes > 0 && !playing && com.aditv.core.UserActivity.idleFor(minutes * 60_000L)) saver = true
+        }
+    }
     var showOnboarding by remember { mutableStateOf(false) }
     LaunchedEffect(accountId) {
         if (session.isDemo || c.prefs.onboardingDone.first()) return@LaunchedEffect
@@ -293,6 +308,8 @@ fun Shell(session: Session.Active) {
             // Nouvel utilisateur : assistant (équipes, options gratuites), une seule fois ; jamais si les clés sont déjà là.
             if (showOnboarding) com.aditv.ui.onboarding.OnboardingWizard(accountId) { showOnboarding = false }
                         update?.let { u -> com.aditv.ui.update.UpdateDialog(u, onClose = { com.aditv.ui.update.UpdateGate.snooze(u.versionCode); update = null }) }
+
+            if (saver) com.aditv.ui.saver.ScreenSaver(accountId) { com.aditv.core.UserActivity.touch(); saver = false }
 
             if (exitAsked) ExitDialog(onStay = { exitAsked = false; runCatching { requesters.getValue(selected).requestFocus() } }, onQuit = { activity?.finish() })
         }
