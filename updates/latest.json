@@ -1,15 +1,15 @@
 {
-  "versionCode": 46,
-  "versionName": "0.17.0",
-  "notes": "Profils, démarrage sur la dernière chaîne, alertes de buts FootAdi, bandes-annonces dans ADI TV, mise à jour automatique.",
+  "versionCode": 47,
+  "versionName": "0.18.0",
+  "notes": "Partage simplifié : assistant de premier démarrage (équipes, options gratuites par QR code), copie de la configuration vers une autre TV de la maison, guide d'installation.",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.17.0/ADITV-cube.apk",
-    "sha256": "c5242643acbad3bfb9fc69fe3fdc8ddb107ec55841b2bda37910220959767abe",
-    "size": 27201371
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.18.0/ADITV-cube.apk",
+    "sha256": "9d7d2e3b6977e5322d74ef6f1241983e6343abebf28aa4e48525508083e8d5ed",
+    "size": 27233739
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.17.0/ADITV-stick.apk",
-    "sha256": "2a272ecbbccd31e733b4dcce2acbd0570b47f7be5347b8648845d92c66624e8b",
-    "size": 24684427
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.18.0/ADITV-stick.apk",
+    "sha256": "33a20e561d2f77b5360a1723a15c309fbd172a185c8d446a04033ed258d19395",
+    "size": 24700531
   }
 }
