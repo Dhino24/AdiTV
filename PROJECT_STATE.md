@@ -348,3 +348,6 @@ Recette sur la Stick (`docs/RECETTE.md`), puis corrections selon les retours d'A
 
 ## 0.21.1
 - Fiche : portraits TMDB des acteurs (format distribution « Nom|Rôle|photo », anciennes fiches rechargées), distribution et « À propos » focalisables (on peut descendre), retour en haut quand le focus revient sur l’en-tête.
+
+## 0.21.2
+- Alertes de but : relevé léger `fixtures?live=all` fusionné dans la liste du jour, partagé alertes + réalisateur ; rythme = temps de jeu restant / (quota − réserve), borné 1–5 min (`pollInterval`, test `LivePollTest`).

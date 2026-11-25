@@ -1,5 +1,6 @@
 package com.aditv.data.football
 
+import kotlinx.coroutines.sync.withLock
 import java.text.Normalizer
 import java.time.LocalDate
 import java.time.ZoneId
@@ -25,6 +26,20 @@ class FootballRepository(
     companion object {
         val zone: ZoneId = ZoneId.of("Europe/Paris")
         const val SAVE_BELOW = 10
+
+        /** Minutes de jeu restantes (environ) pour ces matchs : en direct = 110 − minute jouée, à venir = 115. */
+        fun minutesLeft(l: List<Fixture>) = l.filterNot { it.finished }.sumOf { if (it.live) (110 - (it.elapsed ?: 0)).coerceAtLeast(10) else 115 }
+
+        /**
+         * Rythme des relevés en direct : le quota restant (moins une réserve) est réparti sur le temps de jeu restant,
+         * entre 1 et 5 min. Ex. : 85 requêtes, un match → environ un relevé par minute et demie.
+         */
+        fun pollInterval(remaining: Int?, minutesLeft: Int): Long {
+            if (minutesLeft <= 0) return 5 * 60_000L
+            val budget = (remaining ?: 60) - SAVE_BELOW - 8
+            if (budget <= 0) return 5 * 60_000L
+            return (minutesLeft * 60_000L / budget).coerceIn(60_000L, 5 * 60_000L)
+        }
         /** Compétitions proposées dans « Classements », dans l'ordre d'affichage. */
         val standingsLeagues = listOf(61L, 39L, 140L, 135L, 78L, 62L, 2L, 3L, 848L)
         /** Compétitions affichées (identifiants API-Football), dans l'ordre d'affichage. */
@@ -75,7 +90,7 @@ class FootballRepository(
         val e = cache[d] ?: readDisk(d)?.also { cache[d] = it }
         if (e != null) {
             val ttl = when {
-                e.list.any { it.live } -> 5 * 60_000L
+                e.list.any { it.live } -> if (now - liveAt < 5 * 60_000L) 30 * 60_000L else 5 * 60_000L
                 offset < 0 && e.list.all { it.finished || it.status in setOf("PST", "CANC", "ABD") } -> Long.MAX_VALUE
                 offset <= 0 -> 30 * 60_000L
                 else -> 6 * 3_600_000L
@@ -85,6 +100,30 @@ class FootballRepository(
         val raw = client.fixturesRaw(d)
         writeDisk(d, raw)
         return sortAndKeep(client.parseFixtures(raw)).also { cache[d] = Entry(now, it) }
+    }
+
+    @Volatile private var liveAt = 0L
+    private val liveLock = kotlinx.coroutines.sync.Mutex()
+
+    /** Intervalle conseillé entre deux relevés des matchs [watched]. */
+    fun liveInterval(watched: List<Fixture>) = pollInterval(client.remaining, minutesLeft(watched))
+
+    /**
+     * Matchs du jour avec les scores en direct : une seule requête légère (« live=all ») fusionnée dans la liste
+     * du jour, partagée entre les alertes et le réalisateur du Multiplex (relevé réutilisé s'il a moins de [maxAgeMs]).
+     */
+    suspend fun liveScores(maxAgeMs: Long): List<Fixture> = liveLock.withLock {
+        val base = fixtures(0)
+        val d = date(0).toString()
+        if (saving || clock() - liveAt < maxAgeMs) return@withLock cache[d]?.list ?: base
+        val live = client.parseFixtures(client.getRaw("/fixtures?live=all&timezone=Europe/Paris")).associateBy { it.id }
+        val now = clock()
+        liveAt = now
+        val merged = base.map { f ->
+            live[f.id] ?: if (f.live && (f.elapsed ?: 0) >= 85) f.copy(status = "FT") else f
+        }
+        cache[d] = Entry(cache[d]?.at ?: now, merged)
+        merged
     }
 
     private val lineupsCache = ConcurrentHashMap<Long, List<Lineup>>()

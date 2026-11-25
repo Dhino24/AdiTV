@@ -118,13 +118,23 @@ fun MultiplexScreen(session: Session.Active, firstId: String, secondId: String, 
         if (session.isDemo || c.footballKey.get() == null) { directorNote = "Réalisateur : clé API-Football nécessaire (Réglages → FootAdi)."; return@LaunchedEffect }
         delay(2_000)
         while (true) {
+            var wait = 2 * 60_000L
             runCatching {
                 val today = c.football.fixtures(0).filter { it.live || (it.kickoff - System.currentTimeMillis()) in 0..15 * 60_000L }
                 val map = com.aditv.ui.foot.Broadcasts.findAll(c, session.account.id, today)
-                slots.forEachIndexed { i, s ->
+                slots.forEach { s ->
                     val f = today.firstOrNull { f -> map[f.id].orEmpty().any { b -> b.channel.id == s.id || com.aditv.data.live.ChannelFamilies.cleanName(b.channel.title).equals(s.title, true) } }
-                        ?.let { found -> c.football.fixtures(0).firstOrNull { it.id == found.id } ?: found }
                     s.fixture = f
+                }
+                // Scores en direct partagés avec les alertes FootAdi, au rythme permis par le quota.
+                val watched = slots.mapNotNull { it.fixture }
+                if (watched.isNotEmpty()) {
+                    wait = c.football.liveInterval(watched)
+                    val fresh = c.football.liveScores(maxAgeMs = wait - 5_000).associateBy { it.id }
+                    slots.forEach { s -> s.fixture?.let { f -> s.fixture = fresh[f.id] ?: f } }
+                }
+                slots.forEachIndexed { i, s ->
+                    val f = s.fixture
                     val total = f?.let { (it.homeGoals ?: 0) + (it.awayGoals ?: 0) }
                     val before = s.lastTotal
                     if (f != null && total != null && before != null && total > before) {
@@ -135,8 +145,7 @@ fun MultiplexScreen(session: Session.Active, firstId: String, secondId: String, 
                 }
                 directorNote = if (slots.none { it.fixture != null }) "Réalisateur : aucun match reconnu sur ces chaînes (guide TV)." else null
             }
-            // Scores rafraîchis par FootAdi au plus toutes les 5 min (cache) : coup d'œil toutes les 2 min.
-            delay(2 * 60_000L)
+            delay(wait)
         }
     }
     slots.forEach { s -> LaunchedEffect(s.goalFlash) { if (s.goalFlash != null) { delay(10_000); s.goalFlash = null } } }

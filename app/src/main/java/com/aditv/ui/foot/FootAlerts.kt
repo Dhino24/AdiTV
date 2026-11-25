@@ -41,9 +41,9 @@ import kotlinx.coroutines.delay
 data class GoalAlert(val text: String, val detail: String, val at: Long = System.currentTimeMillis())
 
 /**
- * Alertes FootAdi : buts de vos équipes suivies, détectés en comparant les scores. Interrogation seulement quand une
- * équipe suivie joue (en direct ou coup d'envoi dans 10 min), via le cache de FootAdi (1 requête / 5 min au plus pendant
- * le match) ; sinon un coup d'œil toutes les 30 min. Rien sans clé API-Football ni en mode économie.
+ * Alertes FootAdi : buts de vos équipes suivies, détectés en comparant les scores. Pendant leurs matchs, relevé
+ * « en direct » à un rythme calculé sur le quota restant (1 à 5 min, ~1 min 30 pour un match) ; sinon un coup d'œil
+ * toutes les 30 min. Rien sans clé API-Football ni en mode économie.
  */
 object FootAlerts {
     var current by mutableStateOf<GoalAlert?>(null); private set
@@ -61,7 +61,9 @@ object FootAlerts {
     private suspend fun check(c: AppContainer): Long {
         if (c.footballKey.get() == null || c.football.saving) return 30 * 60_000L
         val now = System.currentTimeMillis()
-        val mine = c.football.fixtures(0).filter(FootballRepository::isFollowed)
+        var mine = c.football.fixtures(0).filter(FootballRepository::isFollowed)
+        val active = mine.any { it.live || (it.kickoff - now) in -5 * 60_000L..10 * 60_000L }
+        if (active) mine = c.football.liveScores(maxAgeMs = 20_000).filter(FootballRepository::isFollowed)
         mine.filter { it.live || it.finished }.forEach { f ->
             val total = (f.homeGoals ?: 0) + (f.awayGoals ?: 0)
             val before = lastScore[f.id]
@@ -71,8 +73,7 @@ object FootAlerts {
             }
             lastScore[f.id] = total
         }
-        val active = mine.any { it.live || (it.kickoff - now) in 0..10 * 60_000L }
-        return if (active) 5 * 60_000L else 30 * 60_000L
+        return if (active) c.football.liveInterval(mine) else 30 * 60_000L
     }
 
     fun dismiss() { current = null }

@@ -1,1 +1,1 @@
-Fiches films et séries : photos des acteurs, on peut enfin descendre jusqu'en bas (distribution, À propos), le titre n'est plus coupé en haut.
+Alertes de but plus rapides : pendant les matchs de vos équipes (et dans le Multiplex), les scores sont relevés en direct jusqu'à chaque minute selon le quota API-Football restant.
