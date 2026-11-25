@@ -1,15 +1,15 @@
 {
-  "versionCode": 48,
-  "versionName": "0.18.1",
-  "notes": "Les mises à jour sont désormais vérifiées à chaque retour sur ADI TV (et plus seulement après un redémarrage complet), jamais pendant une vidéo.",
+  "versionCode": 49,
+  "versionName": "0.19.0",
+  "notes": "Nouveau : « Parce que vous avez regardé… » (suggestions personnelles), rangée « Mes applis » (Netflix, Prime Video, YouTube…), écran de veille cinéma.",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.18.1/ADITV-cube.apk",
-    "sha256": "47e34c3036e56a8cb41feaf5c6e7037943072157c62c6af879ec3219f8e0b466",
-    "size": 27234627
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.19.0/ADITV-cube.apk",
+    "sha256": "db21f845960b38aec11cabe8f394b2179bb7417818356cafaa2823875bb51992",
+    "size": 27256807
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.18.1/ADITV-stick.apk",
-    "sha256": "b493d601ba3c8028545fc4f622c0d4400c9649824945357782c3e462c01dc9d2",
-    "size": 24701983
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.19.0/ADITV-stick.apk",
+    "sha256": "73b9a03026628c304d19d040da58ab81feb4bcdbdfd9e87561658dee31718042",
+    "size": 24709595
   }
 }
