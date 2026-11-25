@@ -1,15 +1,15 @@
 {
-  "versionCode": 49,
-  "versionName": "0.19.0",
-  "notes": "Nouveau : « Parce que vous avez regardé… » (suggestions personnelles), rangée « Mes applis » (Netflix, Prime Video, YouTube…), écran de veille cinéma.",
+  "versionCode": 50,
+  "versionName": "0.20.0",
+  "notes": "Nouveau : mode Multiplex (2 chaînes à l'écran, focus sur l'une), thème Nuit OLED (noir pur, automatique le soir), notifications redessinées. Correction : plus de rappels pour le basket du Real Madrid.",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.19.0/ADITV-cube.apk",
-    "sha256": "db21f845960b38aec11cabe8f394b2179bb7417818356cafaa2823875bb51992",
-    "size": 27256807
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.20.0/ADITV-cube.apk",
+    "sha256": "2aa9bc23207d327c4c31db7cea1036c00505703cf891e774aec6e0745b6012bb",
+    "size": 27281395
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.19.0/ADITV-stick.apk",
-    "sha256": "73b9a03026628c304d19d040da58ab81feb4bcdbdfd9e87561658dee31718042",
-    "size": 24709595
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.20.0/ADITV-stick.apk",
+    "sha256": "68a0c8ba70e1b9ba4812b7a1e1625fe858c1880f78fab1a2602b61cbbbbb235e",
+    "size": 24727247
   }
 }
