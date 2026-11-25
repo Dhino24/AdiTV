@@ -1,15 +1,15 @@
 {
-  "versionCode": 51,
-  "versionName": "0.21.0",
-  "notes": "Nouveau : réalisateur du Multiplex (score en direct sur chaque écran, bascule automatique sur le match où il y a but — touche Menu pour l'activer ou non) et pause automatique « Toujours là ? » après plusieurs heures sans télécommande (réglable dans Paramètres).",
+  "versionCode": 52,
+  "versionName": "0.21.1",
+  "notes": "Fiches films et séries : photos des acteurs, on peut enfin descendre jusqu'en bas (distribution, À propos), le titre n'est plus coupé en haut.",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.0/ADITV-cube.apk",
-    "sha256": "5ec2159ee57c44df6cd61f6e50bd156e495fa51d610573ed851d6e356c78a143",
-    "size": 27291659
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.1/ADITV-cube.apk",
+    "sha256": "e03d5663ebd8cb28ca4f58748c3bf64d45816c34a9c9c0d53db62681276c012f",
+    "size": 27293347
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.0/ADITV-stick.apk",
-    "sha256": "ff76b311ea0b398930e6990fe194a09027ad0373b1603c8c10fed666c5668a35",
-    "size": 24730831
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.1/ADITV-stick.apk",
+    "sha256": "5f9dd4375f21475274294b678cdbdb2d55c6f2d57ed62e17a61b7a3b6e033c0f",
+    "size": 24731651
   }
 }
