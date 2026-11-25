@@ -1,1 +1,1 @@
-Nouveau : réalisateur du Multiplex (score en direct sur chaque écran, bascule automatique sur le match où il y a but — touche Menu pour l'activer ou non) et pause automatique « Toujours là ? » après plusieurs heures sans télécommande (réglable dans Paramètres).
+Fiches films et séries : photos des acteurs, on peut enfin descendre jusqu'en bas (distribution, À propos), le titre n'est plus coupé en haut.

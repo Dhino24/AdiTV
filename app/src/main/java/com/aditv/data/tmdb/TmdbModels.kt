@@ -27,6 +27,8 @@ data class TmdbDetails(
     val voteAverage: Double?,
     val voteCount: Int?,
     val cast: List<Pair<String, String?>>,
+    /** Portrait TMDB (profile_path) de chaque membre de [cast], même ordre. */
+    val castPhotos: List<String?> = emptyList(),
     val crew: List<String>,
     val seasonCount: Int?,
     val relatedIds: List<Int>,

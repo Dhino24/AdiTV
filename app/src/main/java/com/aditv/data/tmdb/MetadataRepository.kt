@@ -138,7 +138,7 @@ class MetadataRepository(
 
     private suspend fun refreshIfStale(type: String, id: Int) {
         val m = dao.metadata(type, id)
-        if (m == null || clock() - m.fetchedAt > STALE_MS) runCatching { fetchAndStore(type, id) }
+        if (m == null || clock() - m.fetchedAt > STALE_MS || m.cast.needsPhotos()) runCatching { fetchAndStore(type, id) }
             .onFailure { if (it is CancellationException) throw it } // cache périmé conservé si TMDB échoue
     }
 
@@ -152,7 +152,7 @@ class MetadataRepository(
                 overviewLanguage = d.overviewLanguage, posterPath = c.posterPath, backdropPath = d.backdropPath,
                 releaseDate = d.releaseDate, runtimeMin = d.runtimeMin, genres = d.genres.joinToString(", ").ifEmpty { null },
                 voteAverage = d.voteAverage, voteCount = d.voteCount,
-                cast = d.cast.joinToString("\n") { (n, r) -> if (r.isNullOrBlank()) n else "$n|$r" }.ifEmpty { null },
+                cast = d.cast.mapIndexed { i, (n, r) -> "$n|${r.orEmpty()}|${d.castPhotos.getOrNull(i).orEmpty()}" }.joinToString("\n").ifEmpty { null },
                 crew = d.crew.joinToString(", ").ifEmpty { null }, seasonCount = d.seasonCount,
                 relatedIds = d.relatedIds.joinToString(",").ifEmpty { null }, fetchedAt = clock(), trailerKey = d.trailerKey, logoPath = d.logoPath, hasLogoInfo = true,
             )
@@ -172,3 +172,6 @@ class MetadataRepository(
 
     companion object { const val STALE_MS = 30L * 24 * 3600 * 1000 }
 }
+
+/** Distribution enregistrée avant l'ajout des portraits (« Nom|Rôle » sans 3e champ) : à recharger. */
+internal fun String?.needsPhotos() = this != null && lineSequence().first().count { it == '|' } < 2

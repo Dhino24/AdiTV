@@ -69,6 +69,7 @@ class TmdbClient(
             val role = co.text("character") ?: co.arr("roles")?.firstOrNull()?.let { (it as? JsonObject)?.text("character") }
             name to role
         }
+        val castPhotos = castSrc.mapNotNull { (it as? JsonObject)?.takeIf { o -> o.text("name") != null } }.map { it.text("profile_path") }
         val crew = if (mediaType == "movie")
             o.obj("credits")?.arr("crew").orEmpty().mapNotNull { (it as? JsonObject)?.takeIf { c -> c.text("job") == "Director" }?.text("name") }.distinct()
         else o.arr("created_by").orEmpty().mapNotNull { (it as? JsonObject)?.text("name") }
@@ -85,6 +86,7 @@ class TmdbClient(
             voteAverage = o.dbl("vote_average"),
             voteCount = o.integer("vote_count"),
             cast = cast,
+            castPhotos = castPhotos,
             crew = crew,
             seasonCount = o.integer("number_of_seasons"),
             relatedIds = related,

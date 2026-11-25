@@ -1,5 +1,8 @@
 package com.aditv.ui.detail
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -192,9 +195,11 @@ fun DetailScreen(
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Aditv.Bg, 0.26f to Aditv.Bg.copy(alpha = 0.9f), 0.55f to Aditv.Bg.copy(alpha = 0.35f), 0.75f to Aditv.Bg.copy(alpha = 0.1f))))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 0.62f to Aditv.Bg.copy(alpha = 0.6f), 0.98f to Aditv.Bg)))
 
-        LazyColumn(contentPadding = PaddingValues(top = 0.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        LazyColumn(state = listState, contentPadding = PaddingValues(top = 0.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             item {
-                Column(Modifier.padding(start = 48.dp, top = 84.dp).width(460.dp)) {
+                Column(Modifier.padding(start = 48.dp, top = 84.dp).width(460.dp)
+                    .onFocusChanged { f -> if (f.hasFocus) scope.launch { listState.animateScrollToItem(0) } }) {
                     Kicker(typeLabelSingular(it.type) + if (it.available) "" else " · retiré par le fournisseur")
                     Spacer(Modifier.height(8.dp))
                     DisplayTitle(title, tmdbImage(meta?.logoPath, "w500"), size = 44.sp)
@@ -262,8 +267,8 @@ fun DetailScreen(
             if (castLines.isNotEmpty()) item {
                 Column {
                     RowTitle("Distribution", "selon TMDB", Modifier.padding(start = 48.dp, bottom = 10.dp))
-                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        items(castLines.take(10)) { l -> Person(l.substringBefore('|'), l.substringAfter('|', "").ifBlank { null }) }
+                    LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        items(castLines.take(12)) { l -> val f = l.split('|', limit = 3); Person(f[0], f.getOrNull(1)?.ifBlank { null }, f.getOrNull(2)?.ifBlank { null }) }
                     }
                 }
             }
@@ -281,7 +286,9 @@ fun DetailScreen(
             item {
                 Column(Modifier.padding(horizontal = 48.dp)) {
                     RowTitle("À propos", modifier = Modifier.padding(bottom = 10.dp))
-                    AboutPanel {
+                    var aboutFocused by remember { mutableStateOf(false) }
+                    AboutPanel(Modifier.onFocusChanged { f -> aboutFocused = f.isFocused }.focusable()
+                        .then(if (aboutFocused) Modifier.border(1.5.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(9.dp)) else Modifier)) {
                         if (it.type == "LIVE") {
                             val fmtT = java.text.SimpleDateFormat("HH:mm", java.util.Locale.FRANCE)
                             Fact("Programme", if (nowNext.isEmpty()) "guide indisponible pour cette chaîne" else nowNext.joinToString(" · ") { p -> fmtT.format(java.util.Date(p.startUtc)) + " " + p.title })
@@ -295,7 +302,7 @@ fun DetailScreen(
                             Fact("Replay déclaré", it.catchupDays?.let { d -> "$d jours (expérimental, depuis le guide)" } ?: "non")
                         } else {
                             meta?.crew?.let { cr -> Fact(if (it.type == "SERIES") "Création" else "Réalisation", cr) }
-                            if (castLines.isNotEmpty()) Fact("Avec", castLines.take(4).joinToString(", ") { l -> l.substringBefore('|') })
+                            if (castLines.isNotEmpty()) Fact("Avec", castLines.take(6).joinToString(", ") { l -> l.substringBefore('|') })
                             Fact("Qualité annoncée", siblings.ifEmpty { listOf(it) }.mapNotNull { s -> com.aditv.data.variants.variantBadge(s.lang, s.quality) }.distinct().joinToString(" · ").ifEmpty { "non précisée" })
                         }
                         Fact("Catégorie", categoryName ?: "—")
@@ -366,23 +373,33 @@ private fun NowNextLines(list: List<com.aditv.data.epg.Programme>) {
     }
 }
 
-/** Personne de la distribution : initiales (TMDB ne fournit pas ici de portrait mis en cache). */
+/** Personne de la distribution : portrait TMDB (initiales en repli), focalisable pour pouvoir descendre dans la fiche. */
 @Composable
-private fun Person(name: String, role: String?) {
-    Column(Modifier.width(75.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(64.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Aditv.Surface3, Aditv.Surface1))), contentAlignment = Alignment.Center) {
-            Text(name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Aditv.TextSecondary)
+private fun Person(name: String, role: String?, photo: String?) {
+    var focused by remember { mutableStateOf(false) }
+    Column(
+        Modifier.width(92.dp).onFocusChanged { focused = it.isFocused }.focusable()
+            .graphicsLayer { val k = if (focused) 1.08f else 1f; scaleX = k; scaleY = k },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(78.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Aditv.Surface3, Aditv.Surface1)))
+                .then(if (focused) Modifier.border(2.dp, Color.White, CircleShape) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }, fontFamily = Outfit, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = Aditv.TextSecondary)
+            if (photo != null) RemoteImage(tmdbImage(photo, "w185"), name, Modifier.fillMaxSize(), fallbackTitle = false)
         }
         Spacer(Modifier.height(7.dp))
-        Text(name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 9.sp), color = Aditv.Text, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
+        Text(name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 9.sp), color = if (focused) Color.White else Aditv.Text, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
         role?.let { Text(it, style = MaterialTheme.typography.bodySmall.copy(fontSize = 8.sp), color = Aditv.TextTertiary, maxLines = 1, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis) }
     }
 }
 
 @Composable
-private fun AboutPanel(content: @Composable () -> Unit) {
+private fun AboutPanel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.035f), RoundedCornerShape(9.dp)).padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.035f), RoundedCornerShape(9.dp)).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) { content() }
 }
