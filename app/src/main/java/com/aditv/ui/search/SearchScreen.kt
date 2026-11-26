@@ -70,6 +70,10 @@ fun SearchScreen(accountId: String, onOpen: (String) -> Unit, onPlayLive: (Strin
     val c = LocalContainer.current
     val prefs by c.prefs.variantPrefs.collectAsStateWithLifecycle(com.aditv.data.variants.VariantPrefs())
     var query by rememberSaveable { mutableStateOf("") }
+    // Recherche tapée sur la télécommande du téléphone.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        com.aditv.ui.remote.PhoneRemote.searchQuery.collect { q -> if (q != null) { query = q; com.aditv.ui.remote.PhoneRemote.searchQuery.value = null } }
+    }
     var digits by rememberSaveable { mutableStateOf(false) }
     var raw by remember { mutableStateOf<List<CatalogCard>?>(emptyList()) }
     val results = remember(raw, prefs) { raw?.collapsed(prefs)?.map { it.first } }

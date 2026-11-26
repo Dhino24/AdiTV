@@ -354,7 +354,7 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                     ) else Spacer(Modifier.height(10.dp))
                 }
                 // FootAdi : vos équipes suivies jouent aujourd'hui.
-                item(key = "myteams") { com.aditv.ui.foot.MyTeamsToday(c, isDemo, onFoot) }
+                item(key = "myteams") { com.aditv.ui.foot.MyTeamsToday(c, isDemo, accountId, onFoot, onPlayLive) }
                 // Films et séries : mise à jour proposée toutes les 3 semaines (jamais à chaque ouverture).
                 vodDue?.let { days -> item(key = "vodupdate") { VodUpdatePrompt(days, onUpdate = { c.syncVodNow() }, onLater = { scope.launch { c.snoozeVodUpdate() } }) } }
                 // Demandé par Adama : les chaînes de sport françaises tout de suite à l'écran.

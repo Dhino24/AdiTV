@@ -172,6 +172,12 @@ fun Shell(session: Session.Active) {
     LaunchedEffect(reminder) { if (reminder != null) { delay(60_000); com.aditv.data.sport.ReminderBus.clear() } }
     // Notification de rappel choisie alors qu'ADITV était fermée : lecture de la chaîne.
     LaunchedEffect(accountId) { com.aditv.ui.foot.FootAlerts.watch(c, session.isDemo) }
+    // Télécommande du téléphone : Accueil, Direct, Rechercher.
+    LaunchedEffect(Unit) {
+        com.aditv.ui.remote.PhoneRemote.route.collect { r ->
+            if (r != null) { com.aditv.ui.remote.PhoneRemote.route.value = null; go(r) }
+        }
+    }
     // Écran de veille cinéma : après N minutes sans toucher la télécommande, hors lecture (réglable, 0 = jamais).
     var saver by remember { mutableStateOf(false) }
     val saverLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle

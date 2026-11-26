@@ -94,6 +94,11 @@ class AppPrefs(private val context: Context) {
     suspend fun setAutoPauseHours(v: Int) = context.dataStore.edit { it[autoPauseKey] = v }
 
     // Écran de veille cinéma : minutes d'inactivité avant affichage (0 = désactivé).
+    /** Ville de la météo affichée sur l'écran de veille (vide = pas de météo). */
+    private val weatherCityKey = stringPreferencesKey("weather_city")
+    val weatherCity: Flow<String> = context.dataStore.data.map { it[weatherCityKey] ?: "" }
+    suspend fun setWeatherCity(v: String) = context.dataStore.edit { it[weatherCityKey] = v.trim().take(60) }
+
     private val saverKey = intPreferencesKey("screensaver_minutes")
     val screensaverMinutes: Flow<Int> = context.dataStore.data.map { it[saverKey] ?: 3 }
     suspend fun setScreensaverMinutes(v: Int) = context.dataStore.edit { it[saverKey] = v }

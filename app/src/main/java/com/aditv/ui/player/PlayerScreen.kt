@@ -253,7 +253,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         if (buffering && vm.error == null) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Spinner()
             Spacer(Modifier.height(12.dp))
-            Text(vm.engineNote?.takeIf { it.startsWith("Serveur occupé") } ?: if (vm.isLive) "Connexion à la chaîne…" else "Chargement…", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
+            Text(vm.engineNote?.takeIf { it.startsWith("Serveur occupé") || it.contains("bascule automatique sur") } ?: if (vm.isLive) "Connexion à la chaîne…" else "Chargement…", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = Aditv.TextSecondary)
         }
 
         // Saut ±10 s commandes masquées : retour visuel discret au centre.
@@ -389,6 +389,23 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
         } else if (panel != Panel.NONE && engine != null) {
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
             TrackPanel(engine, subtitlesFirst = panel == Panel.SUBS, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+        }
+
+        // Secours automatique : message visible 6 s (jamais de bascule silencieuse).
+        var backupNote by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(vm.engineNote) {
+            val n = vm.engineNote
+            if (n != null && n.contains("bascule automatique sur")) { backupNote = n; delay(6_000); backupNote = null }
+        }
+        backupNote?.let { n ->
+            Row(
+                Modifier.align(Alignment.TopCenter).padding(top = 28.dp).liquidGlass(RoundedCornerShape(50), strength = 1.6f).padding(horizontal = 18.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_layers), null, Modifier.size(16.dp), tint = Aditv.Accent)
+                Spacer(Modifier.width(9.dp))
+                Text(n, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text)
+            }
         }
 
         if (stillThere) StillThereDialog(

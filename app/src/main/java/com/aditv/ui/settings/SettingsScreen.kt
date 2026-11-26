@@ -1,5 +1,6 @@
 package com.aditv.ui.settings
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
@@ -63,6 +64,7 @@ fun SettingsScreen(session: Session.Active) {
         Text("Réglages", style = MaterialTheme.typography.displaySmall, color = Aditv.Text)
 
         Section("Profils") { ProfilesSection() }
+        Section("Télécommande sur le téléphone") { PhoneRemoteSection() }
         if (!session.isDemo) Section("Copier vers une autre TV de la maison") { TransferSection(session) }
         Section("Compte fournisseur") {
             Fact("Type", if (session.isDemo) "Démo (contenu fictif, sans lecture)" else "API compatible Xtream (vérifiée à la connexion)")
@@ -597,6 +599,11 @@ private fun StartupSection() {
             com.aditv.ui.design.FilterChip(l, saverMin == m, { scope.launch { c.prefs.setScreensaverMinutes(m) } })
         }
     }
+    val city by c.prefs.weatherCity.collectAsState("")
+    com.aditv.ui.common.TvTextField("Ville pour la météo de l'écran de veille (vide = sans météo)", city, { v -> scope.launch { c.prefs.setWeatherCity(v) } },
+        Modifier.widthIn(max = 420.dp), placeholder = "ex. Paris, Dakar…")
+    Text("Météo Open-Meteo (gratuit, sans compte) : seul le nom de la ville est envoyé. Le prochain match de vos équipes s'affiche aussi sur l'écran de veille.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
     Text("Avec « Dernière chaîne », le direct démarre tout seul sur la dernière chaîne du profil ; Retour ramène à l'accueil.",
         style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
 }
@@ -655,4 +662,30 @@ private fun TransferSection(session: com.aditv.data.Session.Active) {
         }
     }, enabled = !busy)
     message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Text) }
+}
+
+/** Télécommande sur le téléphone : QR code + adresse + code ; reste active jusqu'à l'arrêt (ou 3 h sans usage). */
+@Composable
+private fun PhoneRemoteSection() {
+    val scope = rememberCoroutineScope()
+    val ready by com.aditv.ui.remote.PhoneRemote.ready.collectAsState()
+    val note by com.aditv.ui.remote.PhoneRemote.note.collectAsState()
+    Text("Pilotez ADI TV depuis votre téléphone (même Wi-Fi) : flèches, OK, retour, lecture, chaînes, volume, et recherche au clavier. Rien ne passe par Internet ; aucune application à installer.",
+        style = MaterialTheme.typography.bodySmall, color = Aditv.TextSecondary)
+    val r = ready
+    if (r == null) {
+        AditvButton("Activer la télécommande", { scope.launch(kotlinx.coroutines.Dispatchers.IO) { com.aditv.ui.remote.PhoneRemote.start() } })
+        note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Aditv.Warn) }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+            com.aditv.ui.common.QrCode(r.url, Modifier.size(170.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("1. Scannez le QR code avec l'appareil photo du téléphone.", style = MaterialTheme.typography.bodyMedium, color = Aditv.Text)
+                Text("2. Astuce : « Ajouter à l'écran d'accueil » pour l'avoir comme une appli.", style = MaterialTheme.typography.bodyMedium, color = Aditv.Text)
+                Text("Sans QR code : ${r.shortUrl}  puis le code  ${r.pin}", style = MaterialTheme.typography.bodyMedium, color = Aditv.Accent)
+                Text("Reste active jusqu'à l'arrêt, ou 3 h sans utilisation. 5 codes faux l'arrêtent.", style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary)
+                AditvButton("Arrêter la télécommande", { com.aditv.ui.remote.PhoneRemote.stop() })
+            }
+        }
+    }
 }

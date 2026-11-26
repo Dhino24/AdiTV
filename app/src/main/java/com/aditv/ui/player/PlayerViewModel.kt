@@ -131,6 +131,16 @@ class PlayerViewModel(
                 }
                 return
             }
+            // Direct : avant d'afficher l'erreur, on essaie une autre version de la même chaîne (secours automatique).
+            if (isLive) {
+                viewModelScope.launch {
+                    if (!tryBackup("Flux coupé")) {
+                        error = message
+                        canRetry = retryable || retries < 1 || com.aditv.playback.PlaybackErrors.serverBusy(message)
+                    }
+                }
+                return
+            }
             error = message
             canRetry = retryable || retries < 1 || com.aditv.playback.PlaybackErrors.serverBusy(message)
             persistSnapshot()
@@ -173,6 +183,8 @@ class PlayerViewModel(
         saver?.cancel()
         saver = viewModelScope.launch { while (isActive) { delay(10_000); if (e.isPlaying) persistSnapshot() } }
         refreshLiveInfo()
+        currentItem?.id?.let { tried += it }
+        if (req.isLive) watch(e) else watchdog?.cancel()
         // Dernière chaîne regardée (démarrage direct sur la dernière chaîne, option des Réglages).
         if (req.isLive) currentItem?.id?.let { id -> viewModelScope.launch { c.prefs.setLastLive(com.aditv.data.profile.Profiles.key(accountId), id, liveList) } }
     }
@@ -293,6 +305,55 @@ class PlayerViewModel(
         updatePosition()
     }
 
+    // ---------- secours automatique (direct) ----------
+
+    /** Versions de la chaîne déjà essayées (remises à zéro au zapping ou à un choix manuel). */
+    private val tried = mutableSetOf<String>()
+    private var watchdog: Job? = null
+
+    /**
+     * Bascule sur une autre version de la même chaîne (HD, FHD, backup…) non encore essayée, la meilleure selon les
+     * préférences. Annoncée à l'écran, jamais silencieuse. Faux s'il n'en reste aucune.
+     */
+    private suspend fun tryBackup(reason: String): Boolean {
+        val item = currentItem ?: return false
+        if (item.type != "LIVE" || request?.kind == "REPLAY") return false
+        val key = item.variantKey ?: return false
+        val next = c.db.catalog().variantSiblings(accountId, "LIVE", key).filter { it.id !in tried }
+            .minByOrNull { VariantRanking.cost(it.lang, it.quality, prefs) } ?: return false
+        tried += next.id
+        val req = runCatching { resolve(next.id, false, preferBestVariant = false) }.getOrNull() ?: return false
+        com.aditv.core.CrashReporter.event("Secours automatique : $reason → autre version")
+        busyRetries = 0
+        c.playback.release()
+        play(req)
+        engineNote = "$reason : bascule automatique sur ${variantBadge(next.lang, next.quality) ?: "une autre source"} de la chaîne."
+        updatePosition()
+        return true
+    }
+
+    /** Surveille le direct : pas d'image après 20 s, ou chargement continu de plus de 15 s → secours. */
+    private fun watch(e: PlaybackEngine) {
+        watchdog?.cancel()
+        watchdog = viewModelScope.launch {
+            val opened = System.currentTimeMillis()
+            var stuckSince = 0L
+            while (isActive) {
+                delay(1_000)
+                if (engine !== e) return@launch
+                if (error != null || userPaused || stopJob?.isActive == true || busyRetries > 0) { stuckSince = 0; continue }
+                val now = System.currentTimeMillis()
+                val stuck = if (e.startupMs == null) now - opened > 20_000 else e.isBuffering
+                if (!stuck) { stuckSince = 0; continue }
+                if (stuckSince == 0L) stuckSince = now
+                if (e.startupMs == null || now - stuckSince > 15_000) {
+                    stuckSince = 0
+                    if (tryBackup("Flux bloqué")) return@launch
+                }
+            }
+        }
+    }
+
     private fun updatePosition() {
         val key = currentItem?.variantKey
         val i = channels.indexOfFirst { it.id == currentItem?.id || (key != null && it.variantKey == key) }
@@ -302,7 +363,7 @@ class PlayerViewModel(
     /** ↑ / ↓ en direct : chaîne précédente / suivante de la liste d'origine (une seule session à la fois). */
     fun zap(delta: Int) {
         if (!isLive || channels.isEmpty()) return
-        busyRetries = 0
+        busyRetries = 0; tried.clear()
         val key = currentItem?.variantKey
         val i = channels.indexOfFirst { it.id == currentItem?.id || (key != null && it.variantKey == key) }.coerceAtLeast(0)
         val next = channels[(i + delta + channels.size) % channels.size]
@@ -314,6 +375,7 @@ class PlayerViewModel(
     }
 
     fun switchVersion(itemId: String) {
+        tried.clear()
         val pos = engine?.positionMs?.takeIf { !isLive && it > 0 }
         persistSnapshot()
         viewModelScope.launch {
@@ -377,7 +439,7 @@ class PlayerViewModel(
     fun cancelNext() { nextJob?.cancel(); nextUp = null }
 
     fun retry() {
-        retries++; busyRetries = 0
+        retries++; busyRetries = 0; tried.clear()
         val r = request ?: run { start(); return }
         error = null
         play(r, resumeAtMs = engine?.positionMs?.takeIf { !r.isLive && it > 0 } ?: r.startPositionMs, kind = engine?.kind)
@@ -452,7 +514,7 @@ class PlayerViewModel(
         logSession()
         if (c.playback.currentEngine === engine) c.playback.release()
         engine = null
-        epgJob?.cancel()
+        epgJob?.cancel(); watchdog?.cancel()
     }
 
     /** Lit la position sur le thread principal, puis écrit hors de la portée du ViewModel (qui peut être détruit). */

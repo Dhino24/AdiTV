@@ -408,6 +408,13 @@ private fun MatchPanel(
             style = MaterialTheme.typography.bodyMedium, color = Aditv.TextSecondary,
         )
         onStandings?.let { Spacer(Modifier.height(10.dp)); PillButton("Classement", it, icon = R.drawable.ic_chart, primary = false, small = true) }
+        if (f.finished) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            if (remember { com.aditv.ui.common.Trailer.canSearch(ctx) }) {
+                Spacer(Modifier.height(10.dp))
+                PillButton("Voir le résumé (YouTube)", { com.aditv.ui.common.Trailer.search(ctx, highlightsQuery(f)) }, icon = R.drawable.ic_trailer, primary = false, small = true)
+            }
+        }
         if (f.live) { Spacer(Modifier.height(10.dp)); LiveTag() }
     }
 }
@@ -623,3 +630,8 @@ private fun shortName(n: String): String {
     return if (parts.size >= 2 && !parts[0].endsWith(".")) parts[0].first() + ". " + parts.drop(1).joinToString(" ") else n
 }
 
+/** Recherche YouTube des temps forts : « résumé Équipe A Équipe B » + compétition + date. */
+internal fun highlightsQuery(f: Fixture): String {
+    val d = SimpleDateFormat("d MMMM yyyy", Locale.FRANCE).format(Date(f.kickoff))
+    return "résumé ${f.home.name} ${f.away.name} ${FootballRepository.COMPETITIONS[f.competition.id] ?: f.competition.name} $d"
+}

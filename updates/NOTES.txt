@@ -1,1 +1,1 @@
-Alertes de but plus rapides : pendant les matchs de vos équipes (et dans le Multiplex), les scores sont relevés en direct jusqu'à chaque minute selon le quota API-Football restant.
+Nouveau : secours automatique des chaînes (bascule sur une autre version si le flux coupe), « Soir de match » sur l'accueil, résumé YouTube des matchs terminés, télécommande sur le téléphone (Réglages), météo et prochain match sur l'écran de veille.

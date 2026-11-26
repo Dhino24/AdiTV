@@ -69,6 +69,8 @@ class AppContainer(context: Context) {
     val footballKey = com.aditv.data.football.FootballKeyStore(secrets)
     val updater = com.aditv.data.update.Updater(context, http.tmdb)
     val footballDataKey = com.aditv.data.football.FootballKeyStore(secrets, "footballdata:key", "footballdata")
+    /** Météo de l'écran de veille (Open-Meteo, sans clé). */
+    val weather by lazy { com.aditv.data.weather.WeatherRepository(http.tmdb) }
     val football = com.aditv.data.football.FootballRepository(
         com.aditv.data.football.FootballClient(http.tmdb, { footballKey.get() }),
         com.aditv.data.football.FootballDataClient(http.tmdb, { footballDataKey.get() }), { footballDataKey.get() },

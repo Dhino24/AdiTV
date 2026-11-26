@@ -351,3 +351,9 @@ Recette sur la Stick (`docs/RECETTE.md`), puis corrections selon les retours d'A
 
 ## 0.21.2
 - Alertes de but : relevé léger `fixtures?live=all` fusionné dans la liste du jour, partagé alertes + réalisateur ; rythme = temps de jeu restant / (quota − réserve), borné 1–5 min (`pollInterval`, test `LivePollTest`).
+
+## 0.22.0
+- Secours automatique (direct) : erreur de lecture ou flux bloqué (pas d'image en 20 s, chargement > 15 s) → autre version non essayée de la même chaîne (variantKey), annoncée à l'écran ; essais remis à zéro au zapping / choix manuel.
+- FootAdi : « Voir le résumé (YouTube) » sur les matchs terminés (recherche dans l'appli YouTube). Accueil : carte « Soir de match » (match d'une équipe suivie en direct ou dans les 3 h : score/heure, chaîne, Regarder, Détails).
+- Télécommande sur le téléphone (`net/PhoneRemoteServer`, `ui/remote/PhoneRemote`) : page servie en LAN, jeton 128 bits (QR) ou code 4 chiffres, 5 essais faux, arrêt après 3 h sans usage ; touches rejouées dans ADI TV seulement (MainActivity), volume, Accueil/Direct, recherche au clavier.
+- Écran de veille : météo Open-Meteo (ville dans Réglages, seul le nom de ville est envoyé) et prochain match des équipes suivies (cache FootAdi).

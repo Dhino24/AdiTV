@@ -22,8 +22,8 @@ android {
         applicationId = "com.aditv.app"
         minSdk = 25
         targetSdk = 34
-        versionCode = 53
-        versionName = "0.21.2"
+        versionCode = 54
+        versionName = "0.22.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
