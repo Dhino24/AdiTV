@@ -1,15 +1,15 @@
 {
-  "versionCode": 53,
-  "versionName": "0.21.2",
-  "notes": "Alertes de but plus rapides : pendant les matchs de vos équipes (et dans le Multiplex), les scores sont relevés en direct jusqu'à chaque minute selon le quota API-Football restant.",
+  "versionCode": 54,
+  "versionName": "0.22.0",
+  "notes": "Nouveau : secours automatique des chaînes (bascule sur une autre version si le flux coupe), « Soir de match » sur l'accueil, résumé YouTube des matchs terminés, télécommande sur le téléphone (Réglages), météo et prochain match sur l'écran de veille.",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.2/ADITV-cube.apk",
-    "sha256": "dc71127ff93c93ed928f5fc8d67f21b23d406a9cb787d77394cbe09e00d24f8c",
-    "size": 27295167
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.22.0/ADITV-cube.apk",
+    "sha256": "f70e17d51e0a38f15ced578a56849976317422ca3adc6c6412693f5cf2be5c92",
+    "size": 27334383
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.21.2/ADITV-stick.apk",
-    "sha256": "aec41f3b181bca7c303db817106becb8c03c1944e43783146c2dfe48b416fccc",
-    "size": 24731951
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.22.0/ADITV-stick.apk",
+    "sha256": "65dad9128ed7d3f9f8e1d25cca8fd0406f22f1f4353dfbfd2375b28a43d6c24e",
+    "size": 24751535
   }
 }
