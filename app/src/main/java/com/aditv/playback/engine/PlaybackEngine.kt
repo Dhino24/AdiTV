@@ -76,6 +76,8 @@ interface PlaybackEngine {
     fun selectText(t: EngineTrack?)
 
     fun stats(): List<StatRow>
+    /** Décalage du son en ms (positif = son retardé). Faux si ce moteur ne sait pas appliquer cette valeur. */
+    fun setAudioDelayMs(ms: Int): Boolean
     fun release()
 
     @Composable fun VideoSurface(modifier: Modifier)

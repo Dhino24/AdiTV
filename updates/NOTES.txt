@@ -1,1 +1,1 @@
-Nouveau : secours automatique des chaînes (bascule sur une autre version si le flux coupe), « Soir de match » sur l'accueil, résumé YouTube des matchs terminés, télécommande sur le téléphone (Réglages), météo et prochain match sur l'écran de veille.
+Nouveau : santé de l'abonnement (alerte 7 jours avant la fin), chaîne précédente (touche ⏪ en direct), décalage du son par chaîne, « Passer le générique » des séries, et « Nouveautés de la semaine » avec annonce des films et séries ajoutés.

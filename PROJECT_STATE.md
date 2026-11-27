@@ -357,3 +357,10 @@ Recette sur la Stick (`docs/RECETTE.md`), puis corrections selon les retours d'A
 - FootAdi : « Voir le résumé (YouTube) » sur les matchs terminés (recherche dans l'appli YouTube). Accueil : carte « Soir de match » (match d'une équipe suivie en direct ou dans les 3 h : score/heure, chaîne, Regarder, Détails).
 - Télécommande sur le téléphone (`net/PhoneRemoteServer`, `ui/remote/PhoneRemote`) : page servie en LAN, jeton 128 bits (QR) ou code 4 chiffres, 5 essais faux, arrêt après 3 h sans usage ; touches rejouées dans ADI TV seulement (MainActivity), volume, Accueil/Direct, recherche au clavier.
 - Écran de veille : météo Open-Meteo (ville dans Réglages, seul le nom de ville est envoyé) et prochain match des équipes suivies (cache FootAdi).
+
+## 0.23.0
+- Santé de l'abonnement (`data/account/SubscriptionHealth`) : contrôle auto toutes les 12 h, alerte (≤ 7 jours, expiré, suspendu) une fois par jour ; ligne « Santé » dans Réglages ; erreur « serveur saturé » complétée par le nombre de connexions autorisées.
+- Chaîne précédente : `ChannelHistory` (versions d'une même chaîne = même chaîne), touche ⏪ / Précédent / Dernière chaîne en direct, option dans « Plus ».
+- Décalage du son : `DelayAudioProcessor` (Media3, retard seulement, sans effet en passthrough) / `MediaPlayer.audioDelay` (VLC, retard ou avance) ; mémorisé par contenu (EngineStore `d:`) ; valeur négative → VLC.
+- Passer le générique : début/fin marqués une fois par série (EngineStore `i:`), bouton « Passer le générique · OK » pendant la fenêtre.
+- Nouveautés : rangée « Nouveautés de la semaine » (films + séries ajoutés depuis 7 jours) et annonce des ajouts depuis la dernière visite.

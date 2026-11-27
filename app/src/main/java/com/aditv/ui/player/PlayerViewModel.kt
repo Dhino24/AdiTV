@@ -71,6 +71,13 @@ class PlayerViewModel(
     /** Bandeau de chaîne affiché au zapping (position dans la liste). */
     var channelPosition by mutableStateOf<String?>(null); private set
     var catchupAvailable by mutableStateOf(false); private set
+    /** Décalage du son de ce contenu / cette chaîne (ms, positif = son retardé). */
+    var audioDelayMs by mutableStateOf(0); private set
+    /** Chaîne regardée juste avant (touche ⏪ en direct). */
+    var previousChannelTitle by mutableStateOf<String?>(null); private set
+    /** Générique de la série (début, fin en ms), marqué une fois et appliqué à tous ses épisodes. */
+    var introWindow by mutableStateOf<Pair<Long, Long>?>(null); private set
+    var introStartMark by mutableStateOf<Long?>(null); private set
 
     private var request: PlaybackRequest? = null
     private var currentItem: CatalogItemEntity? = null
@@ -135,13 +142,13 @@ class PlayerViewModel(
             if (isLive) {
                 viewModelScope.launch {
                     if (!tryBackup("Flux coupé")) {
-                        error = message
+                        error = withConnectionHint(message)
                         canRetry = retryable || retries < 1 || com.aditv.playback.PlaybackErrors.serverBusy(message)
                     }
                 }
                 return
             }
-            error = message
+            error = withConnectionHint(message)
             canRetry = retryable || retries < 1 || com.aditv.playback.PlaybackErrors.serverBusy(message)
             persistSnapshot()
         }
@@ -176,9 +183,18 @@ class PlayerViewModel(
         error = null
         engineChoice = store.choiceFor(choiceKey) ?: store.defaultChoice
         if (kind == null) { fellBack = false; engineNote = null }
-        val k = kind ?: EnginePolicy.initial(engineChoice)
+        val delay = store.audioDelayFor(choiceKey)
+        // Son à avancer : seul VLC sait le faire.
+        val k = kind ?: if (delay < 0) EngineKind.VLC else EnginePolicy.initial(engineChoice)
+        com.aditv.playback.engine.AudioDelay.processor.delayMs = delay.coerceAtLeast(0)
         val e = c.playback.openEngine(effective, trackPrefs(currentItem?.lang), k, BufferPolicy(turbo), events)
         engine = e
+        audioDelayMs = delay
+        e.setAudioDelayMs(delay)
+        if (req.isLive && req.kind == "LIVE") currentItem?.let { ChannelHistory.record(it.id, it.variantKey, it.title) }
+        previousChannelTitle = ChannelHistory.previous?.title?.let { com.aditv.data.live.ChannelFamilies.cleanName(it) }
+        introWindow = req.seriesItemId?.let { store.introFor(it) }
+        introStartMark = null
         sessionOpenedAt = System.currentTimeMillis(); lastError = null
         saver?.cancel()
         saver = viewModelScope.launch { while (isActive) { delay(10_000); if (e.isPlaying) persistSnapshot() } }
@@ -304,6 +320,52 @@ class PlayerViewModel(
         channels = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { raw.collapsed(prefs).map { it.first } }
         updatePosition()
     }
+
+    /** Serveur saturé : rappelle le nombre de connexions simultanées autorisées par l'abonnement. */
+    private fun withConnectionHint(message: String): String {
+        val max = session.account.maxConnections ?: return message
+        if (!com.aditv.playback.PlaybackErrors.serverBusy(message)) return message
+        return "$message\nVotre abonnement autorise $max connexion${if (max > 1) "s" else ""} simultanée${if (max > 1) "s" else ""} : arrêtez la lecture sur l'autre appareil (ou le Multiplex)."
+    }
+
+    // ---------- décalage du son ----------
+
+    fun setAudioDelay(ms: Int) {
+        store.setAudioDelay(choiceKey, ms)
+        audioDelayMs = ms
+        val e = engine ?: return
+        if (!e.setAudioDelayMs(ms)) {
+            engineNote = "Son avancé : passage au moteur VLC (Media3 sait seulement retarder le son)."
+            restartHere(EngineKind.VLC)
+        }
+    }
+
+    // ---------- chaîne précédente ----------
+
+    fun previousChannel() {
+        val p = ChannelHistory.previous ?: return
+        busyRetries = 0; tried.clear()
+        persistSnapshot()
+        viewModelScope.launch {
+            error = null
+            runCatching { resolve(p.id, false, preferBestVariant = false) }.onSuccess { play(it); updatePosition() }.onFailure { error = it.message }
+        }
+    }
+
+    // ---------- générique des séries ----------
+
+    fun markIntroStart(posMs: Long) { introStartMark = posMs }
+    fun markIntroEnd(posMs: Long) {
+        val series = request?.seriesItemId ?: return
+        val start = introStartMark ?: introWindow?.first ?: 0L
+        if (posMs <= start + 5_000) return
+        store.setIntro(series, start, posMs)
+        introWindow = start to posMs
+        introStartMark = null
+    }
+    fun clearIntro() { request?.seriesItemId?.let { store.setIntro(it, null, null) }; introWindow = null; introStartMark = null }
+    fun skipIntro() { introWindow?.let { (_, end) -> engine?.seekTo(end) } }
+    val isEpisode: Boolean get() = request?.kind == "EPISODE"
 
     // ---------- secours automatique (direct) ----------
 
@@ -528,4 +590,18 @@ class PlayerViewModel(
     }
 
     private companion object { const val DEMO = "Lecture indisponible en mode démo : aucun flux n'est associé aux contenus fictifs." }
+}
+
+/** Historique des chaînes (pour la processus) : dernière et précédente, une version de chaîne comptant comme la même chaîne. */
+internal object ChannelHistory {
+    data class Entry(val id: String, val key: String?, val title: String)
+    var last: Entry? = null; private set
+    var previous: Entry? = null; private set
+    fun record(id: String, key: String?, title: String) {
+        val l = last
+        val same = l != null && (l.id == id || (key != null && l.key == key))
+        if (!same) previous = l
+        last = Entry(id, key, title)
+    }
+    fun reset() { last = null; previous = null }
 }

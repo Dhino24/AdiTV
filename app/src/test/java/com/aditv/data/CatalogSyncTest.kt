@@ -53,6 +53,8 @@ class CatalogSyncTest {
         override fun categories(accountId: String, type: String): Flow<List<CategoryEntity>> = emptyFlow()
         override fun cardsInCategory(accountId: String, type: String, categoryId: String): Flow<List<CatalogCard>> = emptyFlow()
         override fun recentlyAdded(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>> = emptyFlow()
+        override suspend fun addedSince(accountId: String, sinceSec: Long, limit: Int): List<CatalogCard> = emptyList()
+        override suspend fun countAddedSince(accountId: String, type: String, sinceSec: Long): Int = 0
         override fun firstItems(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>> = emptyFlow()
         override suspend fun search(accountId: String, key: String, limit: Int) = emptyList<CatalogCard>()
         override fun observeItem(id: String): Flow<CatalogItemEntity?> = emptyFlow()

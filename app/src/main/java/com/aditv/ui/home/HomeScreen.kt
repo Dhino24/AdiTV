@@ -1,5 +1,6 @@
 package com.aditv.ui.home
 
+import kotlinx.coroutines.flow.first
 import com.aditv.ui.theme.Outfit
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -275,6 +276,20 @@ fun typeLabel(type: String) = when (type) { "LIVE" -> "Direct"; "MOVIE" -> "Film
 @Composable
 fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onPlay: (String, Boolean) -> Unit, onPlayLive: (String, String?) -> Unit, onFoot: () -> Unit = {}) {
     val c = LocalContainer.current
+    val news by androidx.compose.runtime.produceState<HomeRow?>(null, accountId) {
+        while (true) {
+            value = runCatching {
+                val since = System.currentTimeMillis() / 1000 - 7 * 86_400L
+                val cards = c.db.catalog().addedSince(accountId, since, 120).collapsed(c.prefs.variantPrefs.first()).take(30)
+                if (cards.isEmpty()) null else {
+                    val films = c.db.catalog().countAddedSince(accountId, "MOVIE", since); val series = c.db.catalog().countAddedSince(accountId, "SERIES", since)
+                    HomeRow("Nouveautés de la semaine", listOfNotNull(films.takeIf { it > 0 }?.let { "$it film${if (it > 1) "s" else ""}" },
+                        series.takeIf { it > 0 }?.let { "$it série${if (it > 1) "s" else ""}" }).joinToString(" · ") + " ajoutés ces 7 derniers jours", MediaType.MOVIE, cards)
+                }
+            }.getOrNull()
+            kotlinx.coroutines.delay(30 * 60_000L)
+        }
+    }
     val vm: HomeViewModel = viewModel(key = "home-$accountId") { HomeViewModel(c, accountId) }
     val state by vm.state.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
@@ -370,6 +385,8 @@ fun HomeScreen(accountId: String, isDemo: Boolean, onOpen: (String) -> Unit, onP
                     }
                 }
                 if (state.resume.isNotEmpty()) item(key = "resume") { ResumeRowView(state.resume, onPlay, onSpot) }
+                // Nouveautés de la semaine : films et séries ajoutés ces 7 derniers jours (date déclarée par le fournisseur).
+                if (news != null) item(key = "news") { ContentRow(accountId, news!!, onOpen, onPlayLive, onCard, onSpot) }
                 // Netflix, Prime Video, YouTube… installées sur la Fire TV.
                 if (!isDemo) item(key = "apps") { AppsRow() }
                 if (topMovies.isNotEmpty()) item(key = "top-movies") { TopRow("Top 10 des films du moment", topMovies, onOpen) { onCard(it, "Top 10 des films") } }

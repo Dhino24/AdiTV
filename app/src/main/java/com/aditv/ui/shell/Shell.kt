@@ -172,6 +172,34 @@ fun Shell(session: Session.Active) {
     LaunchedEffect(reminder) { if (reminder != null) { delay(60_000); com.aditv.data.sport.ReminderBus.clear() } }
     // Notification de rappel choisie alors qu'ADITV était fermée : lecture de la chaîne.
     LaunchedEffect(accountId) { com.aditv.ui.foot.FootAlerts.watch(c, session.isDemo) }
+    // Nouveautés : films et séries ajoutés depuis la dernière annonce (une fois le catalogue à jour).
+    var newsAlert by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(accountId) {
+        delay(25_000)
+        val now = System.currentTimeMillis() / 1000
+        val seen = c.prefs.newsSeenAt(accountId)
+        if (seen == null) { c.prefs.setNewsSeenAt(accountId, now); return@LaunchedEffect }
+        val films = c.db.catalog().countAddedSince(accountId, "MOVIE", seen + 1)
+        val series = c.db.catalog().countAddedSince(accountId, "SERIES", seen + 1)
+        c.prefs.setNewsSeenAt(accountId, now)
+        if (films + series > 0) newsAlert = films to series
+    }
+    // Santé de l'abonnement : contrôle discret toutes les 12 h, avertissement (7 jours avant la fin, expiré, suspendu)
+    // une fois par jour au plus.
+    var healthAlert by remember { mutableStateOf<com.aditv.data.account.SubscriptionHealth?>(null) }
+    LaunchedEffect(accountId) {
+        if (session.isDemo) return@LaunchedEffect
+        delay(8_000)
+        while (true) {
+            val acc = c.accounts.session.value.let { it as? Session.Active }?.account ?: session.account
+            if ((System.currentTimeMillis() - (acc.statusCheckedAt ?: 0L)) > 12 * 3_600_000L) runCatching { c.accounts.refreshStatus() }
+            val fresh = (c.accounts.session.value as? Session.Active)?.account ?: acc
+            val h = com.aditv.data.account.SubscriptionHealth.assess(fresh)
+            val today = java.time.LocalDate.now().toString()
+            if (h.needsAttention && c.prefs.healthWarnedDay.first() != today) { healthAlert = h; c.prefs.setHealthWarnedDay(today) }
+            delay(3 * 3_600_000L)
+        }
+    }
     // Télécommande du téléphone : Accueil, Direct, Rechercher.
     LaunchedEffect(Unit) {
         com.aditv.ui.remote.PhoneRemote.route.collect { r ->
@@ -313,6 +341,25 @@ fun Shell(session: Session.Active) {
 
             // Alertes de but de vos équipes (FootAdi), par-dessus tout, même pendant une lecture.
             com.aditv.ui.foot.FootAlerts.current?.let { a -> com.aditv.ui.foot.GoalBanner(a, Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 24.dp)) }
+            newsAlert?.let { (f, sr) ->
+                LaunchedEffect(f, sr) { delay(12_000); newsAlert = null }
+                val parts = listOfNotNull(f.takeIf { it > 0 }?.let { "$it film${if (it > 1) "s" else ""}" }, sr.takeIf { it > 0 }?.let { "$it série${if (it > 1) "s" else ""}" })
+                com.aditv.ui.design.AditvNotification(
+                    kicker = "Nouveautés", title = parts.joinToString(" et ") + " ajouté" + (if (f + sr > 1) "s" else "") + " depuis votre dernière visite",
+                    subtitle = "À découvrir dans « Nouveautés de la semaine » sur l'accueil.",
+                    icon = R.drawable.ic_movies, accent = Aditv.Accent, lifetimeMs = 12_000, actionKey = null, actionLabel = null, pulse = false,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 62.dp, end = 24.dp), key = "news",
+                )
+            }
+            healthAlert?.let { h ->
+                LaunchedEffect(h) { delay(15_000); healthAlert = null }
+                com.aditv.ui.design.AditvNotification(
+                    kicker = "Abonnement", title = h.title, subtitle = (h.detail ?: "") + "  ·  Renouvelez auprès de votre fournisseur.",
+                    icon = R.drawable.ic_warn, accent = if (h.level == com.aditv.data.account.SubscriptionHealth.Level.SOON) Aditv.Warn else Aditv.Error,
+                    lifetimeMs = 15_000, actionKey = null, actionLabel = null, pulse = false,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 110.dp, end = 24.dp), key = h.title,
+                )
+            }
 
             reminder?.let { r ->
                 com.aditv.ui.sport.ReminderBanner(r.title, r.channelName, r.startUtc, Modifier.align(Alignment.TopEnd).padding(top = 62.dp, end = 24.dp))

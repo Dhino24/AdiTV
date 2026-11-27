@@ -99,6 +99,16 @@ class AppPrefs(private val context: Context) {
     val weatherCity: Flow<String> = context.dataStore.data.map { it[weatherCityKey] ?: "" }
     suspend fun setWeatherCity(v: String) = context.dataStore.edit { it[weatherCityKey] = v.trim().take(60) }
 
+    /** Jour (AAAA-MM-JJ) du dernier avertissement d'abonnement affiché : une fois par jour au plus. */
+    private val healthShownKey = stringPreferencesKey("health_warned_day")
+    val healthWarnedDay: Flow<String> = context.dataStore.data.map { it[healthShownKey] ?: "" }
+    suspend fun setHealthWarnedDay(v: String) = context.dataStore.edit { it[healthShownKey] = v }
+
+    /** Nouveautés : date (s) jusqu'à laquelle les ajouts ont déjà été annoncés, par compte. */
+    private fun newsKey(accountId: String) = androidx.datastore.preferences.core.longPreferencesKey("news_seen_$accountId")
+    suspend fun newsSeenAt(accountId: String): Long? = context.dataStore.data.map { it[newsKey(accountId)] }.first()
+    suspend fun setNewsSeenAt(accountId: String, sec: Long) = context.dataStore.edit { it[newsKey(accountId)] = sec }
+
     private val saverKey = intPreferencesKey("screensaver_minutes")
     val screensaverMinutes: Flow<Int> = context.dataStore.data.map { it[saverKey] ?: 3 }
     suspend fun setScreensaverMinutes(v: Int) = context.dataStore.edit { it[saverKey] = v }

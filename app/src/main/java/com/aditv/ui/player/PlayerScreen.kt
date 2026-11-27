@@ -90,7 +90,7 @@ import com.aditv.ui.theme.Aditv
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private enum class Panel { NONE, AUDIO, SUBS, VERSION, ENGINE, SLEEP, MORE, MULTI }
+private enum class Panel { NONE, AUDIO, SUBS, VERSION, ENGINE, SLEEP, MORE, MULTI, DELAY, INTRO }
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -106,8 +106,11 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
     var bannerUntil by remember { mutableLongStateOf(0L) }
     LaunchedEffect(bannerUntil) { if (bannerUntil > 0) { delay(4_000); bannerUntil = 0 } }
     var position by remember { mutableLongStateOf(0L) }
+    // « Passer le générique » : fenêtre marquée pour la série, bouton visible pendant le générique.
+    var introSkipped by remember { mutableStateOf(false) }
     var buffered by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    val introVisible = vm.introWindow?.let { (a, b) -> !introSkipped && position in (a - 1_000)..(b - 3_000) } == true
     var playing by remember { mutableStateOf(false) }
     var buffering by remember { mutableStateOf(true) }
     var scrubFocused by remember { mutableStateOf(false) }
@@ -221,7 +224,12 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                     Key.MediaPlay -> { p?.play(); touch(); true }
                     Key.MediaPause -> { vm.userPaused = true; p?.pause(); touch(); true }
                     Key.MediaFastForward -> { seekBy(30_000); touch(); true }
-                    Key.MediaRewind -> { seekBy(-30_000); touch(); true }
+                    // En direct : ⏪ (ou « dernière chaîne ») = chaîne précédente.
+                    Key.MediaRewind, Key.MediaPrevious, Key.LastChannel -> {
+                        if (vm.isLive) { if (vm.previousChannelTitle != null) { vm.previousChannel(); bannerUntil = System.currentTimeMillis() } }
+                        else seekBy(-30_000)
+                        touch(); true
+                    }
                     else -> {
                         if (!controlsVisible && panel == Panel.NONE) {
                             when (ev.key) {
@@ -233,7 +241,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                                 Key.DirectionDown -> { if (vm.isLive) { vm.zap(1); bannerUntil = System.currentTimeMillis() } else touch(); true }
                                 Key.ChannelUp -> { vm.zap(-1); bannerUntil = System.currentTimeMillis(); true }
                                 Key.ChannelDown -> { vm.zap(1); bannerUntil = System.currentTimeMillis(); true }
-                                Key.DirectionCenter, Key.Enter -> { touch(); true }
+                                Key.DirectionCenter, Key.Enter -> { if (introVisible) { vm.skipIntro(); introSkipped = true } else touch(); true }
                                 else -> false
                             }
                         } else {
@@ -346,7 +354,7 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    if (vm.isLive) "Commandes masquées : ↑/↓ chaîne précédente / suivante · OK afficher"
+                    if (vm.isLive) "Commandes masquées : ↑/↓ chaîne précédente / suivante · ⏪ dernière chaîne regardée · OK afficher"
                     else "Commandes masquées : ←/→ −/+ 10 s · OK afficher",
                     style = MaterialTheme.typography.bodySmall, color = Aditv.TextTertiary,
                 )
@@ -374,6 +382,16 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                 val first = vm.currentChannelId ?: return@MultiplexPicker
                 vm.close(); onMultiplex(first, second)
             }, modifier = Modifier.align(Alignment.CenterEnd))
+        } else if (panel == Panel.DELAY) {
+            BackHandler { panel = Panel.MORE }
+            Box(Modifier.fillMaxSize().background(Color(0x80030508)))
+            AudioDelayPanel(vm.audioDelayMs, engine?.kind, onPick = { vm.setAudioDelay(it); touch() }, modifier = Modifier.align(Alignment.CenterEnd))
+        } else if (panel == Panel.INTRO) {
+            BackHandler { panel = Panel.MORE }
+            Box(Modifier.fillMaxSize().background(Color(0x80030508)))
+            IntroPanel(engine?.positionMs ?: position, vm.introWindow, vm.introStartMark,
+                onStart = { vm.markIntroStart(it) }, onEnd = { vm.markIntroEnd(it); panel = Panel.NONE; touch() },
+                onClear = { vm.clearIntro(); panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         } else if (panel == Panel.MORE) {
             BackHandler { panel = Panel.NONE }
             MorePanel(
@@ -385,11 +403,25 @@ fun PlayerScreen(session: Session.Active, contentId: String, fromStart: Boolean,
                 onFavorite = { vm.toggleFavorite(); panel = Panel.NONE; touch() },
                 onMultiplex = if (vm.isLive) ({ panel = Panel.MULTI }) else null,
                 modifier = Modifier.align(Alignment.CenterEnd),
+                audioDelayLabel = com.aditv.playback.engine.AudioDelay.label(vm.audioDelayMs), onAudioDelay = { panel = Panel.DELAY },
+                previousChannel = if (vm.isLive) vm.previousChannelTitle else null, onPrevious = { vm.previousChannel(); panel = Panel.NONE; bannerUntil = System.currentTimeMillis() },
+                introLabel = if (vm.isEpisode) (vm.introWindow?.let { (a, b) -> "${fmt(a)} → ${fmt(b)}" } ?: "Non marqué") else null, onIntro = { panel = Panel.INTRO },
             )
         } else if (panel != Panel.NONE && engine != null) {
             Box(Modifier.fillMaxSize().background(Color(0x80030508)))
             TrackPanel(engine, subtitlesFirst = panel == Panel.SUBS, onClose = { panel = Panel.NONE; touch() }, modifier = Modifier.align(Alignment.CenterEnd))
         }
+
+        if (introVisible) Row(
+            Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = if (controlsVisible) 150.dp else 48.dp)
+                .background(Color.White, RoundedCornerShape(50)).padding(horizontal = 20.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_fwd10), null, Modifier.size(18.dp), tint = Color(0xFF07111A))
+            Spacer(Modifier.width(8.dp))
+            Text("Passer le générique  ·  OK", style = MaterialTheme.typography.titleMedium, color = Color(0xFF07111A))
+        }
+        LaunchedEffect(vm.introWindow, position < 5_000) { if (position < 5_000) introSkipped = false }
 
         // Secours automatique : message visible 6 s (jamais de bascule silencieuse).
         var backupNote by remember { mutableStateOf<String?>(null) }
@@ -692,12 +724,18 @@ private fun MorePanel(
     engineLabel: String, versionLabel: String?, sleepLabel: String?, favorite: Boolean?,
     onEngine: () -> Unit, onVersion: () -> Unit, onSleep: () -> Unit, onFavorite: () -> Unit, modifier: Modifier,
     onMultiplex: (() -> Unit)? = null,
+    audioDelayLabel: String = "Aucun", onAudioDelay: () -> Unit = {},
+    previousChannel: String? = null, onPrevious: () -> Unit = {},
+    introLabel: String? = null, onIntro: () -> Unit = {},
 ) {
     val first = remember { FocusRequester() }
     InitialFocus(first)
     SideSheet("Plus d'options", null, modifier) {
         Column {
-            SheetOption("Moteur de lecture", onEngine, Modifier.focusRequester(first), detail = engineLabel)
+            if (previousChannel != null) SheetOption("Chaîne précédente", onPrevious, Modifier.focusRequester(first), detail = previousChannel + "  ·  touche ⏪")
+            SheetOption("Moteur de lecture", onEngine, if (previousChannel == null) Modifier.focusRequester(first) else Modifier, detail = engineLabel)
+            SheetOption("Décalage du son", onAudioDelay, detail = audioDelayLabel)
+            if (introLabel != null) SheetOption("Générique de la série", onIntro, detail = introLabel)
             if (versionLabel != null) SheetOption("Version", onVersion, detail = versionLabel)
             SheetOption("Minuterie de veille", onSleep, detail = sleepLabel ?: "Désactivée")
             if (favorite != null) SheetOption(if (favorite) "Retirer des favoris" else "Ajouter aux favoris", onFavorite)
@@ -740,6 +778,42 @@ private fun StillThereDialog(onResume: () -> Unit, onStop: () -> Unit) {
                 PillButton("Reprendre", onResume, Modifier.focusRequester(first), icon = R.drawable.ic_play)
                 PillButton("Arrêter", onStop, icon = R.drawable.ic_power, primary = false)
             }
+        }
+    }
+}
+
+/** Décalage du son : retarder (Media3 ou VLC) ou avancer (VLC) le son par rapport à l'image, mémorisé pour ce contenu. */
+@Composable
+private fun AudioDelayPanel(current: Int, kind: com.aditv.playback.engine.EngineKind?, onPick: (Int) -> Unit, modifier: Modifier) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first)
+    SideSheet("Décalage du son",
+        "Les lèvres bougent après le son : retardez le son. Le son arrive après les lèvres : avancez-le (moteur VLC, choisi tout seul). Mémorisé pour cette chaîne ou ce contenu." +
+            if (kind == com.aditv.playback.engine.EngineKind.MEDIA3) " Sans effet si la TV reçoit le son Dolby tel quel (passthrough)." else "",
+        modifier) {
+        LazyColumn {
+            items(com.aditv.playback.engine.AudioDelay.STEPS.size) { i ->
+                val ms = com.aditv.playback.engine.AudioDelay.STEPS[i]
+                SheetOption(com.aditv.playback.engine.AudioDelay.label(ms), { onPick(ms) },
+                    if (ms == current || (i == 3 && com.aditv.playback.engine.AudioDelay.STEPS.none { it == current })) Modifier.focusRequester(first) else Modifier,
+                    checked = ms == current, detail = if (ms < 0) "VLC" else null)
+            }
+        }
+    }
+}
+
+/** Générique : marqué une fois (début puis fin) sur un épisode, proposé ensuite sur tous les épisodes de la série. */
+@Composable
+private fun IntroPanel(pos: Long, window: Pair<Long, Long>?, startMark: Long?, onStart: (Long) -> Unit, onEnd: (Long) -> Unit, onClear: () -> Unit, modifier: Modifier) {
+    val first = remember { FocusRequester() }
+    InitialFocus(first)
+    SideSheet("Générique de la série",
+        "Mettez sur pause au début du générique, choisissez « Commence ici », reprenez, puis à la fin « Se termine ici ». Le bouton « Passer le générique » apparaîtra sur tous les épisodes.",
+        modifier) {
+        Column {
+            SheetOption("Le générique commence ici", { onStart(pos) }, Modifier.focusRequester(first), detail = fmt(pos), checked = startMark != null)
+            SheetOption("Le générique se termine ici", { onEnd(pos) }, detail = fmt(pos) + (startMark?.let { "  (début ${fmt(it)})" } ?: ""))
+            window?.let { (a, b) -> SheetOption("Effacer le générique marqué", onClear, detail = "${fmt(a)} → ${fmt(b)}") }
         }
     }
 }

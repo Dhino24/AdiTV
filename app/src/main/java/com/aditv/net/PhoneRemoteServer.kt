@@ -189,7 +189,7 @@ h1{font-size:22px;text-align:center}"""
 <style>$STYLE</style></head><body><main><div class="brand">ADI TV · TÉLÉCOMMANDE</div>
 <div class="row"><button class="b" data-k="back">↩<small>Retour</small></button><button class="b" data-k="home">⌂<small>Accueil</small></button><button class="b" data-k="menu">≡<small>Menu</small></button></div>
 <div class="pad"><button class="u" data-k="up">▲</button><button class="l" data-k="left">◀</button><button class="ok" data-k="ok">OK</button><button class="r" data-k="right">▶</button><button class="d" data-k="down">▼</button></div>
-<div class="row"><button class="b" data-k="rew">⏪<small>−30 s</small></button><button class="b" data-k="play">⏯<small>Lecture</small></button><button class="b" data-k="fwd">⏩<small>+30 s</small></button></div>
+<div class="row"><button class="b" data-k="rew">⏪<small>−30 s · ch. préc.</small></button><button class="b" data-k="play">⏯<small>Lecture</small></button><button class="b" data-k="fwd">⏩<small>+30 s</small></button></div>
 <div class="row"><button class="b" data-k="chup">CH ▲<small>Chaîne</small></button><button class="b" data-k="live">●<small>Direct</small></button><button class="b" data-k="chdown">CH ▼<small>Chaîne</small></button></div>
 <div class="row"><button class="b" data-k="voldown">🔉<small>Vol −</small></button><button class="b" data-k="mute">🔇<small>Muet</small></button><button class="b" data-k="volup">🔊<small>Vol +</small></button></div>
 <form id="f"><input id="q" placeholder="Rechercher un film, une série, une chaîne…" autocomplete="off" enterkeyhint="search"><button>OK</button></form>

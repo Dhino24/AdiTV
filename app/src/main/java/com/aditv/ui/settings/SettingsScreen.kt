@@ -73,6 +73,15 @@ fun SettingsScreen(session: Session.Active) {
                 Fact("Serveur", url?.let { "${it.scheme}://${it.host}:${it.port}" } ?: a.endpoint)
                 if (url?.isHttps == false) Fact("Sécurité", "HTTP en clair accepté pour cet hôte uniquement", Aditv.Warn)
             }
+            if (!session.isDemo) {
+                val h = com.aditv.data.account.SubscriptionHealth.assess(a)
+                Fact("Santé", h.title, when (h.level) {
+                    com.aditv.data.account.SubscriptionHealth.Level.OK -> Aditv.Ok
+                    com.aditv.data.account.SubscriptionHealth.Level.UNKNOWN -> Aditv.TextSecondary
+                    com.aditv.data.account.SubscriptionHealth.Level.SOON -> Aditv.Warn
+                    else -> Aditv.Error
+                })
+            }
             Fact("Statut déclaré", a.status ?: "non communiqué")
             Fact("Expiration", a.expiresAtEpochSec?.let { formatEpochDate(it) } ?: "non communiquée")
             Fact("Connexions", a.maxConnections?.let { "$it max · ${a.activeConnections ?: "?"} en cours (au dernier contrôle)" } ?: "non communiqué")

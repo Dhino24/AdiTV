@@ -28,6 +28,12 @@ class VlcEngine(
     private val events: EngineEvents?,
 ) : PlaybackEngine {
     override val kind = EngineKind.VLC
+    @Volatile private var audioDelayUs = 0L
+    override fun setAudioDelayMs(ms: Int): Boolean {
+        audioDelayUs = ms * 1000L
+        if (!released && started) runCatching { mp.audioDelay = audioDelayUs }
+        return true
+    }
     private val main = Handler(Looper.getMainLooper())
     private val libVlc = LibVLC(context.applicationContext, arrayListOf(
         "--network-caching=${policy.vlcNetworkCachingMs}",
@@ -58,6 +64,7 @@ class VlcEngine(
         mp.setEventListener { e ->
             when (e.type) {
                 MediaPlayer.Event.Playing -> {
+                    if (audioDelayUs != 0L && !released) runCatching { mp.audioDelay = audioDelayUs }
                     buffering = false
                     if (!started) { started = true; startupMs = System.currentTimeMillis() - openedAt }
                     events?.onPlayingChanged(true)

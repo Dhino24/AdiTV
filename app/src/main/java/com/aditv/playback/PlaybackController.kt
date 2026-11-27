@@ -69,7 +69,15 @@ class PlaybackController(private val context: Context, private val streamClient:
             .build()
         val p = ExoPlayer.Builder(context)
             .setLoadControl(load)
-            .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
+            .setRenderersFactory(object : DefaultRenderersFactory(context) {
+                // Décalage du son (réglable par chaîne / contenu) : processeur ajouté à la chaîne audio.
+                override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink =
+                    androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .setAudioProcessors(arrayOf(com.aditv.playback.engine.AudioDelay.processor))
+                        .build()
+            }.setEnableDecoderFallback(true))
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), /* focus audio : non — une bande-annonce (WebView) qui le prendrait mettrait la lecture en pause */ false)
             .setHandleAudioBecomingNoisy(true)

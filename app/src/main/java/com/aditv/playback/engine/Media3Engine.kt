@@ -21,6 +21,10 @@ import java.util.Locale
 @OptIn(UnstableApi::class)
 class Media3Engine(private val context: Context, val player: ExoPlayer, private val events: EngineEvents?) : PlaybackEngine {
     override val kind = EngineKind.MEDIA3
+    override fun setAudioDelayMs(ms: Int): Boolean {
+        if (ms < 0) { AudioDelay.processor.delayMs = 0; return false }
+        AudioDelay.processor.delayMs = ms; return true
+    }
     private val openedAt = System.currentTimeMillis()
     private var started = false
     override var stalls = 0; private set

@@ -16,6 +16,18 @@ class EngineStore(context: Context) {
         if (key == null) return
         sp.edit().apply { if (choice == EngineChoice.AUTO) remove("c:$key") else putString("c:$key", choice.name) }.apply()
     }
+    /** Décalage du son mémorisé par chaîne / contenu (ms, 0 par défaut). */
+    fun audioDelayFor(key: String?): Int = key?.let { sp.getInt("d:$it", 0) } ?: 0
+    fun setAudioDelay(key: String?, ms: Int) {
+        if (key == null) return
+        sp.edit().apply { if (ms == 0) remove("d:$key") else putInt("d:$key", ms) }.apply()
+    }
+    /** Générique d'une série (début, fin en ms), commun à tous ses épisodes. */
+    fun introFor(seriesId: String): Pair<Long, Long>? = sp.getString("i:$seriesId", null)?.split(',')?.mapNotNull { it.toLongOrNull() }
+        ?.takeIf { it.size == 2 && it[1] > it[0] }?.let { it[0] to it[1] }
+    fun setIntro(seriesId: String, start: Long?, end: Long?) {
+        sp.edit().apply { if (start == null || end == null) remove("i:$seriesId") else putString("i:$seriesId", "$start,$end") }.apply()
+    }
     var defaultChoice: EngineChoice
         get() = sp.getString("default", null)?.let { runCatching { EngineChoice.valueOf(it) }.getOrNull() } ?: EngineChoice.AUTO
         set(v) { sp.edit().putString("default", v.name).apply() }

@@ -75,6 +75,24 @@ interface CatalogDao {
     )
     fun recentlyAdded(accountId: String, type: String, limit: Int): Flow<List<CatalogCard>>
 
+    /** Films et séries ajoutés depuis [sinceSec] (date déclarée par le fournisseur), plus récents d'abord. */
+    @Query(
+        """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
+           FROM catalog_items ci
+           LEFT JOIN metadata_match mm ON mm.itemId = ci.id AND mm.status = 'confirmed'
+           LEFT JOIN tmdb_metadata tm ON tm.mediaType = mm.mediaType AND tm.tmdbId = mm.tmdbId
+           WHERE ci.accountId = :accountId AND ci.type IN ('MOVIE', 'SERIES') AND ci.available = 1 AND ci.addedAt >= :sinceSec
+           ORDER BY ci.addedAt DESC LIMIT :limit"""
+    )
+    suspend fun addedSince(accountId: String, sinceSec: Long, limit: Int): List<CatalogCard>
+
+    /** Nombre de titres distincts (une version par titre) ajoutés depuis [sinceSec], pour un type. */
+    @Query(
+        """SELECT COUNT(DISTINCT COALESCE(ci.variantKey, ci.id)) FROM catalog_items ci
+           WHERE ci.accountId = :accountId AND ci.type = :type AND ci.available = 1 AND ci.addedAt >= :sinceSec"""
+    )
+    suspend fun countAddedSince(accountId: String, type: String, sinceSec: Long): Int
+
     @Query(
         """SELECT ci.id, ci.type, COALESCE(tm.title, ci.title) AS title, ci.year, ci.imageUrl, ci.genre, tm.posterPath AS tmdbPoster, tm.backdropPath AS tmdbBackdrop, tm.logoPath AS tmdbLogo, ci.variantKey, ci.lang, ci.quality, ci.epgChannelId, ci.categoryId
            FROM catalog_items ci
