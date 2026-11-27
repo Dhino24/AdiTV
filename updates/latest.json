@@ -1,15 +1,15 @@
 {
-  "versionCode": 54,
-  "versionName": "0.22.0",
-  "notes": "Nouveau : secours automatique des chaînes (bascule sur une autre version si le flux coupe), « Soir de match » sur l'accueil, résumé YouTube des matchs terminés, télécommande sur le téléphone (Réglages), météo et prochain match sur l'écran de veille.",
+  "versionCode": 55,
+  "versionName": "0.23.0",
+  "notes": "Nouveau : santé de l'abonnement (alerte 7 jours avant la fin), chaîne précédente (touche ⏪ en direct), décalage du son par chaîne, « Passer le générique » des séries, et « Nouveautés de la semaine » avec annonce des films et séries ajoutés.",
   "cube": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.22.0/ADITV-cube.apk",
-    "sha256": "f70e17d51e0a38f15ced578a56849976317422ca3adc6c6412693f5cf2be5c92",
-    "size": 27334383
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.23.0/ADITV-cube.apk",
+    "sha256": "982290b394bb4c17b22b70f2673217ee4ec60e3505568dde082bd38b9c21466d",
+    "size": 27357123
   },
   "stick": {
-    "url": "https://github.com/dhino24/aditv/releases/download/v0.22.0/ADITV-stick.apk",
-    "sha256": "65dad9128ed7d3f9f8e1d25cca8fd0406f22f1f4353dfbfd2375b28a43d6c24e",
-    "size": 24751535
+    "url": "https://github.com/dhino24/aditv/releases/download/v0.23.0/ADITV-stick.apk",
+    "sha256": "c10f05dddf424d24ca16fd292ab9f7ffc31466715926ddf80aafe5a8888a87e1",
+    "size": 24762335
   }
 }
